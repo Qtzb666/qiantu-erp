@@ -210,10 +210,10 @@
                 <div class="field"><label>日期</label><input id="inDate" type="date"></div>
                 <div class="field"><label>品名</label><select id="inName"><option value="">-- 选或输 --</option></select></div>
                 <div class="field"><label>克重 (g)</label><input id="inW" type="number" step="0.01" placeholder="4.80"></div>
-                <div class="field"><label>件数</label><input id="inQ" type="number" value="1"></div>
+                <div class="field" style="display:none;"><label>件数</label><input id="inQ" type="number" value="1"></div>
                 <div class="field"><label>实付总额 (元)</label><input id="inTotal" type="number" step="0.01" placeholder="2800.00"></div>
                 <div class="field"><label>单价 (元/g) 自动</label><input id="inUnit" readonly style="background:#f0ede8;font-weight:bold;color:#8b4513;"></div>
-                <div class="field"><label>工艺费 (选填)</label><input id="inFee" type="number" step="0.01" placeholder="0"></div>
+                <div class="field" style="display:none;"><label>工艺费 (选填)</label><input id="inFee" type="number" step="0.01" placeholder="0"></div>
                 <div class="field"><label>客户</label><input id="inCus" placeholder="姓名" list="inCusList" oninput="autoFillCust('in',this.value)"><datalist id="inCusList"></datalist></div>
                 <div class="field"><label>电话</label><input id="inTel" placeholder="手机号" list="inTelList" oninput="autoFillCustByTel('in',this.value)"><datalist id="inTelList"></datalist></div>
                 <div class="field"><label>身份证 (选填)</label><input id="inId" placeholder="身份证号" list="inIdList" oninput="autoFillCustById('in',this.value)"><datalist id="inIdList"></datalist></div>
@@ -243,9 +243,9 @@
                 <div class="field"><label>日期</label><input id="outDate" type="date"></div>
                 <div class="field"><label>品名</label><select id="outName" onchange="outSel()"><option value="">-- 先选品类 --</option></select></div>
                 <div class="field"><label>可用克重</label><input id="outAvail" readonly style="background:#f0ede8;color:#0066cc;font-weight:bold;"></div>
-                <div class="field"><label>可用件数</label><input id="outAvailQ" readonly style="background:#f0ede8;color:#0066cc;font-weight:bold;"></div>
+                <div class="field" style="display:none;"><label>可用件数</label><input id="outAvailQ" readonly style="background:#f0ede8;color:#0066cc;font-weight:bold;"></div>
                 <div class="field"><label>卖出克重 (g)</label><input id="outW" type="number" step="0.01" placeholder="2.00" oninput="calcOutTotal(); recalcPay('out');"></div>
-                <div class="field"><label>卖出件数</label><input id="outQ" type="number" value="1"></div>
+                <div class="field" style="display:none;"><label>卖出件数</label><input id="outQ" type="number" value="1"></div>
                 <div class="field"><label>销售单价 (元/g)</label><input id="outP" type="number" step="0.01" placeholder="650.00" oninput="calcOutTotal(); recalcPay('out');"></div>
                 <div class="field"><label>应收总额 (元)</label><input id="outTotal" readonly style="background:#f0ede8;font-weight:bold;color:#8b4513;"></div>
                 <div class="field"><label>买家</label><input id="outBuyer" placeholder="姓名" list="outBuyerList" oninput="autoFillCust('out',this.value)"><datalist id="outBuyerList"></datalist></div>
