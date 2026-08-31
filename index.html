@@ -7,6 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
+        /* ===== 样式完全保留 ===== */
         * { box-sizing: border-box; margin: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: #f0ede8; color: #1e1e1e; padding: 0 0 40px 0; overflow-x: hidden; }
         header { background: #1a1a1a; color: #d4a017; padding: 14px 24px; font-size: 22px; font-weight: 700; border-bottom: 3px solid #d4a017; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
@@ -182,6 +183,7 @@
     <button onclick="forceSyncNow()" style="background:#d4a017;color:#fff;font-weight:600;margin-left:auto;">🔄 立即同步</button>
 </nav>
 <div class="container">
+    <!-- 看板 -->
     <div id="dash" class="tab-panel active">
         <div class="card">
             <div class="card-title">⚡ 实时金价</div>
@@ -203,6 +205,7 @@
             <button class="btn btn-green" onclick="switchTab('out')">📤 录出库</button>
         </div>
     </div>
+    <!-- 入库 -->
     <div id="in" class="tab-panel">
         <div class="card"><div class="card-title">♻️ 回收入库 / 采购入库</div>
             <div class="row2">
@@ -236,6 +239,7 @@
             <div id="inMsg" class="text-muted mt-8"></div>
         </div>
     </div>
+    <!-- 出库 -->
     <div id="out" class="tab-panel">
         <div class="card"><div class="card-title">💰 销售出库</div>
             <div class="row2">
@@ -268,6 +272,7 @@
             <div id="outMsg" class="text-muted mt-8"></div>
         </div>
     </div>
+    <!-- 库存 -->
     <div id="stock" class="tab-panel">
         <div class="card">
             <div class="card-title">📦 库存明细 <span class="text-muted">（由流水自动计算）</span></div>
@@ -281,6 +286,7 @@
             <div style="overflow-x:auto;"><table><thead><tr><th>品类</th><th>品名</th><th>克重</th><th>件数</th><th>成本单价</th><th>总成本</th><th>市值</th><th>浮动盈亏</th><th>操作</th></tr></thead><tbody id="stockBody"><tr><td colspan="9" style="text-align:center;color:#999;">暂无数据</td></tr></tbody></table></div>
         </div>
     </div>
+    <!-- 流水 -->
     <div id="flow" class="tab-panel">
         <div class="card">
             <div class="card-title">📜 交易流水 <span class="text-muted">（唯一真相源）</span></div>
@@ -307,6 +313,7 @@
             </div>
         </div>
     </div>
+    <!-- 报表 -->
     <div id="report" class="tab-panel">
         <div class="card">
             <div class="card-title">📊 数据报表 <span class="text-muted">（出库利润 / 入库成本分析）</span></div>
@@ -358,12 +365,14 @@
             </div>
         </div>
     </div>
+    <!-- 品类 -->
     <div id="cat" class="tab-panel">
         <div class="card"><div class="card-title">🏷️ 品类管理</div>
             <div class="row2"><div class="field"><label>新增品类</label><input id="newCat" placeholder="如: 玉器"></div><button class="btn btn-blue" onclick="addCat()" style="align-self:end;">+ 添加</button></div>
             <div id="catList" class="flex mt-8"></div>
         </div>
     </div>
+    <!-- 品名 -->
     <div id="names" class="tab-panel">
         <div class="card"><div class="card-title">📝 品名管理</div>
             <div class="row3">
@@ -374,6 +383,7 @@
             <div id="nameList" class="flex mt-8"></div>
         </div>
     </div>
+    <!-- 客户 -->
     <div id="cust" class="tab-panel">
         <div class="card">
             <div class="card-title" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; justify-content:space-between;">
@@ -396,6 +406,7 @@
             <div style="font-size:12px; color:#999; margin-top:8px;">💡 点击「✏️」编辑客户 · 点击「×」删除</div>
         </div>
     </div>
+    <!-- 同步 -->
     <div id="sync" class="tab-panel">
         <div class="card"><div class="card-title">☁ 云端同步</div>
             <p>状态：<span id="syncSt" style="color:#b33c2f;">未连接</span></p>
@@ -413,6 +424,7 @@
             </div>
         </div>
     </div>
+    <!-- 备份 -->
     <div id="bak" class="tab-panel">
         <div class="card"><div class="card-title">💾 本地备份</div>
             <p class="text-muted">数据自动保存在浏览器。建议定期下载JSON备份。</p>
@@ -425,6 +437,7 @@
         </div>
     </div>
 </div>
+<!-- 模态框 -->
 <div id="modal" class="modal" onclick="if(event.target===this)closeModal()">
     <div class="modal-box">
         <div class="modal-header"><h3 id="modalTitle">确认</h3><button class="modal-close" onclick="closeModal()">×</button></div>
@@ -434,7 +447,7 @@
 </div>
 <script>
 // ================================================================
-// 完整 JavaScript - 导出导入增强版
+// 完整 JavaScript - 库存即时刷新终极版（2026-08-31）
 // ================================================================
 const SUPABASE_URL = 'https://jbxfpjfwqiaijryyjnsg.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_WhI6ZD_WvGFmOXhlSUAXCw_r4VvI3Gr';
@@ -535,7 +548,26 @@ function updateSyncStatus(type) {
 }
 
 // ================================================================
-//  核心业务函数
+//  居中确认/提示模态框（带音效）
+// ================================================================
+function showConfirmModal(title, message, confirmText = '确定', cancelText = '取消') {
+    return new Promise((resolve) => {
+        showModal(title, message, [
+            { text: cancelText, class: 'btn-gray', action: () => { closeModal(); resolve(false); } },
+            { text: confirmText, class: 'btn-red', action: () => { closeModal(); resolve(true); } }
+        ]);
+    });
+}
+function showAlertModal(title, message) {
+    return new Promise((resolve) => {
+        showModal(title, message, [
+            { text: '确定', class: 'btn-blue', action: () => { closeModal(); resolve(); } }
+        ]);
+    });
+}
+
+// ================================================================
+//  核心业务函数（强化刷新）
 // ================================================================
 function rebuildStock() {
     const stockMap = {};
@@ -610,7 +642,28 @@ function recalcMargins() {
         });
     });
 }
-function refreshAll() { rebuildStock(); recalcMargins(); saveData(); renderAll(); }
+
+// ★★★ 强化的刷新函数：重建数据 + 立即刷新库存和看板 ★★★
+function refreshAll() {
+    rebuildStock();
+    recalcMargins();
+    saveData();
+    renderAll();
+    // 强制立即刷新库存和看板（即使当前标签不是 stock/dash）
+    renderStock();
+    renderDash();
+    // 额外延迟一次确保 DOM 完全更新（解决异步渲染合并问题）
+    setTimeout(() => {
+        renderStock();
+        renderDash();
+    }, 50);
+}
+
+// 专门刷新库存和看板（用于快速响应）
+function refreshStockAndDash() {
+    renderStock();
+    renderDash();
+}
 
 function renderAll() {
     renderDash(); renderStock(); renderFlow(); renderReportOut(); renderReportIn();
@@ -895,8 +948,8 @@ function switchReport(type) {
     if (type === 'out') renderReportOut();
     else renderReportIn();
 }
-function printReportOut() { alert('请使用浏览器打印功能'); }
-function printReportIn() { alert('请使用浏览器打印功能'); }
+function printReportOut() { showAlertModal('提示', '请使用浏览器打印功能'); }
+function printReportIn() { showAlertModal('提示', '请使用浏览器打印功能'); }
 
 // ================================================================
 //  品类、品名、客户管理
@@ -954,12 +1007,12 @@ function renderSourceSelects() {
     if (D.sources.includes(cur)) select.value = cur;
     else if (D.sources.length) select.value = D.sources[0];
 }
-function addSource() {
+async function addSource() {
     const newSrc = prompt('请输入新的来源名称：');
     if (newSrc === null || newSrc.trim() === '') return;
     const val = newSrc.trim();
-    if (D.sources.includes(val)) { playBeep(false); alert('该来源已存在，无需重复添加。'); return; }
-    D.sources.push(val); saveData(); renderSourceSelects(); document.getElementById('inSrc').value = val; playBeep(true); alert('来源已添加');
+    if (D.sources.includes(val)) { playBeep(false); await showAlertModal('提示', '该来源已存在，无需重复添加。'); return; }
+    D.sources.push(val); saveData(); renderSourceSelects(); document.getElementById('inSrc').value = val; playBeep(true); await showAlertModal('提示', '来源已添加');
 }
 function renderNames() {
     const cat = document.getElementById('nmCat').value;
@@ -1002,26 +1055,26 @@ function renderCatSelects() {
     }
     populateFilterSelects();
 }
-function addCat() {
+async function addCat() {
     const n = document.getElementById('newCat').value.trim();
-    if (!n) { playBeep(false); return alert('请输入品类名称'); }
-    if (D.cats.includes(n)) { playBeep(false); return alert('该品类已存在'); }
-    D.cats.push(n); saveData(); renderCats(); renderCatSelects(); populateFilterSelects(); document.getElementById('newCat').value=''; playBeep(true); alert('✅ 品类已添加');
+    if (!n) { playBeep(false); await showAlertModal('提示', '请输入品类名称'); return; }
+    if (D.cats.includes(n)) { playBeep(false); await showAlertModal('提示', '该品类已存在'); return; }
+    D.cats.push(n); saveData(); renderCats(); renderCatSelects(); populateFilterSelects(); document.getElementById('newCat').value=''; playBeep(true); await showAlertModal('✅', '品类已添加');
 }
-function addName() {
+async function addName() {
     const cat = document.getElementById('nmCat').value;
     const n = document.getElementById('newName').value.trim();
-    if (!n) { playBeep(false); return alert('请输入品名'); }
-    if (D.names.some(x => x.cat === cat && x.name === n)) { playBeep(false); return alert('该品类下品名已存在'); }
-    D.names.push({ cat: cat, name: n }); saveData(); renderNames(); populateFilterSelects(); document.getElementById('newName').value=''; playBeep(true); alert('✅ 品名已添加');
+    if (!n) { playBeep(false); await showAlertModal('提示', '请输入品名'); return; }
+    if (D.names.some(x => x.cat === cat && x.name === n)) { playBeep(false); await showAlertModal('提示', '该品类下品名已存在'); return; }
+    D.names.push({ cat: cat, name: n }); saveData(); renderNames(); populateFilterSelects(); document.getElementById('newName').value=''; playBeep(true); await showAlertModal('✅', '品名已添加');
 }
-function renameName(cat, idx) {
+async function renameName(cat, idx) {
     const arr = D.names.filter(n => n.cat === cat);
     const target = arr[idx];
     if (!target) return;
     const newName = document.getElementById('nmEdit_'+idx).value.trim();
-    if (!newName) { playBeep(false); return alert('品名不能为空'); }
-    target.name = newName; saveData(); renderNames(); populateFilterSelects(); playBeep(true); alert('品名已修改');
+    if (!newName) { playBeep(false); await showAlertModal('提示', '品名不能为空'); return; }
+    target.name = newName; saveData(); renderNames(); populateFilterSelects(); playBeep(true); await showAlertModal('提示', '品名已修改');
 }
 function confirmDeleteName(cat, idx) {
     const arr = D.names.filter(n => n.cat === cat);
@@ -1029,19 +1082,19 @@ function confirmDeleteName(cat, idx) {
     if (!target) return;
     showModal('确认删除', `<p>确定删除品名 <b>${escHtml(target.name)}</b> 吗？</p><p class="text-muted">此操作不可撤销</p>`, [
         { text:'取消', class:'btn-gray', action:closeModal },
-        { text:'确认删除', class:'btn-red', action:()=>{ D.names = D.names.filter(n => !(n.cat===cat && n.name===target.name)); saveData(); renderNames(); populateFilterSelects(); closeModal(); playBeep(false); alert('品名已删除'); } }
+        { text:'确认删除', class:'btn-red', action:()=>{ D.names = D.names.filter(n => !(n.cat===cat && n.name===target.name)); saveData(); renderNames(); populateFilterSelects(); closeModal(); playBeep(false); showAlertModal('提示', '品名已删除'); } }
     ]);
 }
-function addCust() {
+async function addCust() {
     const name = document.getElementById('custName').value.trim();
     const tel = document.getElementById('custTel').value.trim();
     const idNo = document.getElementById('custId').value.trim();
     const note = document.getElementById('custNote').value.trim();
-    if (!name && !tel) { playBeep(false); return alert('请至少填写姓名或电话'); }
+    if (!name && !tel) { playBeep(false); await showAlertModal('提示', '请至少填写姓名或电话'); return; }
     let exist = D.cust.find(c => c.name===name || (tel && c.tel===tel) || (idNo && c.idNo===idNo));
     if (exist) { if (name) exist.name=name; if (tel) exist.tel=tel; if (idNo) exist.idNo=idNo; if (note) exist.note=note; }
     else { D.cust.push({ name, tel:tel||'', idNo:idNo||'', note:note||'' }); }
-    saveData(); renderCust(); document.getElementById('custName').value=''; document.getElementById('custTel').value=''; document.getElementById('custId').value=''; document.getElementById('custNote').value=''; playBeep(true); alert('客户已保存');
+    saveData(); renderCust(); document.getElementById('custName').value=''; document.getElementById('custTel').value=''; document.getElementById('custId').value=''; document.getElementById('custNote').value=''; playBeep(true); await showAlertModal('提示', '客户已保存');
 }
 function editCust(idx) {
     const c = D.cust[idx];
@@ -1049,14 +1102,14 @@ function editCust(idx) {
     const html = `<div class="field"><label>姓名</label><input id="editCustName" value="${escHtml(c.name)}"></div><div class="field"><label>电话</label><input id="editCustTel" value="${escHtml(c.tel||'')}"></div><div class="field"><label>身份证</label><input id="editCustId" value="${escHtml(c.idNo||'')}"></div><div class="field"><label>备注</label><input id="editCustNote" value="${escHtml(c.note||'')}"></div>`;
     showModal('编辑客户', html, [
         { text:'取消', class:'btn-gray', action:closeModal },
-        { text:'保存', class:'btn-blue', action:()=>{
+        { text:'保存', class:'btn-blue', action: async ()=>{
             const name = document.getElementById('editCustName').value.trim();
             const tel = document.getElementById('editCustTel').value.trim();
             const idNo = document.getElementById('editCustId').value.trim();
             const note = document.getElementById('editCustNote').value.trim();
-            if (!name && !tel) { playBeep(false); return alert('请至少填写姓名或电话'); }
+            if (!name && !tel) { playBeep(false); await showAlertModal('提示', '请至少填写姓名或电话'); return; }
             c.name = name; c.tel = tel; c.idNo = idNo; c.note = note;
-            saveData(); renderCust(); closeModal(); playBeep(true); alert('客户已更新');
+            saveData(); renderCust(); closeModal(); playBeep(true); await showAlertModal('提示', '客户已更新');
         } }
     ]);
 }
@@ -1065,28 +1118,28 @@ function confirmDeleteCust(idx) {
     if (!c) return;
     showModal('确认删除', `<p>确定删除客户 <b>${escHtml(c.name)}</b> 吗？</p><p class="text-muted">不可撤销</p>`, [
         { text:'取消', class:'btn-gray', action:closeModal },
-        { text:'确认删除', class:'btn-red', action:()=>{ D.cust.splice(idx,1); saveData(); renderCust(); closeModal(); playBeep(false); alert('客户已删除'); } }
+        { text:'确认删除', class:'btn-red', action:()=>{ D.cust.splice(idx,1); saveData(); renderCust(); closeModal(); playBeep(false); showAlertModal('提示', '客户已删除'); } }
     ]);
 }
-function exportCustXLSX() {
-    if (!D.cust.length) { playBeep(false); return alert('暂无客户数据可导出'); }
+async function exportCustXLSX() {
+    if (!D.cust.length) { playBeep(false); await showAlertModal('提示', '暂无客户数据可导出'); return; }
     const data = D.cust.map(c => ({ '姓名':c.name||'', '电话':c.tel||'', '身份证':c.idNo||'', '备注':c.note||'' }));
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(data);
     XLSX.utils.book_append_sheet(wb, ws, '客户列表');
     XLSX.writeFile(wb, `客户列表_${todayStr()}.xlsx`);
-    playBeep(true); alert('客户导出成功');
+    playBeep(true); await showAlertModal('提示', '客户导出成功');
 }
 function importCustXLSX(event) {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const wb = XLSX.read(e.target.result, { type:'array' });
             const ws = wb.Sheets[wb.SheetNames[0]];
             const rows = XLSX.utils.sheet_to_json(ws);
-            if (!rows || !rows.length) { playBeep(false); return alert('文件为空或格式不正确'); }
+            if (!rows || !rows.length) { playBeep(false); await showAlertModal('提示', '文件为空或格式不正确'); return; }
             let added=0, updated=0;
             rows.forEach(row => {
                 const name = (row['姓名']||'').toString().trim();
@@ -1098,8 +1151,8 @@ function importCustXLSX(event) {
                 if (exist) { if (name) exist.name=name; if (tel) exist.tel=tel; if (idNo) exist.idNo=idNo; if (note) exist.note=note; updated++; }
                 else { D.cust.push({ name, tel, idNo, note }); added++; }
             });
-            saveData(); renderCust(); playBeep(true); alert(`导入完成！新增 ${added} 条，更新 ${updated} 条。`);
-        } catch (err) { playBeep(false); alert('导入失败：'+err.message); }
+            saveData(); renderCust(); playBeep(true); await showAlertModal('提示', `导入完成！新增 ${added} 条，更新 ${updated} 条。`);
+        } catch (err) { playBeep(false); await showAlertModal('错误', '导入失败：'+err.message); }
     };
     reader.readAsArrayBuffer(file);
     event.target.value = '';
@@ -1214,8 +1267,10 @@ function outLoadNames() {
 function outSel() {
     const sel = document.getElementById('outName');
     const opt = sel.options[sel.selectedIndex];
-    document.getElementById('outAvail').value = opt && opt.dataset.w ? opt.dataset.w : '';
-    document.getElementById('outAvailQ').value = opt && opt.dataset.q ? opt.dataset.q : '';
+    const availEl = document.getElementById('outAvail');
+    if (availEl) availEl.value = opt && opt.dataset.w ? opt.dataset.w : '';
+    const availQEl = document.getElementById('outAvailQ');
+    if (availQEl) availQEl.value = opt && opt.dataset.q ? opt.dataset.q : '';
 }
 
 const PAY_CHANNELS = ['微信','支付宝','工商银行','建设银行','农业银行','农商银行','招商银行','浦发银行','兴业银行','中国银行','交通银行','现金'];
@@ -1326,140 +1381,161 @@ function upsertCust(name, tel, idNo) {
 }
 
 // ================================================================
-//  入库/出库操作
+//  入库/出库操作（强化刷新）
 // ================================================================
 async function doIn() {
-    const cat = document.getElementById('inCat').value;
-    const name = document.getElementById('inName').value.trim();
-    const w = parseFloat(document.getElementById('inW').value) || 0;
-    const q = parseInt(document.getElementById('inQ').value) || 1;
-    const total = parseFloat(document.getElementById('inTotal').value) || 0;
-    if (!name || w<=0 || total<=0) { playBeep(false); return alert('品名、克重、总金额必填'); }
-    if (editingId) {
-        const old = D.flow.find(f => f.id === editingId);
-        if (old && old.t === 'in') { D.flow = D.flow.filter(f => f.id !== editingId); }
-        editingId = null; editingBackup = null;
-    }
-    const dateVal = document.getElementById('inDate').value || todayStr();
-    const no = genNo('RK', dateVal);
-    const costUnit = total / w;
-    const payDet = getPayDetail('in');
-    const paidSum = payDet.paid;
-    const cus = document.getElementById('inCus').value.trim();
-    const tel = document.getElementById('inTel').value.trim();
-    const idNo = document.getElementById('inId').value.trim();
-    const fee = parseFloat(document.getElementById('inFee').value) || 0;
-    const note = document.getElementById('inNote').value.trim();
-    const src = document.getElementById('inSrc').value;
-    if (!D.names.some(n => n.cat===cat && n.name===name)) { D.names.push({ cat, name }); }
-    if (cus) upsertCust(cus, tel, idNo);
-    const flow = {
-        id: genId(), no, t:'in', cat, name,
-        w: w*q, q:q, total, fee, costUnit,
-        cus, tel, idNo, src, note,
-        payDetail: payDet.detail,
-        payPaid: paidSum,
-        payRemain: total - paidSum,
-        time: dateVal + 'T' + nowTime()
-    };
-    D.flow.push(flow);
-    refreshAll();
-    document.getElementById('inMsg').innerHTML = `<span class="text-success">✅ 入库成功！单号 ${no}</span>`;
-    ['inName','inW','inQ','inTotal','inFee','inCus','inTel','inId','inNote'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = (id==='inQ'?'1':'');
-    });
-    document.getElementById('inDate').value = todayStr();
-    document.getElementById('inUnit').value = '';
-    const inPayBox = document.getElementById('inPayBox');
-    inPayBox.innerHTML = '';
-    delete inPayBox.dataset.inited;
-    renderPayRows('in');
-    document.getElementById('inPaidSum').value = '';
-    document.getElementById('inRemain').value = '';
-    document.getElementById('btnCancelIn').style.display = 'none';
-    document.getElementById('btnDoIn').textContent = '✅ 确认入库';
-    playBeep(true);
-    await updateSnapshot();
+    try {
+        const cat = document.getElementById('inCat').value;
+        const name = document.getElementById('inName').value.trim();
+        const w = parseFloat(document.getElementById('inW').value) || 0;
+        const qEl = document.getElementById('inQ');
+        const q = qEl ? parseInt(qEl.value) || 1 : 1;
+        const total = parseFloat(document.getElementById('inTotal').value) || 0;
+        if (!name || w<=0 || total<=0) { playBeep(false); await showAlertModal('提示', '品名、克重、总金额必填'); return; }
+        if (editingId) {
+            const old = D.flow.find(f => f.id === editingId);
+            if (old && old.t === 'in') { D.flow = D.flow.filter(f => f.id !== editingId); }
+            editingId = null; editingBackup = null;
+        }
+        const dateVal = document.getElementById('inDate').value || todayStr();
+        const no = genNo('RK', dateVal);
+        const costUnit = total / w;
+        const payDet = getPayDetail('in');
+        const paidSum = payDet.paid;
+        const cus = document.getElementById('inCus').value.trim();
+        const tel = document.getElementById('inTel').value.trim();
+        const idNo = document.getElementById('inId').value.trim();
+        const feeEl = document.getElementById('inFee');
+        const fee = feeEl ? parseFloat(feeEl.value) || 0 : 0;
+        const note = document.getElementById('inNote').value.trim();
+        const src = document.getElementById('inSrc').value;
+        if (!D.names.some(n => n.cat===cat && n.name===name)) { D.names.push({ cat, name }); }
+        if (cus) upsertCust(cus, tel, idNo);
+        const flow = {
+            id: genId(), no, t:'in', cat, name,
+            w: w*q, q:q, total, fee, costUnit,
+            cus, tel, idNo, src, note,
+            payDetail: payDet.detail,
+            payPaid: paidSum,
+            payRemain: total - paidSum,
+            time: dateVal + 'T' + nowTime()
+        };
+        D.flow.push(flow);
+        refreshAll(); // 内部已包含库存刷新
+        document.getElementById('inMsg').innerHTML = `<span class="text-success">✅ 入库成功！单号 ${no}</span>`;
+        // 清空表单
+        ['inName','inW','inQ','inTotal','inFee','inCus','inTel','inId','inNote'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = (id==='inQ'?'1':'');
+        });
+        document.getElementById('inDate').value = todayStr();
+        document.getElementById('inUnit').value = '';
+        const inPayBox = document.getElementById('inPayBox');
+        inPayBox.innerHTML = '';
+        delete inPayBox.dataset.inited;
+        renderPayRows('in');
+        document.getElementById('inPaidSum').value = '';
+        document.getElementById('inRemain').value = '';
+        document.getElementById('btnCancelIn').style.display = 'none';
+        document.getElementById('btnDoIn').textContent = '✅ 确认入库';
+        clearEditingState();
+        playBeep(true);
+        await updateSnapshot();
+        // 额外刷新一次（保险）
+        refreshStockAndDash();
+    } catch (e) { console.error('doIn error', e); await showAlertModal('错误', '操作失败：' + e.message); }
 }
 async function doOut() {
-    const cat = document.getElementById('outCat').value;
-    const name = document.getElementById('outName').value;
-    const ow = parseFloat(document.getElementById('outW').value) || 0;
-    const oq = parseInt(document.getElementById('outQ').value) || 1;
-    const p = parseFloat(document.getElementById('outP').value) || 0;
-    if (!name || ow<=0 || p<=0) { playBeep(false); return alert('请选品名、填克重和单价'); }
-    if (editingId) {
-        const old = D.flow.find(f => f.id === editingId);
-        if (old && old.t === 'out') { D.flow = D.flow.filter(f => f.id !== editingId); }
-        editingId = null; editingBackup = null;
-    }
-    rebuildStock();
-    const stockItem = D.stock.find(s => s.cat===cat && s.name===name);
-    if (!stockItem || stockItem.w < ow - 0.001) {
-        playBeep(false);
-        alert('库存不足！当前可用：' + (stockItem ? stockItem.w.toFixed(2) : '0') + 'g');
-        return;
-    }
-    const dateVal = document.getElementById('outDate').value || todayStr();
-    const no = genNo('CK', dateVal);
-    const sale = ow * p;
-    const payDet = getPayDetail('out');
-    const paidSum = payDet.paid;
-    const buyer = document.getElementById('outBuyer').value.trim();
-    const tel = document.getElementById('outTel').value.trim();
-    const note = document.getElementById('outNote').value.trim();
-    if (buyer) upsertCust(buyer, tel, '');
-    const flow = {
-        id: genId(), no, t:'out', cat, name,
-        w: ow, q: oq, sale,
-        buyer, tel, note,
-        payDetail: payDet.detail,
-        payPaid: paidSum,
-        payRemain: sale - paidSum,
-        time: dateVal + 'T' + nowTime(),
-        cost: 0, margin: 0
-    };
-    D.flow.push(flow);
-    refreshAll();
-    document.getElementById('outMsg').innerHTML = `<span class="text-success">✅ 出库成功！单号 ${no}</span>`;
-    ['outW','outQ','outP','outBuyer','outTel','outNote','outAvail','outAvailQ','outTotal'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = (id==='outQ'?'1':'');
-    });
-    document.getElementById('outDate').value = todayStr();
-    const outPayBox = document.getElementById('outPayBox');
-    outPayBox.innerHTML = '';
-    delete outPayBox.dataset.inited;
-    renderPayRows('out');
-    document.getElementById('outPaidSum').value = '';
-    document.getElementById('outRemain').value = '';
-    document.getElementById('btnCancelOut').style.display = 'none';
-    document.getElementById('btnDoOut').textContent = '✅ 确认出库';
-    outLoadNames();
-    playBeep(true);
-    await updateSnapshot();
+    try {
+        const cat = document.getElementById('outCat').value;
+        const name = document.getElementById('outName').value;
+        const ow = parseFloat(document.getElementById('outW').value) || 0;
+        const oqEl = document.getElementById('outQ');
+        const oq = oqEl ? parseInt(oqEl.value) || 1 : 1;
+        const p = parseFloat(document.getElementById('outP').value) || 0;
+        if (!name || ow<=0 || p<=0) { playBeep(false); await showAlertModal('提示', '请选品名、填克重和单价'); return; }
+        if (editingId) {
+            const old = D.flow.find(f => f.id === editingId);
+            if (old && old.t === 'out') { D.flow = D.flow.filter(f => f.id !== editingId); }
+            editingId = null; editingBackup = null;
+        }
+        rebuildStock();
+        const stockItem = D.stock.find(s => s.cat===cat && s.name===name);
+        if (!stockItem || stockItem.w < ow - 0.001) {
+            playBeep(false);
+            await showAlertModal('库存不足', '当前可用：' + (stockItem ? stockItem.w.toFixed(2) : '0') + 'g');
+            return;
+        }
+        const dateVal = document.getElementById('outDate').value || todayStr();
+        const no = genNo('CK', dateVal);
+        const sale = ow * p;
+        const payDet = getPayDetail('out');
+        const paidSum = payDet.paid;
+        const buyer = document.getElementById('outBuyer').value.trim();
+        const tel = document.getElementById('outTel').value.trim();
+        const note = document.getElementById('outNote').value.trim();
+        if (buyer) upsertCust(buyer, tel, '');
+        const flow = {
+            id: genId(), no, t:'out', cat, name,
+            w: ow, q: oq, sale,
+            buyer, tel, note,
+            payDetail: payDet.detail,
+            payPaid: paidSum,
+            payRemain: sale - paidSum,
+            time: dateVal + 'T' + nowTime(),
+            cost: 0, margin: 0
+        };
+        D.flow.push(flow);
+        refreshAll();
+        document.getElementById('outMsg').innerHTML = `<span class="text-success">✅ 出库成功！单号 ${no}</span>`;
+        ['outW','outQ','outP','outBuyer','outTel','outNote','outAvail','outAvailQ','outTotal'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = (id==='outQ'?'1':'');
+        });
+        document.getElementById('outDate').value = todayStr();
+        const outPayBox = document.getElementById('outPayBox');
+        outPayBox.innerHTML = '';
+        delete outPayBox.dataset.inited;
+        renderPayRows('out');
+        document.getElementById('outPaidSum').value = '';
+        document.getElementById('outRemain').value = '';
+        document.getElementById('btnCancelOut').style.display = 'none';
+        document.getElementById('btnDoOut').textContent = '✅ 确认出库';
+        outLoadNames();
+        clearEditingState();
+        playBeep(true);
+        await updateSnapshot();
+        refreshStockAndDash();
+    } catch (e) { console.error('doOut error', e); await showAlertModal('错误', '操作失败：' + e.message); }
 }
 
 // ================================================================
 //  编辑/删除流水
 // ================================================================
-function editFlow(id) {
+function clearEditingState() {
+    if (editingBackup) {
+        const exist = D.flow.find(f => f.id === editingBackup.id);
+        if (!exist) { D.flow.push(editingBackup); refreshAll(); }
+    }
+    editingId = null;
+    editingBackup = null;
+    document.getElementById('btnCancelIn').style.display = 'none';
+    document.getElementById('btnCancelOut').style.display = 'none';
+    document.getElementById('btnDoIn').textContent = '✅ 确认入库';
+    document.getElementById('btnDoOut').textContent = '✅ 确认出库';
+    document.getElementById('inMsg').innerHTML = '';
+    document.getElementById('outMsg').innerHTML = '';
+}
+
+async function editFlow(id) {
     if (editingId && editingId !== id) {
         playBeep(false);
-        if (!confirm('当前有正在修改的单据，是否放弃并打开此单？')) return;
-        if (editingBackup) {
-            const exist = D.flow.find(f => f.id === editingBackup.id);
-            if (!exist) { D.flow.push(editingBackup); refreshAll(); }
-        }
-        editingId = null; editingBackup = null;
-        document.getElementById('btnCancelIn').style.display = 'none';
-        document.getElementById('btnCancelOut').style.display = 'none';
-        document.getElementById('btnDoIn').textContent = '✅ 确认入库';
-        document.getElementById('btnDoOut').textContent = '✅ 确认出库';
+        const ok = await showConfirmModal('提示', '当前有正在修改的单据，是否放弃并打开此单？', '是', '否');
+        if (!ok) return;
+        clearEditingState();
     }
     const f = D.flow.find(x => x.id === id);
-    if (!f) return alert('流水不存在');
+    if (!f) { await showAlertModal('提示', '流水不存在'); return; }
     editingId = id;
     editingBackup = JSON.parse(JSON.stringify(f));
     if (f.t === 'in') {
@@ -1470,9 +1546,11 @@ function editFlow(id) {
         document.getElementById('inDate').value = f.time.slice(0,10);
         const perW = (f.q && f.q>1) ? f.w/f.q : f.w;
         document.getElementById('inW').value = perW;
-        document.getElementById('inQ').value = f.q || 1;
+        const qEl = document.getElementById('inQ');
+        if (qEl) qEl.value = f.q || 1;
         document.getElementById('inTotal').value = f.total;
-        document.getElementById('inFee').value = f.fee || 0;
+        const feeEl = document.getElementById('inFee');
+        if (feeEl) feeEl.value = f.fee || 0;
         document.getElementById('inCus').value = f.cus || '';
         document.getElementById('inTel').value = f.tel || '';
         document.getElementById('inId').value = f.idNo || '';
@@ -1493,7 +1571,8 @@ function editFlow(id) {
         outSel();
         document.getElementById('outDate').value = f.time.slice(0,10);
         document.getElementById('outW').value = f.w;
-        document.getElementById('outQ').value = f.q || 1;
+        const qEl = document.getElementById('outQ');
+        if (qEl) qEl.value = f.q || 1;
         document.getElementById('outP').value = f.w>0 ? (f.sale/f.w).toFixed(2) : '';
         calcOutTotal();
         recalcPay('out');
@@ -1507,11 +1586,7 @@ function editFlow(id) {
     }
 }
 function cancelEdit(type) {
-    if (editingBackup) {
-        const exist = D.flow.find(f => f.id === editingBackup.id);
-        if (!exist) { D.flow.push(editingBackup); refreshAll(); }
-        editingId = null; editingBackup = null;
-    }
+    clearEditingState();
     if (type === 'in') {
         document.getElementById('btnCancelIn').style.display = 'none';
         document.getElementById('btnDoIn').textContent = '✅ 确认入库';
@@ -1555,8 +1630,9 @@ function confirmDeleteFlow(id) {
             D.flow = D.flow.filter(x => x.id !== id);
             refreshAll();
             playBeep(false);
-            alert('✅ 已删除，正在同步...');
+            await showAlertModal('提示', '✅ 已删除，正在同步...');
             await updateSnapshot();
+            refreshStockAndDash();
         }}
     ]);
 }
@@ -1569,7 +1645,8 @@ function confirmDeleteStock(name, cat) {
             refreshAll();
             await updateSnapshot();
             playBeep(false);
-            alert('库存及相关流水已删除');
+            await showAlertModal('提示', '库存及相关流水已删除');
+            refreshStockAndDash();
         }}
     ]);
 }
@@ -1597,19 +1674,31 @@ async function updateSnapshot() {
 //  强制同步
 // ================================================================
 async function forceSync() {
+    if (editingId) {
+        const ok = await showConfirmModal('提示', '当前正在编辑单据，同步将丢失未保存的修改。\n点击"确定"放弃修改并同步，点击"取消"继续编辑。', '确定', '取消');
+        if (!ok) return;
+        clearEditingState();
+    }
     logSync('🔄 强制同步中...', 'info');
     updateSyncStatus('syncing');
     await pullFullState();
     await updateSnapshot();
     logSync('✅ 强制同步完成', 'ok');
     updateSyncStatus('ok');
-    alert('同步完成');
+    await showAlertModal('提示', '同步完成');
+    refreshStockAndDash();
 }
 async function forceSyncNow() {
+    if (editingId) {
+        const ok = await showConfirmModal('提示', '当前正在编辑单据，立即同步将丢失未保存的修改。\n点击"确定"放弃修改并同步，点击"取消"继续编辑。', '确定', '取消');
+        if (!ok) return;
+        clearEditingState();
+    }
     logSync('🔄 立即同步...', 'info');
     updateSyncStatus('syncing');
     await checkRemoteVersion(true);
     updateSyncStatus('ok');
+    refreshStockAndDash();
 }
 async function pullFullState() {
     if (!sb) return;
@@ -1648,7 +1737,7 @@ function printIn() {
     const cat = document.getElementById('inCat').value || '';
     const name = document.getElementById('inName').value || '';
     const w = document.getElementById('inW').value || '';
-    const q = document.getElementById('inQ').value || '1';
+    const q = document.getElementById('inQ') ? document.getElementById('inQ').value : '1';
     const total = document.getElementById('inTotal').value || '';
     const date = document.getElementById('inDate').value || todayStr();
     const cus = document.getElementById('inCus').value || '';
@@ -1660,7 +1749,7 @@ function printOut() {
     const cat = document.getElementById('outCat').value || '';
     const name = document.getElementById('outName').value || '';
     const ow = document.getElementById('outW').value || '';
-    const oq = document.getElementById('outQ').value || '1';
+    const oq = document.getElementById('outQ') ? document.getElementById('outQ').value : '1';
     const p = document.getElementById('outP').value || '';
     const date = document.getElementById('outDate').value || todayStr();
     const buyer = document.getElementById('outBuyer').value || '';
@@ -1686,36 +1775,24 @@ function printArea(html) {
     win.document.close();
 }
 
-// ================================================================
-//  【增强版】导出 XLSX - 包含单价、身份证、付款明细
-// ================================================================
-function exportXlsx() {
+async function exportXlsx() {
+    if (editingId) {
+        const ok = await showConfirmModal('提示', '当前正在编辑单据，导出将基于当前流水数据（不含未保存的修改）。\n点击"确定"继续导出，点击"取消"返回编辑。', '确定', '取消');
+        if (!ok) return;
+    }
     const arr = currentFlowArr;
-    if (!arr || !arr.length) { playBeep(false); return alert('当前没有可导出的数据'); }
+    if (!arr || !arr.length) { playBeep(false); await showAlertModal('提示', '当前没有可导出的数据'); return; }
     const wb = XLSX.utils.book_new();
-    
-    // ---- 入库数据 ----
+    // 入库数据
     let inData = arr.filter(f => f.t === 'in').map(f => {
         const unitPrice = f.w > 0 ? (f.total / f.w) : 0;
-        const payDetailStr = f.payDetail && f.payDetail.length > 0 
-            ? f.payDetail.map(p => p.ch + '¥' + (p.amt||0).toFixed(2)).join(', ')
-            : '';
+        const payDetailStr = f.payDetail && f.payDetail.length > 0 ? f.payDetail.map(p => p.ch + '¥' + (p.amt||0).toFixed(2)).join(', ') : '';
         return {
-            '单号': f.no,
-            '时间': f.time.replace('T',' '),
-            '品类': f.cat,
-            '品名': f.name,
-            '克重': f.w,
-            '件数': f.q||1,
-            '单价': unitPrice.toFixed(2),
-            '金额(元)': -f.total,
-            '客户': f.cus||'',
-            '电话': f.tel||'',
-            '身份证': f.idNo||'',
-            '付款明细': payDetailStr,
-            '实付': (f.payPaid||0).toFixed(2),
-            '欠款': (f.payRemain||0).toFixed(2),
-            '备注': f.note||''
+            '单号': f.no, '时间': f.time.replace('T',' '), '品类': f.cat, '品名': f.name,
+            '克重': f.w, '件数': f.q||1, '单价': unitPrice.toFixed(2), '金额(元)': -f.total,
+            '客户': f.cus||'', '电话': f.tel||'', '身份证': f.idNo||'',
+            '付款明细': payDetailStr, '实付': (f.payPaid||0).toFixed(2),
+            '欠款': (f.payRemain||0).toFixed(2), '备注': f.note||''
         };
     });
     if (inData.length) {
@@ -1733,30 +1810,16 @@ function exportXlsx() {
         const wsIn = XLSX.utils.json_to_sheet(inData);
         XLSX.utils.book_append_sheet(wb, wsIn, '入库');
     }
-    
-    // ---- 出库数据 ----
+    // 出库数据
     let outData = arr.filter(f => f.t === 'out').map(f => {
         const unitPrice = f.w > 0 ? (f.sale / f.w) : 0;
-        const payDetailStr = f.payDetail && f.payDetail.length > 0 
-            ? f.payDetail.map(p => p.ch + '¥' + (p.amt||0).toFixed(2)).join(', ')
-            : '';
+        const payDetailStr = f.payDetail && f.payDetail.length > 0 ? f.payDetail.map(p => p.ch + '¥' + (p.amt||0).toFixed(2)).join(', ') : '';
         return {
-            '单号': f.no,
-            '时间': f.time.replace('T',' '),
-            '品类': f.cat,
-            '品名': f.name,
-            '克重': -f.w,
-            '件数': f.q||1,
-            '单价': unitPrice.toFixed(2),
-            '金额(元)': f.sale,
-            '毛利': f.margin||0,
-            '买家': f.buyer||'',
-            '电话': f.tel||'',
-            '身份证': f.idNo||'',
-            '付款明细': payDetailStr,
-            '实收': (f.payPaid||0).toFixed(2),
-            '欠款': (f.payRemain||0).toFixed(2),
-            '备注': f.note||''
+            '单号': f.no, '时间': f.time.replace('T',' '), '品类': f.cat, '品名': f.name,
+            '克重': -f.w, '件数': f.q||1, '单价': unitPrice.toFixed(2), '金额(元)': f.sale,
+            '毛利': f.margin||0, '买家': f.buyer||'', '电话': f.tel||'', '身份证': f.idNo||'',
+            '付款明细': payDetailStr, '实收': (f.payPaid||0).toFixed(2),
+            '欠款': (f.payRemain||0).toFixed(2), '备注': f.note||''
         };
     });
     if (outData.length) {
@@ -1768,16 +1831,14 @@ function exportXlsx() {
         outData.push({
             '单号':'', '时间':'', '品类':'', '品名':'', '克重': outW,
             '件数':'', '单价':'', '金额(元)': outTotal,
-            '毛利': outMargin, '买家':'合计', '电话':'',
-            '身份证':'',
+            '毛利': outMargin, '买家':'合计', '电话':'', '身份证':'',
             '付款明细':'', '实收': outPaid.toFixed(2),
             '欠款': outRemain.toFixed(2), '备注':''
         });
         const wsOut = XLSX.utils.json_to_sheet(outData);
         XLSX.utils.book_append_sheet(wb, wsOut, '出库');
     }
-    
-    // ---- 汇总 ----
+    // 汇总
     let net = (outData.length ? outData[outData.length-1]['金额(元)'] : 0) + (inData.length ? inData[inData.length-1]['金额(元)'] : 0);
     let totalPaid = (inData.length ? parseFloat(inData[inData.length-1]['实付']) : 0) + (outData.length ? parseFloat(outData[outData.length-1]['实收']) : 0);
     let totalRemain = (inData.length ? parseFloat(inData[inData.length-1]['欠款']) : 0) + (outData.length ? parseFloat(outData[outData.length-1]['欠款']) : 0);
@@ -1799,17 +1860,19 @@ function exportXlsx() {
     const wsSum = XLSX.utils.json_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(wb, wsSum, '汇总');
     XLSX.writeFile(wb, `流水_${todayStr()}.xlsx`);
-    playBeep(true); alert('导出成功');
+    playBeep(true); await showAlertModal('提示', '导出成功');
 }
 
-// ================================================================
-//  【增强版】导入 XLSX - 支持单价、身份证、付款明细，并自动同步云端
-// ================================================================
-function importXlsx(event) {
+async function importXlsx(event) {
+    if (editingId) {
+        const ok = await showConfirmModal('提示', '当前正在编辑单据，导入将覆盖当前数据，未保存的修改将丢失。\n点击"确定"放弃修改并导入，点击"取消"继续编辑。', '确定', '取消');
+        if (!ok) return;
+        clearEditingState();
+    }
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const wb = XLSX.read(e.target.result, { type:'array' });
             let added = 0;
@@ -1878,7 +1941,6 @@ function importXlsx(event) {
                             f.payPaid = f.payDetail.reduce((s,p) => s + p.amt, 0);
                             f.payRemain = f.sale - f.payPaid;
                         }
-                        // 按单号+品类+品名+克重去重
                         const exists = D.flow.some(ex => ex.no === f.no && ex.cat === f.cat && ex.name === f.name && Math.abs(ex.w - f.w) < 0.001);
                         if (!exists) {
                             D.flow.push(f);
@@ -1889,26 +1951,23 @@ function importXlsx(event) {
             });
             if (added > 0) {
                 refreshAll();
-                // ===== 关键修复：导入后自动同步到云端 =====
                 if (sb) {
-                    updateSnapshot().then(() => {
-                        logSync('📤 导入数据已同步到云端', 'ok');
-                        alert('✅ 导入成功，共 ' + added + ' 条流水，已同步到云端。');
-                    }).catch(() => {
-                        alert('✅ 导入成功，共 ' + added + ' 条流水，但同步云端失败，请手动点击"强制同步"。');
-                    });
+                    await updateSnapshot();
+                    logSync('📤 导入数据已同步到云端', 'ok');
+                    await showAlertModal('提示', '✅ 导入成功，共 ' + added + ' 条流水，已同步到云端。');
                 } else {
-                    alert('✅ 导入成功，共 ' + added + ' 条流水（未连接云端，仅保存在本地）。');
+                    await showAlertModal('提示', '✅ 导入成功，共 ' + added + ' 条流水（未连接云端，仅保存在本地）。');
                 }
                 playBeep(true);
                 switchTab('flow');
                 renderFlow();
+                refreshStockAndDash();
             } else {
-                alert('没有新数据被导入（可能已存在或格式不符）。');
+                await showAlertModal('提示', '没有新数据被导入（可能已存在或格式不符）。');
             }
         } catch (err) {
             playBeep(false);
-            alert('导入失败：'+err.message);
+            await showAlertModal('错误', '导入失败：'+err.message);
         }
     };
     reader.readAsArrayBuffer(file);
@@ -1921,21 +1980,27 @@ function downBak() {
     a.href = URL.createObjectURL(blob);
     a.download = '备份_' + todayStr() + '.json';
     a.click();
-    playBeep(true); alert('备份下载成功');
+    playBeep(true); showAlertModal('提示', '备份下载成功');
 }
-function restoreBak(event) {
+async function restoreBak(event) {
+    if (editingId) {
+        const ok = await showConfirmModal('提示', '当前正在编辑单据，恢复备份将覆盖所有数据，未保存的修改将丢失。\n点击"确定"放弃修改并恢复，点击"取消"继续编辑。', '确定', '取消');
+        if (!ok) return;
+        clearEditingState();
+    }
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         try {
             const data = JSON.parse(e.target.result);
             ['cats','names','flow','cust','prices','sources'].forEach(k => { if (data[k] !== undefined) D[k] = data[k]; });
             if (data._version) D._version = data._version;
             if (data._lastSeqId) D._lastSeqId = data._lastSeqId;
             if (data.stock) D.stock = data.stock;
-            refreshAll(); populateFilterSelects(); playBeep(true); alert('✅ 备份恢复成功');
-        } catch (err) { playBeep(false); alert('文件格式错误'); }
+            refreshAll(); populateFilterSelects(); playBeep(true); await showAlertModal('提示', '✅ 备份恢复成功');
+            refreshStockAndDash();
+        } catch (err) { playBeep(false); await showAlertModal('错误', '文件格式错误'); }
     };
     reader.readAsText(file);
     event.target.value = '';
@@ -1952,7 +2017,7 @@ function downCSV() {
     a.href = URL.createObjectURL(blob);
     a.download = '流水_' + todayStr() + '.csv';
     a.click();
-    playBeep(true); alert('CSV导出成功');
+    playBeep(true); showAlertModal('提示', 'CSV导出成功');
 }
 
 // ================================================================
@@ -1976,6 +2041,7 @@ async function checkRemoteVersion(force) {
                 await pullFullState();
                 updateSyncStatus('ok');
                 logSync('✅ 已同步到最新版本 v' + (D._version || 0), 'ok');
+                refreshStockAndDash();
             } else if (force) {
                 logSync('✓ 版本一致 v' + localVer + '，无需同步', 'info');
             }
@@ -2023,16 +2089,16 @@ document.addEventListener('visibilitychange', () => {
 //  测试连接
 // ================================================================
 async function testConn() {
-    if (!sb) { logSync('❌ Supabase 未初始化', 'fail'); return alert('Supabase 未初始化'); }
+    if (!sb) { logSync('❌ Supabase 未初始化', 'fail'); await showAlertModal('提示', 'Supabase 未初始化'); return; }
     try {
         const { error } = await sb.from('shop_state').select('id').limit(1);
         if (error) throw error;
         logSync('✅ 连接成功', 'ok');
         updateSyncStatus('ok');
-        alert('连接成功');
+        await showAlertModal('提示', '连接成功');
     } catch (e) {
         logSync('❌ 连接失败: ' + e.message, 'fail');
-        alert('连接失败: ' + e.message);
+        await showAlertModal('错误', '连接失败: ' + e.message);
     }
 }
 
@@ -2045,13 +2111,23 @@ async function applyPrice() {
     D.prices.plat = parseFloat(document.getElementById('platP').value) || 0;
     saveData(); renderDash(); playBeep(true);
     await updateSnapshot();
-    alert('金价已更新，盈亏已重算');
+    await showAlertModal('提示', '金价已更新，盈亏已重算');
+    refreshStockAndDash();
 }
 
 // ================================================================
-//  Tab切换
+//  Tab切换（确保切换到库存时刷新）
 // ================================================================
-function switchTab(name) {
+async function switchTab(name) {
+    if (editingId) {
+        const isInEditing = document.getElementById('in').classList.contains('active');
+        const isOutEditing = document.getElementById('out').classList.contains('active');
+        if ((isInEditing && name !== 'in') || (isOutEditing && name !== 'out')) {
+            const ok = await showConfirmModal('提示', '当前正在编辑单据，离开将丢失修改。\n点击"确定"放弃修改并切换，点击"取消"继续编辑。', '确定', '取消');
+            if (!ok) return;
+            clearEditingState();
+        }
+    }
     document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
     const panel = document.getElementById(name);
@@ -2059,7 +2135,10 @@ function switchTab(name) {
     const btn = document.querySelector(`nav button[data-tab="${name}"]`);
     if (btn) btn.classList.add('active');
     if (name === 'dash') renderDash();
-    else if (name === 'stock') renderStock();
+    else if (name === 'stock') {
+        rebuildStock();
+        renderStock();
+    }
     else if (name === 'flow') renderFlow();
     else if (name === 'report') { renderReportOut(); renderReportIn(); }
     else if (name === 'cat') renderCats();
@@ -2073,7 +2152,7 @@ document.querySelectorAll('nav button').forEach(btn => {
 });
 
 // ================================================================
-//  模态框
+//  模态框（原有）
 // ================================================================
 function showModal(title, body, buttons) {
     document.getElementById('modalTitle').textContent = title;
@@ -2093,40 +2172,53 @@ function showModal(title, body, buttons) {
 function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
 // ================================================================
+//  页面关闭前提示
+// ================================================================
+window.addEventListener('beforeunload', function (e) {
+    if (editingId) {
+        e.preventDefault();
+        e.returnValue = '您有未保存的修改，确定要离开吗？';
+        return e.returnValue;
+    }
+});
+
+// ================================================================
 //  初始化
 // ================================================================
-document.getElementById('inDate').value = todayStr();
-document.getElementById('outDate').value = todayStr();
-document.getElementById('goldP').value = D.prices.gold || '';
-document.getElementById('silverP').value = D.prices.silver || '';
-document.getElementById('platP').value = D.prices.plat || '';
-document.getElementById('inW').addEventListener('input', calcInUnit);
-document.getElementById('inTotal').addEventListener('input', calcInUnit);
-refreshAll();
-populateFilterSelects();
-renderCatSelects();
-inLoadNames();
-outLoadNames();
-renderPayRows('in');
-renderPayRows('out');
-renderSourceSelects();
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('inDate').value = todayStr();
+    document.getElementById('outDate').value = todayStr();
+    document.getElementById('goldP').value = D.prices.gold || '';
+    document.getElementById('silverP').value = D.prices.silver || '';
+    document.getElementById('platP').value = D.prices.plat || '';
+    document.getElementById('inW').addEventListener('input', calcInUnit);
+    document.getElementById('inTotal').addEventListener('input', calcInUnit);
+    refreshAll();
+    populateFilterSelects();
+    renderCatSelects();
+    inLoadNames();
+    outLoadNames();
+    renderPayRows('in');
+    renderPayRows('out');
+    renderSourceSelects();
 
-if (sb) {
-    document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-    logSync('🚀 系统已启动，Supabase 已就绪 (导入导出增强版)', 'info');
-    pullFullState().then(() => {
-        updateSyncStatus('ok');
-        logSync('✅ 数据已同步', 'ok');
-        subscribeRealtime();
-        startAutoSync();
-    });
-} else {
-    document.getElementById('syncSt').innerHTML = '<span style="color:#b33c2f;">❌ 未连接</span>';
-    logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
-    updateSyncStatus('fail');
-}
-
-console.log('✅ 前途珠宝专用 ERP系统 已启动 (导入导出增强版 + 自动同步云端)');
+    if (sb) {
+        document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
+        logSync('🚀 系统已启动，Supabase 已就绪 (库存即时刷新终极版)', 'info');
+        pullFullState().then(() => {
+            updateSyncStatus('ok');
+            logSync('✅ 数据已同步', 'ok');
+            subscribeRealtime();
+            startAutoSync();
+            refreshStockAndDash();
+        });
+    } else {
+        document.getElementById('syncSt').innerHTML = '<span style="color:#b33c2f;">❌ 未连接</span>';
+        logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
+        updateSyncStatus('fail');
+    }
+    console.log('✅ 前途珠宝专用 ERP系统 已启动 (库存即时刷新终极版)');
+});
 </script>
 </body>
 </html>
