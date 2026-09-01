@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
     </script>
     <style>
-        /* ===== 完整样式（与之前一致） ===== */
+        /* ===== 完整样式（与之前完全一致） ===== */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -906,6 +906,7 @@
                     <div class="field" style="flex:0 1 160px;"><label>筛选品名</label><select id="stockFilterName" onchange="renderStock()"><option value="">全部品名</option></select></div>
                     <button class="btn btn-gray btn-sm" onclick="document.getElementById('stockFilterCat').value='';document.getElementById('stockFilterName').value='';stockFilterChange();renderStock();">清除筛选</button>
                     <button class="btn btn-print btn-sm" onclick="printStock()">🖨️ 打印库存</button>
+                    <button class="btn btn-blue btn-sm" onclick="exportStockXlsx()">⬇ 导出Excel</button>
                     <span class="filter-summary" id="stockFilterSummary">共 0 条</span>
                 </div>
                 <div style="overflow-x:auto;">
@@ -981,6 +982,7 @@
                         <span class="text-muted">至</span><input id="reportOutTo" type="date" style="width:auto;padding:4px 8px;" onchange="renderReportOut()">
                         <button class="btn btn-gray btn-sm" onclick="document.getElementById('reportOutFrom').value='';document.getElementById('reportOutTo').value='';renderReportOut()">重置</button>
                         <button class="btn btn-print btn-sm" onclick="printReportOut()">🖨️ 打印</button>
+                        <button class="btn btn-blue btn-sm" onclick="exportReportOutXlsx()">⬇ 导出Excel</button>
                     </div>
                     <div class="row4">
                         <div class="stat-box"><div class="num" id="rOutProfit">0</div><div class="lbl">总利润 (元)</div></div>
@@ -1004,6 +1006,7 @@
                         <span class="text-muted">至</span><input id="reportInTo" type="date" style="width:auto;padding:4px 8px;" onchange="renderReportIn()">
                         <button class="btn btn-gray btn-sm" onclick="document.getElementById('reportInFrom').value='';document.getElementById('reportInTo').value='';renderReportIn()">重置</button>
                         <button class="btn btn-print btn-sm" onclick="printReportIn()">🖨️ 打印</button>
+                        <button class="btn btn-blue btn-sm" onclick="exportReportInXlsx()">⬇ 导出Excel</button>
                     </div>
                     <div class="row5">
                         <div class="stat-box"><div class="num" id="rInW">0</div><div class="lbl">总克重 (g)</div></div>
@@ -1096,7 +1099,7 @@
 
     <script>
         // ================================================================
-        // 完整 JavaScript - 修复出库修改报错问题
+        // 完整 JavaScript - 所有打印、导出、导入功能现已全部实现
         // ================================================================
         const SUPABASE_URL = 'https://jbxfpjfwqiaijryyjnsg.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_WhI6ZD_WvGFmOXhlSUAXCw_r4VvI3Gr';
@@ -1130,9 +1133,7 @@
         let autoSyncTimer = null;
         let lastSyncCheck = 0;
 
-        // ================================================================
-        //  数据加载与保存
-        // ================================================================
+        // ===== 数据加载与保存（保持不变） =====
         function loadData() {
             try {
                 const raw = localStorage.getItem(STORE_KEY);
@@ -1162,9 +1163,7 @@
         }
         loadData();
 
-        // ================================================================
-        //  工具函数
-        // ================================================================
+        // ===== 工具函数（保持不变） =====
         function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g,
             '&gt;'); }
 
@@ -1224,9 +1223,7 @@
             if (D._lastSeqId) seqInfo.textContent = 'Seq:' + D._lastSeqId;
         }
 
-        // ================================================================
-        //  居中确认/提示模态框
-        // ================================================================
+        // ===== 模态框（保持不变） =====
         function showConfirmModal(title, message, confirmText = '确定', cancelText = '取消') {
             return new Promise((resolve) => {
                 showModal(title, message, [
@@ -1247,9 +1244,7 @@
             });
         }
 
-        // ================================================================
-        //  核心业务函数
-        // ================================================================
+        // ===== 核心业务函数（保持不变） =====
         function rebuildStock() {
             const stockMap = {};
             const groups = {};
@@ -1472,7 +1467,7 @@
             });
         }
 
-        // ===== 拖拽事件 =====
+        // ===== 拖拽事件（保持不变） =====
         let dragSrcIndex = null;
 
         function handleDragStart(e) {
@@ -1521,9 +1516,7 @@
             document.querySelectorAll('#stockBody tr.drag-over').forEach(el => el.classList.remove('drag-over'));
         }
 
-        // ================================================================
-        //  支付渠道管理
-        // ================================================================
+        // ===== 支付渠道管理（保持不变） =====
         function getPayChannels() {
             return D.payChannels || ['微信', '支付宝', '工商银行', '建设银行', '农业银行', '农商银行', '招商银行', '浦发银行', '兴业银行', '中国银行',
                 '交通银行', '现金'
@@ -1653,9 +1646,7 @@
             showAlertModal('提示', '渠道已删除');
         }
 
-        // ================================================================
-        //  renderFlow 函数 - 支持变化量搜索 + 新格式显示
-        // ================================================================
+        // ===== renderFlow（保持不变） =====
         function renderFlow() {
             const tb = document.getElementById('flowBody');
             let arr = D.flow.slice();
@@ -1684,7 +1675,6 @@
                 }
             }
 
-            // 计算库存变化
             const stockState = {};
             const flowWithStock = [];
             const sortedAsc = arr.slice().sort((a, b) => {
@@ -1701,7 +1691,6 @@
                 flowWithStock.push({ flow: f, beforeStock: before, afterStock: after });
             });
 
-            // 全局搜索
             const keyword = document.getElementById('globalSearchInput').value.trim();
             let filteredItems = flowWithStock;
             if (keyword) {
@@ -1855,9 +1844,7 @@
             if (!document.getElementById('flow').classList.contains('active')) switchTab('flow');
         }
 
-        // ================================================================
-        //  报表函数
-        // ================================================================
+        // ===== 报表函数（保持不变） =====
         function renderReportOut() {
             const dtFrom = document.getElementById('reportOutFrom').value;
             const dtTo = document.getElementById('reportOutTo').value;
@@ -1997,13 +1984,7 @@
             else renderReportIn();
         }
 
-        function printReportOut() { showAlertModal('提示', '请使用浏览器打印功能'); }
-
-        function printReportIn() { showAlertModal('提示', '请使用浏览器打印功能'); }
-
-        // ================================================================
-        //  品类、品名、客户管理
-        // ================================================================
+        // ===== 品类、品名、客户管理（保持不变） =====
         function populateFilterSelects() {
             const flowCat = document.getElementById('flowFilterCat');
             const curFlowCat = flowCat.value;
@@ -2335,9 +2316,7 @@
             event.target.value = '';
         }
 
-        // ================================================================
-        //  客户自动填充
-        // ================================================================
+        // ===== 客户自动填充（保持不变） =====
         function autoFillCust(prefix, name) {
             const listId = prefix === 'in' ? 'inCusList' : 'outBuyerList';
             const datalist = document.getElementById(listId);
@@ -2493,9 +2472,7 @@
             document.getElementById('outTotal').value = (w > 0 && p > 0) ? (w * p).toFixed(2) : '';
         }
 
-        // ================================================================
-        //  ★★★ 提示音 - 音量加大到 0.8 ★★★
-        // ================================================================
+        // ===== 提示音（音量加大） =====
         function playBeep(success) {
             try {
                 const audioCtx = new(window.AudioContext || window.webkitAudioContext)();
@@ -2526,9 +2503,7 @@
             saveData();
         }
 
-        // ================================================================
-        //  快照更新
-        // ================================================================
+        // ===== 快照更新 =====
         async function updateSnapshot() {
             if (!sb) return;
             try {
@@ -2545,32 +2520,24 @@
             }
         }
 
-        // ================================================================
-        //  applyPrice 函数
-        // ================================================================
+        // ===== applyPrice（金价更新） =====
         async function applyPrice() {
             const gold = parseFloat(document.getElementById('goldP').value) || 0;
             const silver = parseFloat(document.getElementById('silverP').value) || 0;
             const plat = parseFloat(document.getElementById('platP').value) || 0;
-
             D.prices.gold = gold;
             D.prices.silver = silver;
             D.prices.plat = plat;
-
             saveData();
             await updateSnapshot();
-
             renderDash();
             renderStock();
-
             playBeep(true);
             await showAlertModal('✅ 金价已更新',
                 `黄金 ${gold} 元/g，白银 ${silver} 元/g，铂金 ${plat} 元/g\n\n库存货值和浮动盈亏已重新计算。`);
         }
 
-        // ================================================================
-        //  ★★★ 修复：doIn 和 doOut 函数 - 使用 editingBackup 获取原始记录 ★★★
-        // ================================================================
+        // ===== doIn / doOut（保持不变，已修复） =====
         async function doIn() {
             try {
                 const cat = document.getElementById('inCat').value;
@@ -2584,7 +2551,6 @@
                 const now = nowFullStr();
                 let flow;
                 if (editingId) {
-                    // ★★★ 从 editingBackup 获取原始记录（而不是从 D.flow 中查找）★★★
                     const old = editingBackup;
                     if (!old || old.t !== 'in') {
                         await showAlertModal('错误', '要修改的单据不存在或类型不匹配');
@@ -2623,7 +2589,6 @@
                         time: old.time,
                         lastModified: now
                     };
-                    // 编辑模式下，从 D.flow 中移除旧记录（如果还存在）
                     D.flow = D.flow.filter(f => f.id !== editingId);
                     editingId = null;
                     editingBackup = null;
@@ -2692,7 +2657,6 @@
                 const now = nowFullStr();
                 let flow;
                 if (editingId) {
-                    // ★★★ 从 editingBackup 获取原始记录（而不是从 D.flow 中查找）★★★
                     const old = editingBackup;
                     if (!old || old.t !== 'out') {
                         await showAlertModal('错误', '要修改的单据不存在或类型不匹配');
@@ -2706,13 +2670,10 @@
                     const tel = document.getElementById('outTel').value.trim();
                     const note = document.getElementById('outNote').value.trim();
                     if (buyer) upsertCust(buyer, tel, '');
-
-                    // 编辑出库：需要先移除旧记录，然后检查库存是否足够
                     D.flow = D.flow.filter(f => f.id !== editingId);
                     rebuildStock();
                     const stockItem = D.stock.find(s => s.cat === cat && s.name === name);
                     if (!stockItem || stockItem.w < ow - 0.001) {
-                        // 库存不足时，把旧记录加回来
                         D.flow.push(old);
                         refreshAll();
                         playBeep(false);
@@ -2795,9 +2756,7 @@
                 await showAlertModal('错误', '操作失败：' + e.message); }
         }
 
-        // ================================================================
-        //  清空表单函数
-        // ================================================================
+        // ===== 清空表单 =====
         function clearInForm() {
             const fields = ['inName', 'inW', 'inTotal', 'inCus', 'inTel', 'inId', 'inNote', 'inUnit', 'inFee'];
             fields.forEach(id => {
@@ -2874,9 +2833,7 @@
             }
         }
 
-        // ================================================================
-        //  编辑/删除流水
-        // ================================================================
+        // ===== 编辑/删除 =====
         function clearEditingState() {
             if (editingBackup) {
                 const exist = D.flow.find(f => f.id === editingBackup.id);
@@ -2932,7 +2889,6 @@
                 document.getElementById('inMsg').innerHTML =
                     `<span class="text-primary">✏️ 正在修改入库单 ${escHtml(f.no)}</span>`;
             } else {
-                // 出库编辑：从 D.flow 中移除记录，以便库存重建不包含它
                 D.flow = D.flow.filter(x => x.id !== id);
                 refreshAll();
                 switchTab('out');
@@ -3011,7 +2967,438 @@
         }
 
         // ================================================================
-        //  强制同步、打印、导出、备份等
+        // ★★★ 全新实现：所有打印、导出、导入功能 ★★★
+        // ================================================================
+
+        // ----- 打印辅助：打开新窗口并打印指定内容 -----
+        function printContent(title, htmlContent) {
+            const win = window.open('', '_blank', 'width=800,height=600');
+            if (!win) {
+                alert('请允许弹出窗口，或使用浏览器打印功能。');
+                return;
+            }
+            const style = document.querySelector('style').innerHTML;
+            win.document.write(`
+                <html><head><title>${title}</title>
+                <style>${style}</style>
+                <style>body { padding: 20px; } .no-print { display: none; } table { width: 100%; border-collapse: collapse; } th, td { border: 1px solid #ccc; padding: 6px; }</style>
+                </head><body>
+                <h2>${title}</h2>
+                ${htmlContent}
+                <script>window.onload = function() { window.print(); }<\/script>
+                </body></html>
+            `);
+            win.document.close();
+        }
+
+        // ----- 打印入库单 -----
+        function printIn() {
+            const cat = document.getElementById('inCat').value;
+            const date = document.getElementById('inDate').value;
+            const name = document.getElementById('inName').value;
+            const w = document.getElementById('inW').value;
+            const total = document.getElementById('inTotal').value;
+            const cus = document.getElementById('inCus').value;
+            const tel = document.getElementById('inTel').value;
+            const note = document.getElementById('inNote').value;
+            const html = `
+                <p><strong>品类：</strong>${cat}</p>
+                <p><strong>日期：</strong>${date}</p>
+                <p><strong>品名：</strong>${name}</p>
+                <p><strong>克重：</strong>${w} g</p>
+                <p><strong>总金额：</strong>${total} 元</p>
+                <p><strong>客户：</strong>${cus || '—'}</p>
+                <p><strong>电话：</strong>${tel || '—'}</p>
+                <p><strong>备注：</strong>${note || '—'}</p>
+            `;
+            printContent('入库单', html);
+        }
+
+        // ----- 打印出库单 -----
+        function printOut() {
+            const cat = document.getElementById('outCat').value;
+            const date = document.getElementById('outDate').value;
+            const name = document.getElementById('outName').value;
+            const w = document.getElementById('outW').value;
+            const p = document.getElementById('outP').value;
+            const total = document.getElementById('outTotal').value;
+            const buyer = document.getElementById('outBuyer').value;
+            const tel = document.getElementById('outTel').value;
+            const note = document.getElementById('outNote').value;
+            const html = `
+                <p><strong>品类：</strong>${cat}</p>
+                <p><strong>日期：</strong>${date}</p>
+                <p><strong>品名：</strong>${name}</p>
+                <p><strong>卖出克重：</strong>${w} g</p>
+                <p><strong>销售单价：</strong>${p} 元/g</p>
+                <p><strong>应收总额：</strong>${total} 元</p>
+                <p><strong>买家：</strong>${buyer || '—'}</p>
+                <p><strong>电话：</strong>${tel || '—'}</p>
+                <p><strong>备注：</strong>${note || '—'}</p>
+            `;
+            printContent('出库单', html);
+        }
+
+        // ----- 打印库存 -----
+        function printStock() {
+            const table = document.querySelector('#stock table');
+            if (!table) return;
+            const html = table.outerHTML;
+            printContent('库存明细', html);
+        }
+
+        // ----- 打印流水 -----
+        function printFlow() {
+            const table = document.querySelector('#flow .flow-table-wrap table');
+            if (!table) return;
+            const html = table.outerHTML;
+            printContent('交易流水', html);
+        }
+
+        // ----- 打印出库报表 -----
+        function printReportOut() {
+            const panel = document.getElementById('reportOutPanel');
+            if (!panel) return;
+            // 只打印报表内容（不包括按钮）
+            const clone = panel.cloneNode(true);
+            clone.querySelectorAll('.no-print').forEach(el => el.remove());
+            const html = clone.innerHTML;
+            printContent('出库利润报表', html);
+        }
+
+        // ----- 打印入库报表 -----
+        function printReportIn() {
+            const panel = document.getElementById('reportInPanel');
+            if (!panel) return;
+            const clone = panel.cloneNode(true);
+            clone.querySelectorAll('.no-print').forEach(el => el.remove());
+            const html = clone.innerHTML;
+            printContent('入库成本报表', html);
+        }
+
+        // ----- 导出库存 Excel -----
+        function exportStockXlsx() {
+            const data = D.stock.map(s => ({
+                '品类': s.cat,
+                '品名': s.name,
+                '克重(g)': s.w,
+                '件数': s.q,
+                '成本单价(元/g)': s.cost,
+                '总成本(元)': s.totalCost,
+                '市值(元)': (s.cat === '黄金' ? D.prices.gold : s.cat === '白银' ? D.prices.silver : s.cat === '铂金' ? D
+                    .prices.plat : 0) * s.w,
+                '浮动盈亏(元)': (s.cat === '黄金' ? D.prices.gold : s.cat === '白银' ? D.prices.silver : s.cat === '铂金' ? D
+                    .prices.plat : 0) * s.w - s.totalCost
+            }));
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, '库存');
+            XLSX.writeFile(wb, `库存明细_${todayStr()}.xlsx`);
+            playBeep(true);
+            showAlertModal('提示', '库存导出成功');
+        }
+
+        // ----- 导出出库报表 Excel -----
+        function exportReportOutXlsx() {
+            // 收集当前报表数据（按品类）
+            const dtFrom = document.getElementById('reportOutFrom').value;
+            const dtTo = document.getElementById('reportOutTo').value;
+            let outFlows = D.flow.filter(f => f.t === 'out');
+            if (dtFrom) outFlows = outFlows.filter(f => f.time.slice(0, 10) >= dtFrom);
+            if (dtTo) outFlows = outFlows.filter(f => f.time.slice(0, 10) <= dtTo);
+            const catMap = {};
+            outFlows.forEach(f => {
+                if (!catMap[f.cat]) catMap[f.cat] = { sale: 0, cost: 0, profit: 0, w: 0 };
+                catMap[f.cat].sale += f.sale || 0;
+                catMap[f.cat].cost += f.cost || 0;
+                catMap[f.cat].profit += f.margin || 0;
+                catMap[f.cat].w += f.w || 0;
+            });
+            const data = Object.keys(catMap).map(cat => ({
+                '品类': cat,
+                '出库克重(g)': catMap[cat].w,
+                '销售额(元)': catMap[cat].sale,
+                '成本(元)': catMap[cat].cost,
+                '利润(元)': catMap[cat].profit,
+                '利润率(%)': catMap[cat].sale > 0 ? (catMap[cat].profit / catMap[cat].sale * 100).toFixed(1) : '0.0'
+            }));
+            // 添加合计
+            const totalSale = data.reduce((s, d) => s + d['销售额(元)'], 0);
+            const totalCost = data.reduce((s, d) => s + d['成本(元)'], 0);
+            const totalProfit = data.reduce((s, d) => s + d['利润(元)'], 0);
+            data.push({
+                '品类': '合计',
+                '出库克重(g)': data.reduce((s, d) => s + d['出库克重(g)'], 0),
+                '销售额(元)': totalSale,
+                '成本(元)': totalCost,
+                '利润(元)': totalProfit,
+                '利润率(%)': totalSale > 0 ? (totalProfit / totalSale * 100).toFixed(1) : '0.0'
+            });
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, '出库利润报表');
+            XLSX.writeFile(wb, `出库利润报表_${todayStr()}.xlsx`);
+            playBeep(true);
+            showAlertModal('提示', '出库报表导出成功');
+        }
+
+        // ----- 导出入库报表 Excel -----
+        function exportReportInXlsx() {
+            const dtFrom = document.getElementById('reportInFrom').value;
+            const dtTo = document.getElementById('reportInTo').value;
+            let inFlows = D.flow.filter(f => f.t === 'in');
+            if (dtFrom) inFlows = inFlows.filter(f => f.time.slice(0, 10) >= dtFrom);
+            if (dtTo) inFlows = inFlows.filter(f => f.time.slice(0, 10) <= dtTo);
+            const catMap = {};
+            inFlows.forEach(f => {
+                if (!catMap[f.cat]) catMap[f.cat] = { w: 0, cost: 0, count: 0 };
+                catMap[f.cat].w += f.w || 0;
+                catMap[f.cat].cost += f.total || 0;
+                catMap[f.cat].count += 1;
+            });
+            const data = Object.keys(catMap).map(cat => ({
+                '品类': cat,
+                '入库克重(g)': catMap[cat].w,
+                '总成本(元)': catMap[cat].cost,
+                '平均单价(元/g)': catMap[cat].w > 0 ? (catMap[cat].cost / catMap[cat].w).toFixed(2) : '0.00',
+                '笔数': catMap[cat].count
+            }));
+            // 合计
+            const totalW = data.reduce((s, d) => s + d['入库克重(g)'], 0);
+            const totalCost = data.reduce((s, d) => s + d['总成本(元)'], 0);
+            data.push({
+                '品类': '合计',
+                '入库克重(g)': totalW,
+                '总成本(元)': totalCost,
+                '平均单价(元/g)': totalW > 0 ? (totalCost / totalW).toFixed(2) : '0.00',
+                '笔数': data.reduce((s, d) => s + d['笔数'], 0)
+            });
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, '入库成本报表');
+            XLSX.writeFile(wb, `入库成本报表_${todayStr()}.xlsx`);
+            playBeep(true);
+            showAlertModal('提示', '入库报表导出成功');
+        }
+
+        // ----- 导出流水 XLSX（含汇总） -----
+        function exportXlsx() {
+            // 获取当前显示的流水数据
+            const rows = document.querySelectorAll('#flowBody tr:not(.total-row)');
+            const data = [];
+            rows.forEach(tr => {
+                const tds = tr.querySelectorAll('td');
+                if (tds.length < 17) return;
+                data.push({
+                    '#': tds[0]?.textContent || '',
+                    '创建时间': tds[1]?.textContent || '',
+                    '最后修改': tds[2]?.textContent || '',
+                    '单号': tds[3]?.textContent || '',
+                    '类型': tds[4]?.textContent || '',
+                    '品类': tds[5]?.textContent || '',
+                    '品名': tds[6]?.textContent || '',
+                    '库存变化': tds[7]?.textContent?.replace(/\s/g, '') || '',
+                    '单价': tds[8]?.textContent || '',
+                    '金额': tds[9]?.textContent || '',
+                    '客户': tds[10]?.textContent || '',
+                    '电话': tds[11]?.textContent || '',
+                    '付款': tds[12]?.textContent || '',
+                    '实付': tds[13]?.textContent || '',
+                    '欠款': tds[14]?.textContent || '',
+                    '备注': tds[15]?.textContent || ''
+                });
+            });
+            // 添加合计行（从底部合计行提取）
+            const totalRow = document.querySelector('#flowBody tr.total-row');
+            if (totalRow) {
+                const tds = totalRow.querySelectorAll('td');
+                const summary = {
+                    '#': '合计',
+                    '创建时间': '',
+                    '最后修改': '',
+                    '单号': '',
+                    '类型': '',
+                    '品类': '',
+                    '品名': '',
+                    '库存变化': tds[7]?.textContent?.replace(/\s/g, '') || '',
+                    '单价': tds[8]?.textContent || '',
+                    '金额': tds[9]?.textContent || '',
+                    '客户': '',
+                    '电话': '',
+                    '付款': '',
+                    '实付': tds[13]?.textContent || '',
+                    '欠款': tds[14]?.textContent || '',
+                    '备注': ''
+                };
+                data.push(summary);
+            }
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, '流水');
+            XLSX.writeFile(wb, `交易流水_${todayStr()}.xlsx`);
+            playBeep(true);
+            showAlertModal('提示', '流水导出成功');
+        }
+
+        // ----- 导入流水 XLSX -----
+        function importXlsx(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const wb = XLSX.read(e.target.result, { type: 'array' });
+                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(ws);
+                    if (!rows || !rows.length) {
+                        playBeep(false);
+                        await showAlertModal('提示', '文件为空或格式不正确');
+                        return;
+                    }
+                    let imported = 0;
+                    for (const row of rows) {
+                        const no = row['单号'] || '';
+                        const time = row['创建时间'] || '';
+                        const t = row['类型'] === '⬆入库' ? 'in' : row['类型'] === '⬇出库' ? 'out' : '';
+                        if (!no || !t || !time) continue;
+                        const cat = row['品类'] || '';
+                        const name = row['品名'] || '';
+                        // 解析库存变化以获取克重
+                        const changeStr = row['库存变化'] || '';
+                        const wMatch = changeStr.match(/[\+\-]?[\d.]+g/);
+                        let w = 0;
+                        if (wMatch) w = parseFloat(wMatch[0]) || 0;
+                        const amountStr = row['金额'] || '';
+                        const amount = parseFloat(amountStr.replace(/[^0-9.-]/g, '')) || 0;
+                        const buyer = row['客户'] || '';
+                        const tel = row['电话'] || '';
+                        const note = row['备注'] || '';
+                        const payDetail = row['付款'] ? [{ ch: '导入', amt: parseFloat(row['实付']) || 0 }] : [];
+                        const paid = parseFloat(row['实付']) || 0;
+                        const remain = parseFloat(row['欠款']) || 0;
+
+                        // 构建流水对象
+                        const flow = {
+                            id: genId(),
+                            no: no,
+                            t: t,
+                            cat: cat,
+                            name: name,
+                            w: w,
+                            q: 1,
+                            total: t === 'in' ? amount : 0,
+                            sale: t === 'out' ? amount : 0,
+                            cus: t === 'in' ? buyer : '',
+                            buyer: t === 'out' ? buyer : '',
+                            tel: tel,
+                            note: note,
+                            time: time,
+                            lastModified: nowFullStr(),
+                            payDetail: payDetail,
+                            payPaid: paid,
+                            payRemain: remain,
+                            cost: 0,
+                            margin: 0,
+                            fee: 0,
+                            src: '导入'
+                        };
+                        D.flow.push(flow);
+                        imported++;
+                    }
+                    saveData();
+                    refreshAll();
+                    await updateSnapshot();
+                    playBeep(true);
+                    await showAlertModal('提示', `成功导入 ${imported} 条流水记录。`);
+                } catch (err) {
+                    playBeep(false);
+                    await showAlertModal('错误', '导入失败：' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            event.target.value = '';
+        }
+
+        // ----- JSON 备份下载 -----
+        function downBak() {
+            const json = JSON.stringify(D, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ERP备份_${todayStr()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            playBeep(true);
+            showAlertModal('提示', 'JSON 备份下载完成');
+        }
+
+        // ----- JSON 备份恢复 -----
+        async function restoreBak(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    // 覆盖全局数据
+                    Object.keys(data).forEach(key => {
+                        if (key in D) D[key] = data[key];
+                    });
+                    saveData();
+                    refreshAll();
+                    await updateSnapshot();
+                    playBeep(true);
+                    await showAlertModal('提示', '备份恢复成功！');
+                } catch (err) {
+                    playBeep(false);
+                    await showAlertModal('错误', '恢复失败：' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // ----- CSV 导出（流水） -----
+        function downCSV() {
+            const rows = document.querySelectorAll('#flowBody tr:not(.total-row)');
+            let csv = '序号,创建时间,最后修改,单号,类型,品类,品名,库存变化,单价,金额,客户,电话,付款,实付,欠款,备注\n';
+            rows.forEach(tr => {
+                const tds = tr.querySelectorAll('td');
+                if (tds.length < 17) return;
+                const line = [
+                    tds[0]?.textContent || '',
+                    tds[1]?.textContent || '',
+                    tds[2]?.textContent || '',
+                    tds[3]?.textContent || '',
+                    tds[4]?.textContent || '',
+                    tds[5]?.textContent || '',
+                    tds[6]?.textContent || '',
+                    tds[7]?.textContent?.replace(/\s/g, '') || '',
+                    tds[8]?.textContent || '',
+                    tds[9]?.textContent || '',
+                    tds[10]?.textContent || '',
+                    tds[11]?.textContent || '',
+                    tds[12]?.textContent || '',
+                    tds[13]?.textContent || '',
+                    tds[14]?.textContent || '',
+                    tds[15]?.textContent || ''
+                ].map(v => '"' + v.replace(/"/g, '""') + '"').join(',');
+                csv += line + '\n';
+            });
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `交易流水_${todayStr()}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            playBeep(true);
+            showAlertModal('提示', 'CSV 导出完成');
+        }
+
+        // ================================================================
+        //  同步、Tab切换等（保持不变）
         // ================================================================
         async function forceSync() {
             if (editingId) {
@@ -3080,42 +3467,14 @@
             populateFilterSelects();
             logSync('🔄 本地已刷新', 'info'); }
 
-        function printIn() {}
-
-        function printOut() {}
-
-        function printStock() {}
-
-        function printFlow() {}
-
-        async function exportXlsx() {}
-
-        async function importXlsx(event) {}
-
-        function downBak() {}
-
-        async function restoreBak(event) {}
-
-        function downCSV() {}
-
-        // ================================================================
-        //  自动同步机制（占位）
-        // ================================================================
+        // 自动同步占位
         async function checkRemoteVersion(force) {}
-
         function subscribeRealtime() {}
-
         function startAutoSync() {}
         document.addEventListener('visibilitychange', () => {});
-
-        // ================================================================
-        //  测试连接（占位）
-        // ================================================================
         async function testConn() {}
 
-        // ================================================================
-        //  Tab切换
-        // ================================================================
+        // ===== Tab切换 =====
         async function switchTab(name) {
             if (editingId) {
                 const isInEditing = document.getElementById('in').classList.contains('active');
@@ -3151,9 +3510,7 @@
             btn.addEventListener('click', function() { switchTab(this.dataset.tab); });
         });
 
-        // ================================================================
-        //  模态框
-        // ================================================================
+        // ===== 模态框 =====
         function showModal(title, body, buttons) {
             document.getElementById('modalTitle').textContent = title;
             document.getElementById('modalBody').innerHTML = body;
@@ -3172,9 +3529,7 @@
 
         function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
-        // ================================================================
-        //  页面关闭前提示
-        // ================================================================
+        // ===== 页面关闭前提示 =====
         window.addEventListener('beforeunload', function(e) {
             if (editingId) {
                 e.preventDefault();
@@ -3183,9 +3538,7 @@
             }
         });
 
-        // ================================================================
-        //  初始化
-        // ================================================================
+        // ===== 初始化 =====
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('inDate').value = todayStr();
             document.getElementById('outDate').value = todayStr();
@@ -3205,7 +3558,7 @@
 
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-                logSync('🚀 系统已启动 (修复出库编辑报错 + 变化量搜索)', 'info');
+                logSync('🚀 系统已启动 (所有打印导出导入功能已完善)', 'info');
                 pullFullState().then(() => {
                     updateSyncStatus('ok');
                     logSync('✅ 数据已同步', 'ok');
@@ -3218,7 +3571,7 @@
                 logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
                 updateSyncStatus('fail');
             }
-            console.log('✅ 系统已启动 (修复出库编辑报错 + 变化量搜索)');
+            console.log('✅ 系统已启动 (所有打印导出导入功能已完善)');
         });
     </script>
 </body>
