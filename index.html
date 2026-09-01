@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
     </script>
     <style>
-        /* ===== 完整样式 ===== */
+        /* ===== 完整样式（与之前一致） ===== */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -935,7 +935,7 @@
                     <div class="field" style="flex:0 1 160px;"><label>筛选品名</label><select id="flowFilterName" onchange="renderFlow()"><option value="">全部品名</option></select></div>
                     <div class="field global-search-field">
                         <label>🔍 全局搜索</label>
-                        <input id="globalSearchInput" type="text" placeholder="单号/品类/品名/客户/电话/来源/备注" oninput="renderFlow()">
+                        <input id="globalSearchInput" type="text" placeholder="单号/品类/品名/客户/电话/来源/备注/变化量" oninput="renderFlow()">
                     </div>
                     <button class="btn btn-gray btn-sm" onclick="document.getElementById('flowFilterCat').value='';document.getElementById('flowFilterName').value='';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('globalSearchInput').value='';flowFilterNameChange();renderFlow();">清除筛选</button>
                     <span class="filter-summary" id="flowFilterSummary">共 0 条</span>
@@ -951,7 +951,7 @@
                                 <th style="width:54px;">类型</th>
                                 <th style="width:64px;">品类</th>
                                 <th style="width:90px;">品名</th>
-                                <th style="width:130px;">📊 库存变化</th>
+                                <th style="width:140px;">📊 库存变化</th>
                                 <th style="width:74px;">单价</th>
                                 <th style="width:94px;">金额</th>
                                 <th style="width:74px;">客户</th>
@@ -1096,7 +1096,7 @@
 
     <script>
         // ================================================================
-        // 完整 JavaScript - 取消修改时彻底清空表单 + 音量加大 + 金价更新修复
+        // 完整 JavaScript - 修复出库修改报错问题
         // ================================================================
         const SUPABASE_URL = 'https://jbxfpjfwqiaijryyjnsg.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_WhI6ZD_WvGFmOXhlSUAXCw_r4VvI3Gr';
@@ -1654,7 +1654,7 @@
         }
 
         // ================================================================
-        //  全局搜索
+        //  renderFlow 函数 - 支持变化量搜索 + 新格式显示
         // ================================================================
         function renderFlow() {
             const tb = document.getElementById('flowBody');
@@ -1675,18 +1675,6 @@
             if (filterCat) arr = arr.filter(f => f.cat === filterCat);
             if (filterName) arr = arr.filter(f => f.name === filterName);
 
-            const keyword = document.getElementById('globalSearchInput').value.trim();
-            if (keyword) {
-                const lowerKW = keyword.toLowerCase();
-                arr = arr.filter(f => {
-                    const fields = [
-                        f.no, f.cat, f.name, f.cus, f.buyer, f.tel,
-                        f.note, f.src, f.idNo
-                    ];
-                    return fields.some(field => field && field.toString().toLowerCase().includes(lowerKW));
-                });
-            }
-
             if (flowCustomerFilter) {
                 const kw = flowCustomerFilter.trim();
                 if (flowCustomerFilterField === 'tel') {
@@ -1695,8 +1683,8 @@
                     arr = arr.filter(f => (f.cus && f.cus.includes(kw)) || (f.buyer && f.buyer.includes(kw)));
                 }
             }
-            currentFlowArr = arr;
 
+            // 计算库存变化
             const stockState = {};
             const flowWithStock = [];
             const sortedAsc = arr.slice().sort((a, b) => {
@@ -1712,10 +1700,25 @@
                 stockState[key] = after;
                 flowWithStock.push({ flow: f, beforeStock: before, afterStock: after });
             });
-            const stockMap = {};
-            flowWithStock.forEach(item => { stockMap[item.flow.id] = item; });
 
-            if (!arr.length) {
+            // 全局搜索
+            const keyword = document.getElementById('globalSearchInput').value.trim();
+            let filteredItems = flowWithStock;
+            if (keyword) {
+                const lowerKW = keyword.toLowerCase();
+                filteredItems = flowWithStock.filter(item => {
+                    const f = item.flow;
+                    const delta = item.afterStock - item.beforeStock;
+                    const deltaStr = (delta >= 0 ? '+' : '') + delta.toFixed(2) + 'g';
+                    const fields = [
+                        f.no, f.cat, f.name, f.cus, f.buyer, f.tel,
+                        f.note, f.src, f.idNo, deltaStr
+                    ];
+                    return fields.some(field => field && field.toString().toLowerCase().includes(lowerKW));
+                });
+            }
+
+            if (!filteredItems.length) {
                 tb.innerHTML = '<tr><td colspan="17" style="text-align:center;color:#999;">暂无数据</td></tr>';
                 let summary = '共 0 条';
                 if (keyword) summary += ` | 🔍 搜索: "${escHtml(keyword)}"`;
@@ -1723,6 +1726,9 @@
                 document.getElementById('flowFilterSummary').textContent = summary;
                 return;
             }
+
+            const stockMap = {};
+            filteredItems.forEach(item => { stockMap[item.flow.id] = item; });
 
             let totalInW = 0,
                 totalOutW = 0,
@@ -1732,20 +1738,26 @@
                 totalPaid = 0,
                 totalRemain = 0;
             let rows = '';
-            arr.forEach((f, index) => {
+            const displayItems = filteredItems.slice().sort((a, b) => {
+                if (a.flow.time !== b.flow.time) return b.flow.time.localeCompare(a.flow.time);
+                return b.flow.id - a.flow.id;
+            });
+
+            displayItems.forEach((item, index) => {
+                const f = item.flow;
                 const seq = index + 1;
-                const stockInfo = stockMap[f.id];
-                const before = stockInfo ? stockInfo.beforeStock : 0;
-                const after = stockInfo ? stockInfo.afterStock : 0;
+                const before = item.beforeStock;
+                const after = item.afterStock;
                 const delta = after - before;
-                const deltaStr = delta >= 0 ? '+' + delta.toFixed(2) : delta.toFixed(2);
+                const deltaStr = (delta >= 0 ? '+' : '') + delta.toFixed(2);
                 const deltaClass = delta >= 0 ? 'positive' : 'negative';
+
                 const stockDisplay =
                     `<span class="flow-stock-change">
                     <span class="from">${before.toFixed(2)}g</span>
                     <span class="arrow"> → </span>
-                    <span class="to">${after.toFixed(2)}g</span>
                     <span class="delta ${deltaClass}">(${deltaStr}g)</span>
+                    <span class="to">${after.toFixed(2)}g</span>
                 </span>`;
 
                 const payTxt = f.payDetail ? f.payDetail.map(p => p.ch + ' ¥' + (p.amt || 0).toFixed(2)).join('<br>') :
@@ -1829,7 +1841,7 @@
             tb.innerHTML = rows + totalRow;
 
             let summary =
-                `共 ${arr.length} 条 | 入库 ${totalInW.toFixed(2)}g / ${totalInAmount.toFixed(2)}元 | 出库 ${totalOutW.toFixed(2)}g / ${totalOutSale.toFixed(2)}元 | 剩余 ${remainW.toFixed(2)}g | 净额 ${net.toFixed(2)}元`;
+                `共 ${displayItems.length} 条 | 入库 ${totalInW.toFixed(2)}g / ${totalInAmount.toFixed(2)}元 | 出库 ${totalOutW.toFixed(2)}g / ${totalOutSale.toFixed(2)}元 | 剩余 ${remainW.toFixed(2)}g | 净额 ${net.toFixed(2)}元`;
             if (keyword) summary += ` | 🔍 搜索: "${escHtml(keyword)}"`;
             if (flowCustomerFilter) summary += ` | 客户筛选(${flowCustomerFilterField==='tel'?'电话':'姓名'}): ${escHtml(flowCustomerFilter)}`;
             document.getElementById('flowFilterSummary').textContent = summary;
@@ -2493,7 +2505,6 @@
                 gain.connect(audioCtx.destination);
                 osc.type = 'sine';
                 osc.frequency.value = success ? 880 : 300;
-                // 音量从 0.3 加大到 0.8
                 gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
                 osc.start();
@@ -2535,37 +2546,30 @@
         }
 
         // ================================================================
-        //  ★★★ 修复：applyPrice 函数 —— 实现金价更新与重算 ★★★
+        //  applyPrice 函数
         // ================================================================
         async function applyPrice() {
-            // 读取输入框的值
             const gold = parseFloat(document.getElementById('goldP').value) || 0;
             const silver = parseFloat(document.getElementById('silverP').value) || 0;
             const plat = parseFloat(document.getElementById('platP').value) || 0;
 
-            // 保存到全局数据
             D.prices.gold = gold;
             D.prices.silver = silver;
             D.prices.plat = plat;
 
-            // 保存到本地存储
             saveData();
-
-            // 更新云端快照
             await updateSnapshot();
 
-            // 重新计算并刷新看板和库存表
             renderDash();
             renderStock();
 
-            // 用户反馈
             playBeep(true);
             await showAlertModal('✅ 金价已更新',
                 `黄金 ${gold} 元/g，白银 ${silver} 元/g，铂金 ${plat} 元/g\n\n库存货值和浮动盈亏已重新计算。`);
         }
 
         // ================================================================
-        //  入库/出库操作（已包含清空表单逻辑）
+        //  ★★★ 修复：doIn 和 doOut 函数 - 使用 editingBackup 获取原始记录 ★★★
         // ================================================================
         async function doIn() {
             try {
@@ -2580,8 +2584,12 @@
                 const now = nowFullStr();
                 let flow;
                 if (editingId) {
-                    const old = D.flow.find(f => f.id === editingId);
-                    if (!old || old.t !== 'in') { await showAlertModal('错误', '要修改的单据不存在或类型不匹配'); return; }
+                    // ★★★ 从 editingBackup 获取原始记录（而不是从 D.flow 中查找）★★★
+                    const old = editingBackup;
+                    if (!old || old.t !== 'in') {
+                        await showAlertModal('错误', '要修改的单据不存在或类型不匹配');
+                        return;
+                    }
                     const dateVal = document.getElementById('inDate').value || todayStr();
                     const costUnit = total / w;
                     const payDet = getPayDetail('in');
@@ -2615,6 +2623,7 @@
                         time: old.time,
                         lastModified: now
                     };
+                    // 编辑模式下，从 D.flow 中移除旧记录（如果还存在）
                     D.flow = D.flow.filter(f => f.id !== editingId);
                     editingId = null;
                     editingBackup = null;
@@ -2683,8 +2692,12 @@
                 const now = nowFullStr();
                 let flow;
                 if (editingId) {
-                    const old = D.flow.find(f => f.id === editingId);
-                    if (!old || old.t !== 'out') { await showAlertModal('错误', '要修改的单据不存在或类型不匹配'); return; }
+                    // ★★★ 从 editingBackup 获取原始记录（而不是从 D.flow 中查找）★★★
+                    const old = editingBackup;
+                    if (!old || old.t !== 'out') {
+                        await showAlertModal('错误', '要修改的单据不存在或类型不匹配');
+                        return;
+                    }
                     const dateVal = document.getElementById('outDate').value || todayStr();
                     const sale = ow * p;
                     const payDet = getPayDetail('out');
@@ -2693,11 +2706,14 @@
                     const tel = document.getElementById('outTel').value.trim();
                     const note = document.getElementById('outNote').value.trim();
                     if (buyer) upsertCust(buyer, tel, '');
+
+                    // 编辑出库：需要先移除旧记录，然后检查库存是否足够
                     D.flow = D.flow.filter(f => f.id !== editingId);
                     rebuildStock();
                     const stockItem = D.stock.find(s => s.cat === cat && s.name === name);
                     if (!stockItem || stockItem.w < ow - 0.001) {
-                        D.flow.push(editingBackup);
+                        // 库存不足时，把旧记录加回来
+                        D.flow.push(old);
                         refreshAll();
                         playBeep(false);
                         await showAlertModal('库存不足', '当前可用：' + (stockItem ? stockItem.w.toFixed(2) : '0') + 'g');
@@ -2780,7 +2796,7 @@
         }
 
         // ================================================================
-        //  ★★★ 彻底清空入库表单（增强版）★★★
+        //  清空表单函数
         // ================================================================
         function clearInForm() {
             const fields = ['inName', 'inW', 'inTotal', 'inCus', 'inTel', 'inId', 'inNote', 'inUnit', 'inFee'];
@@ -2821,9 +2837,6 @@
             }
         }
 
-        // ================================================================
-        //  ★★★ 彻底清空出库表单（增强版）★★★
-        // ================================================================
         function clearOutForm() {
             const fields = ['outName', 'outW', 'outP', 'outBuyer', 'outTel', 'outNote', 'outAvail', 'outTotal', 'outAvailQ'];
             fields.forEach(id => {
@@ -2862,7 +2875,7 @@
         }
 
         // ================================================================
-        //  编辑/删除流水（取消修改时彻底清空表单）
+        //  编辑/删除流水
         // ================================================================
         function clearEditingState() {
             if (editingBackup) {
@@ -2893,6 +2906,7 @@
             if (!f) { await showAlertModal('提示', '流水不存在'); return; }
             editingId = id;
             editingBackup = JSON.parse(JSON.stringify(f));
+
             if (f.t === 'in') {
                 switchTab('in');
                 document.getElementById('inCat').value = f.cat;
@@ -2918,6 +2932,7 @@
                 document.getElementById('inMsg').innerHTML =
                     `<span class="text-primary">✏️ 正在修改入库单 ${escHtml(f.no)}</span>`;
             } else {
+                // 出库编辑：从 D.flow 中移除记录，以便库存重建不包含它
                 D.flow = D.flow.filter(x => x.id !== id);
                 refreshAll();
                 switchTab('out');
@@ -2996,7 +3011,7 @@
         }
 
         // ================================================================
-        //  强制同步、打印、导出、备份等（保持不变）
+        //  强制同步、打印、导出、备份等
         // ================================================================
         async function forceSync() {
             if (editingId) {
@@ -3065,38 +3080,38 @@
             populateFilterSelects();
             logSync('🔄 本地已刷新', 'info'); }
 
-        function printIn() { /* 占位 */ }
+        function printIn() {}
 
-        function printOut() { /* 占位 */ }
+        function printOut() {}
 
-        function printStock() { /* 占位 */ }
+        function printStock() {}
 
-        function printFlow() { /* 占位 */ }
+        function printFlow() {}
 
-        async function exportXlsx() { /* 占位 */ }
+        async function exportXlsx() {}
 
-        async function importXlsx(event) { /* 占位 */ }
+        async function importXlsx(event) {}
 
-        function downBak() { /* 占位 */ }
+        function downBak() {}
 
-        async function restoreBak(event) { /* 占位 */ }
+        async function restoreBak(event) {}
 
-        function downCSV() { /* 占位 */ }
+        function downCSV() {}
 
         // ================================================================
         //  自动同步机制（占位）
         // ================================================================
-        async function checkRemoteVersion(force) { /* 占位 */ }
+        async function checkRemoteVersion(force) {}
 
-        function subscribeRealtime() { /* 占位 */ }
+        function subscribeRealtime() {}
 
-        function startAutoSync() { /* 占位 */ }
-        document.addEventListener('visibilitychange', () => { /* 占位 */ });
+        function startAutoSync() {}
+        document.addEventListener('visibilitychange', () => {});
 
         // ================================================================
-        //  测试连接、应用金价（占位）
+        //  测试连接（占位）
         // ================================================================
-        async function testConn() { /* 占位 */ }
+        async function testConn() {}
 
         // ================================================================
         //  Tab切换
@@ -3190,7 +3205,7 @@
 
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-                logSync('🚀 系统已启动 (完整版 - 金价更新已修复)', 'info');
+                logSync('🚀 系统已启动 (修复出库编辑报错 + 变化量搜索)', 'info');
                 pullFullState().then(() => {
                     updateSyncStatus('ok');
                     logSync('✅ 数据已同步', 'ok');
@@ -3203,7 +3218,7 @@
                 logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
                 updateSyncStatus('fail');
             }
-            console.log('✅ 系统已启动 (完整版 - 金价更新已修复)');
+            console.log('✅ 系统已启动 (修复出库编辑报错 + 变化量搜索)');
         });
     </script>
 </body>
