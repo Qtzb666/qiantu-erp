@@ -7,6 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
+        /* ========== 完整样式 ========== */
         * { box-sizing: border-box; margin: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: #f0ede8; color: #1e1e1e; padding: 0 0 40px 0; overflow-x: hidden; }
         header { background: #1a1a1a; color: #d4a017; padding: 14px 24px; font-size: 22px; font-weight: 700; border-bottom: 3px solid #d4a017; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
@@ -47,7 +48,7 @@
         .stat-box .lbl { font-size: 12px; color: #777; margin-top: 2px; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
         th, td { border: 1px solid #e0dbd2; padding: 6px 10px; text-align: left; vertical-align: middle; }
-        th { background: #f5f2ed; font-weight: 600; position: sticky; top: 0; z-index: 2; }
+        th { background: #f5f2ed; font-weight: 600; position: sticky; top: 0; z-index: 2; white-space: nowrap; }
         .total-row { font-weight: 700; background: #f0ede8 !important; border-top: 2px solid #d4a017; }
         .total-row td { padding-top: 8px; padding-bottom: 8px; }
         .card { background: #fcfcfa; border: 1px solid #eee; padding: 14px 16px; border-radius: 8px; margin-bottom: 14px; }
@@ -115,6 +116,7 @@
             .pay-grid select, .pay-grid input { font-size: 13px; padding: 4px 6px; }
             .report-tab-btn { font-size: 12px; padding: 4px 10px; }
             .sync-status { font-size: 11px; gap: 6px; }
+            .flow-table-wrap { overflow-x: auto; }
         }
         @media print { header, nav, .btn, .no-print { display: none !important; } .tab-panel { display: block !important; box-shadow: none; border: none; padding: 0; } .container { padding: 0; } }
         .cust-tag { display: inline-flex; align-items: center; padding: 4px 8px 4px 12px; border: 1px solid #d5d0c8; border-radius: 4px; margin: 3px; gap: 4px; background: #fcfcfa; font-size: 13px; flex-wrap: wrap; }
@@ -155,16 +157,26 @@
             white-space: pre-wrap;
             word-break: break-all;
         }
-        .drag-handle {
-            cursor: grab;
-            user-select: none;
-            padding: 0 6px;
-            color: #aaa;
-            font-size: 16px;
-        }
+        .drag-handle { cursor: grab; user-select: none; padding: 0 6px; color: #aaa; font-size: 16px; }
         .drag-handle:active { cursor: grabbing; }
         .drag-over { background: #f0f0e0 !important; border-bottom: 2px solid #d4a017 !important; }
         #stockBody tr.dragging { opacity: 0.6; background: #e8e4dc !important; }
+        .flow-stock-change { font-size: 12px; color: #555; white-space: nowrap; }
+        .flow-stock-change .from { color: #888; }
+        .flow-stock-change .arrow { color: #aaa; }
+        .flow-stock-change .to { font-weight: 600; color: #1a1a1a; }
+        .flow-stock-change .delta { font-weight: 700; }
+        .flow-stock-change .delta.positive { color: #1e7e34; }
+        .flow-stock-change .delta.negative { color: #b33c2f; }
+        .last-modified { font-size: 12px; color: #999; }
+        .seq-num { font-weight: 600; color: #666; text-align: center; }
+        .pay-channel-manage-btn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin-left: 4px; border: 1px dashed #d5d0c8; border-radius: 4px; background: #faf9f7; cursor: pointer; font-size: 14px; color: #888; transition: 0.15s; flex-shrink: 0; }
+        .pay-channel-manage-btn:hover { background: #f0ede8; border-color: #d4a017; color: #d4a017; }
+        .channel-tag { display: inline-flex; align-items: center; padding: 3px 10px 3px 14px; border: 1px solid #d5d0c8; border-radius: 4px; margin: 4px; gap: 8px; background: #fcfcfa; font-size: 13px; }
+        .channel-tag .del { color: #b33c2f; cursor: pointer; font-size: 16px; line-height: 1; }
+        .channel-tag .del:hover { color: #d44; }
+        .global-search-field { flex: 0 1 240px; }
+        .global-search-field label { color: #0066cc; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -303,14 +315,14 @@
     <!-- 流水 -->
     <div id="flow" class="tab-panel">
         <div class="card">
-            <div class="card-title">📜 交易流水 <span class="text-muted">（唯一真相源）</span></div>
+            <div class="card-title">📜 交易流水 <span class="text-muted">（按时间降序 · 序号固定）</span></div>
             <div class="flex no-print mb-8">
-                <button class="btn btn-gray btn-sm" onclick="flowFilter='all';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('flowFilterNote').value='';renderFlow()">全部</button>
+                <button class="btn btn-gray btn-sm" onclick="flowFilter='all';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('globalSearchInput').value='';renderFlow()">全部</button>
                 <button class="btn btn-gray btn-sm" onclick="flowFilter='in';renderFlow()">入库</button>
                 <button class="btn btn-gray btn-sm" onclick="flowFilter='out';renderFlow()">出库</button>
                 <span class="text-muted">从</span><input id="flowDtFrom" type="date" style="width:auto;padding:4px 8px;" onchange="renderFlow()">
                 <span class="text-muted">至</span><input id="flowDtTo" type="date" style="width:auto;padding:4px 8px;" onchange="renderFlow()">
-                <button class="btn btn-gray btn-sm" onclick="document.getElementById('flowDtFrom').value='';document.getElementById('flowDtTo').value='';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('flowFilterNote').value='';renderFlow()">清除</button>
+                <button class="btn btn-gray btn-sm" onclick="document.getElementById('flowDtFrom').value='';document.getElementById('flowDtTo').value='';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('globalSearchInput').value='';renderFlow()">清除</button>
                 <button class="btn btn-print btn-sm" onclick="printFlow()">🖨️ 打印</button>
                 <button class="btn btn-blue btn-sm" onclick="exportXlsx()">⬇ XLSX（含汇总）</button>
                 <label class="btn btn-green btn-sm" style="cursor:pointer;width:auto;"><input type="file" accept=".xlsx,.xls" style="display:none;" onchange="importXlsx(event)">⬆ 导入</label>
@@ -318,12 +330,38 @@
             <div class="filter-area" id="flowFilterArea">
                 <div class="field" style="flex:0 1 160px;"><label>筛选品类</label><select id="flowFilterCat" onchange="flowFilterNameChange()"><option value="">全部品类</option></select></div>
                 <div class="field" style="flex:0 1 160px;"><label>筛选品名</label><select id="flowFilterName" onchange="renderFlow()"><option value="">全部品名</option></select></div>
-                <div class="field" style="flex:0 1 180px;"><label>筛选备注</label><input id="flowFilterNote" type="text" placeholder="输入备注关键词" oninput="renderFlow()"></div>
-                <button class="btn btn-gray btn-sm" onclick="document.getElementById('flowFilterCat').value='';document.getElementById('flowFilterName').value='';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('flowFilterNote').value='';flowFilterNameChange();renderFlow();">清除筛选</button>
+                <div class="field global-search-field">
+                    <label>🔍 全局搜索</label>
+                    <input id="globalSearchInput" type="text" placeholder="单号/品类/品名/客户/电话/来源/备注" oninput="renderFlow()">
+                </div>
+                <button class="btn btn-gray btn-sm" onclick="document.getElementById('flowFilterCat').value='';document.getElementById('flowFilterName').value='';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('globalSearchInput').value='';flowFilterNameChange();renderFlow();">清除筛选</button>
                 <span class="filter-summary" id="flowFilterSummary">共 0 条</span>
             </div>
-            <div style="overflow-x:auto;max-height:500px;overflow-y:auto;">
-                <table><thead><tr><th>时间</th><th>单号</th><th>类型</th><th>品类</th><th>品名</th><th>克重</th><th>件数</th><th>单价</th><th>金额</th><th>客户</th><th>电话</th><th>付款</th><th>实付</th><th>欠款</th><th>备注</th><th>操作</th></tr></thead><tbody id="flowBody"><tr><td colspan="16" style="text-align:center;color:#999;">暂无数据</td></tr></tbody></table>
+            <div style="overflow-x:auto;max-height:500px;overflow-y:auto;" class="flow-table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:36px;">#</th>
+                            <th style="width:120px;">创建时间</th>
+                            <th style="width:120px;">最后修改</th>
+                            <th style="width:110px;">单号</th>
+                            <th style="width:54px;">类型</th>
+                            <th style="width:64px;">品类</th>
+                            <th style="width:90px;">品名</th>
+                            <th style="width:130px;">📊 库存变化</th>
+                            <th style="width:74px;">单价</th>
+                            <th style="width:94px;">金额</th>
+                            <th style="width:74px;">客户</th>
+                            <th style="width:74px;">电话</th>
+                            <th style="width:94px;">付款</th>
+                            <th style="width:74px;">实付</th>
+                            <th style="width:74px;">欠款</th>
+                            <th style="width:90px;">备注</th>
+                            <th style="width:94px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="flowBody"><tr><td colspan="17" style="text-align:center;color:#999;">暂无数据</td></tr></tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -459,10 +497,11 @@
         <div id="modalBtns" class="flex mt-8" style="justify-content:flex-end;"></div>
     </div>
 </div>
+
 <script>
-// ================================================================
-// 完整 JavaScript - 库存即时刷新 + 拖拽排序（完整版）
-// ================================================================
+// =====================================================================
+// 完整 JavaScript - 全局搜索修正版（包含所有函数）
+// =====================================================================
 const SUPABASE_URL = 'https://jbxfpjfwqiaijryyjnsg.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_WhI6ZD_WvGFmOXhlSUAXCw_r4VvI3Gr';
 let sb = null;
@@ -476,6 +515,7 @@ let D = {
     flow: [],
     cust: [],
     sources: ['散客', '朋友介绍', '老客户', '抖音', '门店', '同行', '其他'],
+    payChannels: ['微信', '支付宝', '工商银行', '建设银行', '农业银行', '农商银行', '招商银行', '浦发银行', '兴业银行', '中国银行', '交通银行', '现金'],
     _version: 0,
     _lastSeqId: 0,
     stockOrder: []
@@ -500,11 +540,12 @@ function loadData() {
         const raw = localStorage.getItem(STORE_KEY);
         if (raw) { const parsed = JSON.parse(raw); D = { ...D, ...parsed }; }
     } catch (e) { console.warn('Load error', e); }
-    ['cats','names','flow','cust'].forEach(k => { if (!Array.isArray(D[k])) D[k] = []; });
+    ['cats','names','flow','cust','payChannels'].forEach(k => { if (!Array.isArray(D[k])) D[k] = []; });
     if (!D.prices) D.prices = { gold:0, silver:0, plat:0 };
     if (!Array.isArray(D.sources) || D.sources.length===0) D.sources = ['散客','朋友介绍','老客户','抖音','门店','同行','其他'];
     ['散客','朋友介绍','老客户','抖音','门店','同行','其他'].forEach(s => { if (!D.sources.includes(s)) D.sources.push(s); });
     D.sources = [...new Set(D.sources)];
+    if (D.payChannels.length === 0) D.payChannels = ['微信', '支付宝', '工商银行', '建设银行', '农业银行', '农商银行', '招商银行', '浦发银行', '兴业银行', '中国银行', '交通银行', '现金'];
     ['黄金','白银','铂金','银元','手表','K金','其他'].forEach(c => { if (!D.cats.includes(c)) D.cats.push(c); });
     if (typeof D._version !== 'number') D._version = 0;
     if (typeof D._lastSeqId !== 'number') D._lastSeqId = 0;
@@ -525,6 +566,7 @@ function genId() { return Date.now() + Math.floor(Math.random()*10000); }
 function pad(n) { return n<10?'0'+n:''+n; }
 function todayStr() { const d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
 function nowTime() { const d=new Date(); return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); }
+function nowFullStr() { const d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds()); }
 function genNo(prefix, dateStr) {
     const d = dateStr || todayStr();
     const ymd = d.replace(/-/g,'');
@@ -730,7 +772,6 @@ function renderDash() {
     document.getElementById('sMar').textContent = mar.toFixed(2);
 }
 
-// ===== 库存渲染（带拖拽） =====
 function renderStock() {
     const tb = document.getElementById('stockBody');
     const filterCat = document.getElementById('stockFilterCat').value;
@@ -772,7 +813,6 @@ function renderStock() {
     tb.innerHTML = rows + totalRow;
     document.getElementById('stockFilterSummary').textContent = `共 ${filtered.length} 条 | 总克重 ${totalW.toFixed(2)}g | 加权均价 ${avgCost.toFixed(2)}元/g | 总成本 ${totalCost.toFixed(2)}元`;
 
-    // 绑定拖拽事件
     const rowsList = tb.querySelectorAll('tr[data-key]');
     rowsList.forEach(tr => {
         tr.addEventListener('dragstart', handleDragStart);
@@ -782,7 +822,7 @@ function renderStock() {
     });
 }
 
-// ===== 拖拽事件处理 =====
+// ===== 拖拽事件 =====
 let dragSrcIndex = null;
 function handleDragStart(e) {
     const tr = e.target.closest('tr[data-key]');
@@ -826,10 +866,136 @@ function handleDrop(e) {
     document.querySelectorAll('#stockBody tr.drag-over').forEach(el => el.classList.remove('drag-over'));
 }
 
-// ===== 流水渲染 =====
+// ================================================================
+//  支付渠道管理
+// ================================================================
+function getPayChannels() {
+    return D.payChannels || ['微信', '支付宝', '工商银行', '建设银行', '农业银行', '农商银行', '招商银行', '浦发银行', '兴业银行', '中国银行', '交通银行', '现金'];
+}
+function payOpts(selected) {
+    let s = '<option value="">-- 渠道 --</option>';
+    getPayChannels().forEach(c => { s += `<option value="${c}" ${c===selected?'selected':''}>${c}</option>`; });
+    return s;
+}
+function renderPayRows(type) {
+    const box = document.getElementById(type==='in'?'inPayBox':'outPayBox');
+    if (!box) return;
+    if (!box.dataset.inited || box.innerHTML.trim() === '') {
+        box.dataset.inited = '1';
+        box.innerHTML = `<div id="${type}PayList"></div>
+            <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+                <button class="btn btn-gray btn-sm" onclick="addPayRow('${type}')">＋ 添加一笔</button>
+                <span class="pay-channel-manage-btn" onclick="managePayChannels()" title="管理支付渠道">⚙️</span>
+            </div>`;
+    }
+    const list = document.getElementById(type + 'PayList');
+    if (list && list.children.length === 0) addPayRow(type, true);
+    recalcPay(type);
+}
+function addPayRow(type, silent) {
+    const list = document.getElementById(type + 'PayList');
+    if (!list) return;
+    const row = document.createElement('div');
+    row.className = 'pay-grid';
+    row.innerHTML = `<select class="payCh" onchange="recalcPay('${type}')">${payOpts()}</select>
+        <input class="payAmt" type="number" step="0.01" placeholder="金额" oninput="recalcPay('${type}')">
+        <span class="text-danger" style="cursor:pointer;font-size:20px;" onclick="this.parentElement.remove();recalcPay('${type}')">×</span>`;
+    list.appendChild(row);
+    if (!silent) recalcPay(type);
+}
+function fillPayRows(type, detail) {
+    const box = document.getElementById(type==='in'?'inPayBox':'outPayBox');
+    if (!box) return;
+    box.dataset.inited = '1';
+    box.innerHTML = `<div id="${type}PayList"></div>
+        <div style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+            <button class="btn btn-gray btn-sm" onclick="addPayRow('${type}')">＋ 添加一笔</button>
+            <span class="pay-channel-manage-btn" onclick="managePayChannels()" title="管理支付渠道">⚙️</span>
+        </div>`;
+    const list = document.getElementById(type + 'PayList');
+    if (detail && detail.length) {
+        detail.forEach(p => {
+            const row = document.createElement('div');
+            row.className = 'pay-grid';
+            row.innerHTML = `<select class="payCh" onchange="recalcPay('${type}')">${payOpts(p.ch)}</select>
+                <input class="payAmt" type="number" step="0.01" placeholder="金额" value="${p.amt||''}" oninput="recalcPay('${type}')">
+                <span class="text-danger" style="cursor:pointer;font-size:20px;" onclick="this.parentElement.remove();recalcPay('${type}')">×</span>`;
+            list.appendChild(row);
+        });
+    } else {
+        addPayRow(type, true);
+    }
+    recalcPay(type);
+}
+function managePayChannels() {
+    const channels = getPayChannels();
+    let html = `
+        <div style="margin-bottom:12px;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <input id="newChannelInput" type="text" placeholder="输入新渠道名称" style="flex:1; min-width:150px; padding:6px 10px; border:1px solid #d5d0c8; border-radius:4px; font-size:14px;">
+                <button class="btn btn-blue btn-sm" onclick="addPayChannel()">＋ 添加</button>
+            </div>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:4px;">
+            ${channels.map(ch => `<span class="channel-tag">${escHtml(ch)} <span class="del" onclick="removePayChannel('${escAttr(ch)}')">×</span></span>`).join('')}
+        </div>
+        <p class="text-muted mt-8">💡 删除渠道后，已有流水中的付款记录不受影响</p>
+    `;
+    showModal('💰 管理支付渠道', html, [
+        { text: '关闭', class: 'btn-gray', action: closeModal }
+    ]);
+}
+function addPayChannel() {
+    const input = document.getElementById('newChannelInput');
+    if (!input) return;
+    const val = input.value.trim();
+    if (!val) { playBeep(false); showAlertModal('提示', '请输入渠道名称'); return; }
+    if (D.payChannels.includes(val)) { playBeep(false); showAlertModal('提示', '该渠道已存在'); return; }
+    D.payChannels.push(val);
+    saveData();
+    document.querySelectorAll('.payCh').forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = payOpts();
+        if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+    });
+    managePayChannels();
+    playBeep(true);
+    showAlertModal('✅', '渠道已添加');
+}
+function removePayChannel(ch) {
+    if (D.payChannels.length <= 1) {
+        playBeep(false);
+        showAlertModal('提示', '至少保留一个渠道');
+        return;
+    }
+    showConfirmModal('确认删除', `确定要删除渠道 <b>${escHtml(ch)}</b> 吗？<br><span class="text-muted">已有流水中的付款记录不受影响</span>`, '确定删除', '取消')
+        .then(ok => {
+            if (!ok) return;
+            D.payChannels = D.payChannels.filter(c => c !== ch);
+            saveData();
+            document.querySelectorAll('.payCh').forEach(sel => {
+                const cur = sel.value;
+                sel.innerHTML = payOpts();
+                if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+            });
+            managePayChannels();
+            playBeep(false);
+            showAlertModal('提示', '渠道已删除');
+        });
+}
+
+// ================================================================
+//  ★★★ 全局搜索（综合筛选）★★★
+// ================================================================
 function renderFlow() {
     const tb = document.getElementById('flowBody');
-    let arr = D.flow.slice().reverse();
+    let arr = D.flow.slice();
+
+    arr.sort((a, b) => {
+        if (a.time !== b.time) return b.time.localeCompare(a.time);
+        return b.id - a.id;
+    });
+
     if (flowFilter !== 'all') arr = arr.filter(f => f.t === flowFilter);
     const dtFrom = document.getElementById('flowDtFrom').value;
     const dtTo = document.getElementById('flowDtTo').value;
@@ -839,44 +1005,98 @@ function renderFlow() {
     const filterName = document.getElementById('flowFilterName').value;
     if (filterCat) arr = arr.filter(f => f.cat === filterCat);
     if (filterName) arr = arr.filter(f => f.name === filterName);
+
+    // ★★★ 全局搜索（多字段匹配）★★★
+    const keyword = document.getElementById('globalSearchInput').value.trim();
+    if (keyword) {
+        const lowerKW = keyword.toLowerCase();
+        arr = arr.filter(f => {
+            const fields = [
+                f.no, f.cat, f.name, f.cus, f.buyer, f.tel,
+                f.note, f.src, f.idNo
+            ];
+            return fields.some(field => field && field.toString().toLowerCase().includes(lowerKW));
+        });
+    }
+
     if (flowCustomerFilter) {
-        const keyword = flowCustomerFilter.trim();
+        const kw = flowCustomerFilter.trim();
         if (flowCustomerFilterField === 'tel') {
-            arr = arr.filter(f => f.tel && f.tel.includes(keyword));
+            arr = arr.filter(f => f.tel && f.tel.includes(kw));
         } else {
-            arr = arr.filter(f => (f.cus && f.cus.includes(keyword)) || (f.buyer && f.buyer.includes(keyword)));
+            arr = arr.filter(f => (f.cus && f.cus.includes(kw)) || (f.buyer && f.buyer.includes(kw)));
         }
     }
-    const noteKeyword = document.getElementById('flowFilterNote').value.trim();
-    if (noteKeyword) arr = arr.filter(f => f.note && f.note.toLowerCase().includes(noteKeyword.toLowerCase()));
     currentFlowArr = arr;
+
+    // 计算库存变化
+    const stockState = {};
+    const flowWithStock = [];
+    const sortedAsc = arr.slice().sort((a, b) => {
+        if (a.time !== b.time) return a.time.localeCompare(b.time);
+        return a.id - b.id;
+    });
+    sortedAsc.forEach(f => {
+        const key = f.cat + '|' + f.name;
+        const before = stockState[key] || 0;
+        let after = before;
+        if (f.t === 'in') after = before + f.w;
+        else if (f.t === 'out') after = Math.max(0, before - f.w);
+        stockState[key] = after;
+        flowWithStock.push({ flow: f, beforeStock: before, afterStock: after });
+    });
+    const stockMap = {};
+    flowWithStock.forEach(item => { stockMap[item.flow.id] = item; });
+
     if (!arr.length) {
-        tb.innerHTML = '<tr><td colspan="16" style="text-align:center;color:#999;">暂无数据</td></tr>';
+        tb.innerHTML = '<tr><td colspan="17" style="text-align:center;color:#999;">暂无数据</td></tr>';
         let summary = '共 0 条';
+        if (keyword) summary += ` | 🔍 搜索: "${escHtml(keyword)}"`;
         if (flowCustomerFilter) summary += ` | 客户筛选(${flowCustomerFilterField==='tel'?'电话':'姓名'}): ${escHtml(flowCustomerFilter)}`;
-        if (noteKeyword) summary += ` | 备注筛选: ${escHtml(noteKeyword)}`;
         document.getElementById('flowFilterSummary').textContent = summary;
         return;
     }
+
     let totalInW=0,totalOutW=0,totalInAmount=0,totalOutSale=0,totalMargin=0,totalPaid=0,totalRemain=0;
     let rows='';
-    arr.forEach(f => {
+    arr.forEach((f, index) => {
+        const seq = index + 1;
+        const stockInfo = stockMap[f.id];
+        const before = stockInfo ? stockInfo.beforeStock : 0;
+        const after = stockInfo ? stockInfo.afterStock : 0;
+        const delta = after - before;
+        const deltaStr = delta >= 0 ? '+' + delta.toFixed(2) : delta.toFixed(2);
+        const deltaClass = delta >= 0 ? 'positive' : 'negative';
+        const stockDisplay = `<span class="flow-stock-change">
+            <span class="from">${before.toFixed(2)}g</span>
+            <span class="arrow"> → </span>
+            <span class="to">${after.toFixed(2)}g</span>
+            <span class="delta ${deltaClass}">(${deltaStr}g)</span>
+        </span>`;
+
         const payTxt = f.payDetail ? f.payDetail.map(p => p.ch + ' ¥' + (p.amt||0).toFixed(2)).join('<br>') : '-';
         const remain = Math.abs(f.payRemain||0) > 0.01 ? (f.t==='in'?(f.payRemain>0?'未付':'多付'):(f.payRemain>0?'欠付':'多付')) + ' ' + Math.abs(f.payRemain).toFixed(2) : '-';
         const cus = escHtml(f.cus || f.buyer || '');
         const tel = escHtml(f.tel || '');
-        let weightDisplay='', amountDisplay='';
+        const createdAt = f.time || f.createdAt || f.time;
+        const lastMod = f.lastModified || f.time;
+
+        let weightDisplay='', amountDisplay='', unitPriceDisplay='';
         if (f.t === 'in') {
+            const unitPrice = f.w > 0 ? (f.total / f.w) : 0;
             weightDisplay = `<span class="weight-positive">+${f.w.toFixed(2)}</span>`;
             amountDisplay = `<span class="amount-negative">-${f.total.toFixed(2)}</span>`;
+            unitPriceDisplay = unitPrice.toFixed(2);
             if (f.fee) amountDisplay += `<br><span class="margin-text">工艺费 ${f.fee.toFixed(2)}</span>`;
             totalInW += f.w;
             totalInAmount += f.total || 0;
             totalPaid += f.payPaid || 0;
             totalRemain += f.payRemain || 0;
         } else {
+            const unitPrice = f.w > 0 ? (f.sale / f.w) : 0;
             weightDisplay = `<span class="weight-negative">-${f.w.toFixed(2)}</span>`;
             amountDisplay = `<span class="amount-positive">+${f.sale.toFixed(2)}</span>`;
+            unitPriceDisplay = unitPrice.toFixed(2);
             if (f.margin !== undefined && f.margin !== null && Math.abs(f.margin) > 0.01) amountDisplay += `<br><span class="margin-text">利 ${f.margin.toFixed(2)}</span>`;
             totalOutW += f.w;
             totalOutSale += f.sale || 0;
@@ -884,15 +1104,17 @@ function renderFlow() {
             totalPaid += f.payPaid || 0;
             totalRemain += f.payRemain || 0;
         }
+
         rows += `<tr class="flow-row" onclick="editFlow(${f.id})">
-            <td style="white-space:nowrap;">${f.time.replace('T',' ').slice(0,16)}</td>
+            <td class="seq-num">${seq}</td>
+            <td style="white-space:nowrap;font-size:12px;">${createdAt.replace('T',' ').slice(0,16)}</td>
+            <td style="white-space:nowrap;font-size:12px;" class="last-modified">${lastMod.replace('T',' ').slice(0,16)}</td>
             <td><b>${escHtml(f.no)}</b></td>
-            <td>${f.t==='in'?'⬆入库':'⬇出库'}</td>
+            <td>${f.t==='in'?'<span style="color:#1e7e34;">⬆入库</span>':'<span style="color:#b33c2f;">⬇出库</span>'}</td>
             <td>${escHtml(f.cat)}</td>
             <td>${escHtml(f.name)}</td>
-            <td>${weightDisplay}</td>
-            <td>${f.q||1}</td>
-            <td>${f.t==='in'?((f.costUnit||f.total/f.w).toFixed(2)):(f.w>0?(f.sale/f.w).toFixed(2):'-')}</td>
+            <td>${stockDisplay}</td>
+            <td>${unitPriceDisplay}</td>
             <td>${amountDisplay}</td>
             <td><a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(cus)}','name'); return false;" style="color:#0066cc;text-decoration:underline;">${cus}</a></td>
             <td>${tel ? `<a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(tel)}','tel'); return false;" style="color:#0066cc;text-decoration:underline;">${tel}</a>` : '-'}</td>
@@ -906,15 +1128,15 @@ function renderFlow() {
             </td>
         </tr>`;
     });
+
     const net = totalOutSale - totalInAmount;
     const remainW = totalInW - totalOutW;
     const avgCost = totalInW > 0.001 ? totalInAmount/totalInW : 0;
     const totalRow = `<tr class="total-row">
-        <td colspan="5" style="text-align:right;">📊 合计</td>
+        <td colspan="7" style="text-align:right;">📊 合计</td>
         <td style="font-weight:bold;color:${remainW>=0?'#1e7e34':'#b33c2f'};">
             +${totalInW.toFixed(2)} / -${totalOutW.toFixed(2)}<br><span class="margin-text">剩余 ${remainW.toFixed(2)} g</span>
         </td>
-        <td>—</td>
         <td style="font-weight:bold;color:#8b4513;">${avgCost > 0 ? avgCost.toFixed(2) : '-'}</td>
         <td style="font-weight:bold;color:${net>=0?'#1e7e34':'#b33c2f'};">
             ${net>=0?'+':''}${net.toFixed(2)} 元<br><span class="margin-text">入库 ${totalInAmount.toFixed(2)} | 出库 ${totalOutSale.toFixed(2)} | 毛利 ${totalMargin.toFixed(2)}</span>
@@ -922,14 +1144,16 @@ function renderFlow() {
         <td colspan="2">—</td><td>—</td>
         <td style="color:#1e7e34;font-weight:700;">${totalPaid.toFixed(2)}</td>
         <td style="color:#b33c2f;font-weight:700;font-size:14px;">💰 ${totalRemain.toFixed(2)}</td>
-        <td colspan="2"></td>
+        <td colspan="3"></td>
     </tr>`;
     tb.innerHTML = rows + totalRow;
+
     let summary = `共 ${arr.length} 条 | 入库 ${totalInW.toFixed(2)}g / ${totalInAmount.toFixed(2)}元 | 出库 ${totalOutW.toFixed(2)}g / ${totalOutSale.toFixed(2)}元 | 剩余 ${remainW.toFixed(2)}g | 净额 ${net.toFixed(2)}元`;
+    if (keyword) summary += ` | 🔍 搜索: "${escHtml(keyword)}"`;
     if (flowCustomerFilter) summary += ` | 客户筛选(${flowCustomerFilterField==='tel'?'电话':'姓名'}): ${escHtml(flowCustomerFilter)}`;
-    if (noteKeyword) summary += ` | 备注筛选: ${escHtml(noteKeyword)}`;
     document.getElementById('flowFilterSummary').textContent = summary;
 }
+
 function filterByCustomer(keyword, field) {
     if (!keyword) return;
     flowCustomerFilter = keyword;
@@ -1389,37 +1613,6 @@ function outSel() {
     if (availQEl) availQEl.value = opt && opt.dataset.q ? opt.dataset.q : '';
 }
 
-const PAY_CHANNELS = ['微信','支付宝','工商银行','建设银行','农业银行','农商银行','招商银行','浦发银行','兴业银行','中国银行','交通银行','现金'];
-function payOpts(selected) {
-    let s = '<option value="">-- 渠道 --</option>';
-    PAY_CHANNELS.forEach(c => { s += `<option value="${c}" ${c===selected?'selected':''}>${c}</option>`; });
-    return s;
-}
-function renderPayRows(type) {
-    const box = document.getElementById(type==='in'?'inPayBox':'outPayBox');
-    if (!box) return;
-    if (!box.dataset.inited || box.innerHTML.trim() === '') {
-        box.dataset.inited = '1';
-        box.innerHTML = `<div id="${type}PayList"></div><button class="btn btn-gray btn-sm" onclick="addPayRow('${type}')">＋ 添加一笔</button>`;
-    }
-    const list = document.getElementById(type + 'PayList');
-    if (list && list.children.length === 0) addPayRow(type, true);
-    recalcPay(type);
-}
-function addPayRow(type, silent) {
-    const list = document.getElementById(type + 'PayList');
-    if (!list) return;
-    const row = document.createElement('div');
-    row.className = 'pay-grid';
-    row.innerHTML = `<select class="payCh" onchange="recalcPay('${type}')">${payOpts()}</select><input class="payAmt" type="number" step="0.01" placeholder="金额" oninput="recalcPay('${type}')"><span class="text-danger" style="cursor:pointer;font-size:20px;" onclick="this.parentElement.remove();recalcPay('${type}')">×</span>`;
-    list.appendChild(row);
-    if (!silent) recalcPay(type);
-}
-function calcOutTotal() {
-    const w = parseFloat(document.getElementById('outW').value) || 0;
-    const p = parseFloat(document.getElementById('outP').value) || 0;
-    document.getElementById('outTotal').value = (w>0 && p>0) ? (w*p).toFixed(2) : '';
-}
 function recalcPay(type) {
     const list = document.getElementById(type + 'PayList');
     if (!list) return;
@@ -1449,23 +1642,10 @@ function getPayDetail(type) {
     const paid = rows.reduce((s,r) => s + r.amt, 0);
     return { detail: rows, paid };
 }
-function fillPayRows(type, detail) {
-    const box = document.getElementById(type==='in'?'inPayBox':'outPayBox');
-    if (!box) return;
-    box.dataset.inited = '1';
-    box.innerHTML = `<div id="${type}PayList"></div><button class="btn btn-gray btn-sm" onclick="addPayRow('${type}')">＋ 添加一笔</button>`;
-    const list = document.getElementById(type + 'PayList');
-    if (detail && detail.length) {
-        detail.forEach(p => {
-            const row = document.createElement('div');
-            row.className = 'pay-grid';
-            row.innerHTML = `<select class="payCh" onchange="recalcPay('${type}')">${payOpts(p.ch)}</select><input class="payAmt" type="number" step="0.01" placeholder="金额" value="${p.amt||''}" oninput="recalcPay('${type}')"><span class="text-danger" style="cursor:pointer;font-size:20px;" onclick="this.parentElement.remove();recalcPay('${type}')">×</span>`;
-            list.appendChild(row);
-        });
-    } else {
-        addPayRow(type, true);
-    }
-    recalcPay(type);
+function calcOutTotal() {
+    const w = parseFloat(document.getElementById('outW').value) || 0;
+    const p = parseFloat(document.getElementById('outP').value) || 0;
+    document.getElementById('outTotal').value = (w>0 && p>0) ? (w*p).toFixed(2) : '';
 }
 
 function playBeep(success) {
@@ -1497,7 +1677,7 @@ function upsertCust(name, tel, idNo) {
 }
 
 // ================================================================
-//  入库/出库操作（完整）
+//  入库/出库操作（含创建/修改时间分离）
 // ================================================================
 async function doIn() {
     try {
@@ -1508,37 +1688,57 @@ async function doIn() {
         const q = qEl ? parseInt(qEl.value) || 1 : 1;
         const total = parseFloat(document.getElementById('inTotal').value) || 0;
         if (!name || w<=0 || total<=0) { playBeep(false); await showAlertModal('提示', '品名、克重、总金额必填'); return; }
+        const now = nowFullStr();
+        let flow;
         if (editingId) {
             const old = D.flow.find(f => f.id === editingId);
-            if (old && old.t === 'in') { D.flow = D.flow.filter(f => f.id !== editingId); }
+            if (!old || old.t !== 'in') { await showAlertModal('错误', '要修改的单据不存在或类型不匹配'); return; }
+            const dateVal = document.getElementById('inDate').value || todayStr();
+            const costUnit = total / w;
+            const payDet = getPayDetail('in');
+            const paidSum = payDet.paid;
+            const cus = document.getElementById('inCus').value.trim();
+            const tel = document.getElementById('inTel').value.trim();
+            const idNo = document.getElementById('inId').value.trim();
+            const feeEl = document.getElementById('inFee');
+            const fee = feeEl ? parseFloat(feeEl.value) || 0 : 0;
+            const note = document.getElementById('inNote').value.trim();
+            const src = document.getElementById('inSrc').value;
+            flow = {
+                id: old.id, no: old.no, t: 'in', cat, name,
+                w: w*q, q:q, total, fee, costUnit,
+                cus, tel, idNo, src, note,
+                payDetail: payDet.detail, payPaid: paidSum, payRemain: total - paidSum,
+                time: old.time, lastModified: now
+            };
+            D.flow = D.flow.filter(f => f.id !== editingId);
             editingId = null; editingBackup = null;
+        } else {
+            const dateVal = document.getElementById('inDate').value || todayStr();
+            const no = genNo('RK', dateVal);
+            const costUnit = total / w;
+            const payDet = getPayDetail('in');
+            const paidSum = payDet.paid;
+            const cus = document.getElementById('inCus').value.trim();
+            const tel = document.getElementById('inTel').value.trim();
+            const idNo = document.getElementById('inId').value.trim();
+            const feeEl = document.getElementById('inFee');
+            const fee = feeEl ? parseFloat(feeEl.value) || 0 : 0;
+            const note = document.getElementById('inNote').value.trim();
+            const src = document.getElementById('inSrc').value;
+            if (!D.names.some(n => n.cat===cat && n.name===name)) { D.names.push({ cat, name }); }
+            if (cus) upsertCust(cus, tel, idNo);
+            flow = {
+                id: genId(), no, t:'in', cat, name,
+                w: w*q, q:q, total, fee, costUnit,
+                cus, tel, idNo, src, note,
+                payDetail: payDet.detail, payPaid: paidSum, payRemain: total - paidSum,
+                time: dateVal + 'T' + nowTime(), lastModified: now
+            };
         }
-        const dateVal = document.getElementById('inDate').value || todayStr();
-        const no = genNo('RK', dateVal);
-        const costUnit = total / w;
-        const payDet = getPayDetail('in');
-        const paidSum = payDet.paid;
-        const cus = document.getElementById('inCus').value.trim();
-        const tel = document.getElementById('inTel').value.trim();
-        const idNo = document.getElementById('inId').value.trim();
-        const feeEl = document.getElementById('inFee');
-        const fee = feeEl ? parseFloat(feeEl.value) || 0 : 0;
-        const note = document.getElementById('inNote').value.trim();
-        const src = document.getElementById('inSrc').value;
-        if (!D.names.some(n => n.cat===cat && n.name===name)) { D.names.push({ cat, name }); }
-        if (cus) upsertCust(cus, tel, idNo);
-        const flow = {
-            id: genId(), no, t:'in', cat, name,
-            w: w*q, q:q, total, fee, costUnit,
-            cus, tel, idNo, src, note,
-            payDetail: payDet.detail,
-            payPaid: paidSum,
-            payRemain: total - paidSum,
-            time: dateVal + 'T' + nowTime()
-        };
         D.flow.push(flow);
         refreshAll();
-        document.getElementById('inMsg').innerHTML = `<span class="text-success">✅ 入库成功！单号 ${no}</span>`;
+        document.getElementById('inMsg').innerHTML = `<span class="text-success">✅ 入库成功！单号 ${flow.no}</span>`;
         ['inName','inW','inQ','inTotal','inFee','inCus','inTel','inId','inNote'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = (id==='inQ'?'1':'');
@@ -1568,40 +1768,67 @@ async function doOut() {
         const oq = oqEl ? parseInt(oqEl.value) || 1 : 1;
         const p = parseFloat(document.getElementById('outP').value) || 0;
         if (!name || ow<=0 || p<=0) { playBeep(false); await showAlertModal('提示', '请选品名、填克重和单价'); return; }
+        const now = nowFullStr();
+        let flow;
         if (editingId) {
             const old = D.flow.find(f => f.id === editingId);
-            if (old && old.t === 'out') { D.flow = D.flow.filter(f => f.id !== editingId); }
+            if (!old || old.t !== 'out') { await showAlertModal('错误', '要修改的单据不存在或类型不匹配'); return; }
+            const dateVal = document.getElementById('outDate').value || todayStr();
+            const sale = ow * p;
+            const payDet = getPayDetail('out');
+            const paidSum = payDet.paid;
+            const buyer = document.getElementById('outBuyer').value.trim();
+            const tel = document.getElementById('outTel').value.trim();
+            const note = document.getElementById('outNote').value.trim();
+            if (buyer) upsertCust(buyer, tel, '');
+            D.flow = D.flow.filter(f => f.id !== editingId);
+            rebuildStock();
+            const stockItem = D.stock.find(s => s.cat===cat && s.name===name);
+            if (!stockItem || stockItem.w < ow - 0.001) {
+                D.flow.push(editingBackup);
+                refreshAll();
+                playBeep(false);
+                await showAlertModal('库存不足', '当前可用：' + (stockItem ? stockItem.w.toFixed(2) : '0') + 'g');
+                return;
+            }
+            flow = {
+                id: old.id, no: old.no, t: 'out', cat, name,
+                w: ow, q: oq, sale,
+                buyer, tel, note,
+                payDetail: payDet.detail, payPaid: paidSum, payRemain: sale - paidSum,
+                time: old.time, lastModified: now,
+                cost: 0, margin: 0
+            };
             editingId = null; editingBackup = null;
+        } else {
+            rebuildStock();
+            const stockItem = D.stock.find(s => s.cat===cat && s.name===name);
+            if (!stockItem || stockItem.w < ow - 0.001) {
+                playBeep(false);
+                await showAlertModal('库存不足', '当前可用：' + (stockItem ? stockItem.w.toFixed(2) : '0') + 'g');
+                return;
+            }
+            const dateVal = document.getElementById('outDate').value || todayStr();
+            const no = genNo('CK', dateVal);
+            const sale = ow * p;
+            const payDet = getPayDetail('out');
+            const paidSum = payDet.paid;
+            const buyer = document.getElementById('outBuyer').value.trim();
+            const tel = document.getElementById('outTel').value.trim();
+            const note = document.getElementById('outNote').value.trim();
+            if (buyer) upsertCust(buyer, tel, '');
+            flow = {
+                id: genId(), no, t:'out', cat, name,
+                w: ow, q: oq, sale,
+                buyer, tel, note,
+                payDetail: payDet.detail, payPaid: paidSum, payRemain: sale - paidSum,
+                time: dateVal + 'T' + nowTime(), lastModified: now,
+                cost: 0, margin: 0
+            };
         }
-        rebuildStock();
-        const stockItem = D.stock.find(s => s.cat===cat && s.name===name);
-        if (!stockItem || stockItem.w < ow - 0.001) {
-            playBeep(false);
-            await showAlertModal('库存不足', '当前可用：' + (stockItem ? stockItem.w.toFixed(2) : '0') + 'g');
-            return;
-        }
-        const dateVal = document.getElementById('outDate').value || todayStr();
-        const no = genNo('CK', dateVal);
-        const sale = ow * p;
-        const payDet = getPayDetail('out');
-        const paidSum = payDet.paid;
-        const buyer = document.getElementById('outBuyer').value.trim();
-        const tel = document.getElementById('outTel').value.trim();
-        const note = document.getElementById('outNote').value.trim();
-        if (buyer) upsertCust(buyer, tel, '');
-        const flow = {
-            id: genId(), no, t:'out', cat, name,
-            w: ow, q: oq, sale,
-            buyer, tel, note,
-            payDetail: payDet.detail,
-            payPaid: paidSum,
-            payRemain: sale - paidSum,
-            time: dateVal + 'T' + nowTime(),
-            cost: 0, margin: 0
-        };
         D.flow.push(flow);
         refreshAll();
-        document.getElementById('outMsg').innerHTML = `<span class="text-success">✅ 出库成功！单号 ${no}</span>`;
+        document.getElementById('outMsg').innerHTML = `<span class="text-success">✅ 出库成功！单号 ${flow.no}</span>`;
         ['outW','outQ','outP','outBuyer','outTel','outNote','outAvail','outAvailQ','outTotal'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = (id==='outQ'?'1':'');
@@ -1825,8 +2052,10 @@ async function pullFullState() {
             D.names = remote.names || [];
             D.cats = [...new Set([...oldCats, ...(remote.cats || [])])];
             D.sources = [...new Set([...oldSources, ...(remote.sources || [])])];
+            D.payChannels = remote.payChannels || ['微信', '支付宝', '工商银行', '建设银行', '农业银行', '农商银行', '招商银行', '浦发银行', '兴业银行', '中国银行', '交通银行', '现金'];
             D._version = remote._version || 0;
             if (remote._lastSeqId) D._lastSeqId = remote._lastSeqId;
+            if (remote.stockOrder) D.stockOrder = remote.stockOrder;
             saveData();
             refreshAll();
             logSync('✅ 全量数据已加载 (版本 ' + D._version + ')', 'ok');
@@ -1875,13 +2104,13 @@ function printStock() {
 }
 function printFlow() {
     const tb = document.getElementById('flowBody');
-    const html = `<h2>交易流水表</h2><table><thead><tr><th>时间</th><th>单号</th><th>类型</th><th>品类</th><th>品名</th><th>克重</th><th>件数</th><th>单价</th><th>金额</th><th>客户</th><th>电话</th><th>付款</th><th>实付</th><th>欠款</th><th>备注</th></tr></thead><tbody>${tb.innerHTML}</tbody></table>`;
+    const html = `<h2>交易流水表</h2><table><thead><tr><th>#</th><th>创建时间</th><th>最后修改</th><th>单号</th><th>类型</th><th>品类</th><th>品名</th><th>库存变化</th><th>单价</th><th>金额</th><th>客户</th><th>电话</th><th>付款</th><th>实付</th><th>欠款</th><th>备注</th></tr></thead><tbody>${tb.innerHTML}</tbody></table>`;
     printArea(html);
 }
 function printArea(html) {
     const win = window.open('', '_blank');
     if (!win) return alert('请允许弹出窗口');
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>打印</title><style>body{font-family:Arial;padding:20px;}table{width:100%;border-collapse:collapse;font-size:13px;}th,td{border:1px solid #999;padding:6px;text-align:left;}h2{margin:0 0 10px;}@page{size:A4;margin:12mm;}</style></head><body>${html}<script>window.onload=function(){window.print();setTimeout(function(){window.close()},500);}<\/script></body></html>`);
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>打印</title><style>body{font-family:Arial;padding:20px;}table{width:100%;border-collapse:collapse;font-size:12px;}th,td{border:1px solid #999;padding:4px 6px;text-align:left;}h2{margin:0 0 10px;}@page{size:A4;margin:10mm;}</style></head><body>${html}<script>window.onload=function(){window.print();setTimeout(function(){window.close()},500);}<\/script></body></html>`);
     win.document.close();
 }
 
@@ -1897,11 +2126,24 @@ async function exportXlsx() {
         const unitPrice = f.w > 0 ? (f.total / f.w) : 0;
         const payDetailStr = f.payDetail && f.payDetail.length > 0 ? f.payDetail.map(p => p.ch + '¥' + (p.amt||0).toFixed(2)).join(', ') : '';
         return {
-            '单号': f.no, '时间': f.time.replace('T',' '), '品类': f.cat, '品名': f.name,
-            '克重': f.w, '件数': f.q||1, '单价': unitPrice.toFixed(2), '金额(元)': -f.total,
-            '客户': f.cus||'', '电话': f.tel||'', '身份证': f.idNo||'',
-            '付款明细': payDetailStr, '实付': (f.payPaid||0).toFixed(2),
-            '欠款': (f.payRemain||0).toFixed(2), '备注': f.note||''
+            '序号': arr.indexOf(f) + 1,
+            '创建时间': f.time.replace('T',' '),
+            '最后修改': (f.lastModified || f.time).replace('T',' '),
+            '单号': f.no,
+            '类型': '入库',
+            '品类': f.cat,
+            '品名': f.name,
+            '克重': f.w,
+            '件数': f.q||1,
+            '单价': unitPrice.toFixed(2),
+            '金额(元)': -f.total,
+            '客户': f.cus||'',
+            '电话': f.tel||'',
+            '身份证': f.idNo||'',
+            '付款明细': payDetailStr,
+            '实付': (f.payPaid||0).toFixed(2),
+            '欠款': (f.payRemain||0).toFixed(2),
+            '备注': f.note||''
         };
     });
     if (inData.length) {
@@ -1910,8 +2152,8 @@ async function exportXlsx() {
         let inPaid = inData.reduce((s,r) => s + parseFloat(r['实付']), 0);
         let inRemain = inData.reduce((s,r) => s + parseFloat(r['欠款']), 0);
         inData.push({
-            '单号':'', '时间':'', '品类':'', '品名':'', '克重': inW,
-            '件数':'', '单价':'', '金额(元)': inTotal,
+            '序号':'', '创建时间':'', '最后修改':'', '单号':'', '类型':'', '品类':'', '品名':'',
+            '克重': inW, '件数':'', '单价':'', '金额(元)': inTotal,
             '客户':'合计', '电话':'', '身份证':'',
             '付款明细':'', '实付': inPaid.toFixed(2),
             '欠款': inRemain.toFixed(2), '备注':''
@@ -1923,11 +2165,25 @@ async function exportXlsx() {
         const unitPrice = f.w > 0 ? (f.sale / f.w) : 0;
         const payDetailStr = f.payDetail && f.payDetail.length > 0 ? f.payDetail.map(p => p.ch + '¥' + (p.amt||0).toFixed(2)).join(', ') : '';
         return {
-            '单号': f.no, '时间': f.time.replace('T',' '), '品类': f.cat, '品名': f.name,
-            '克重': -f.w, '件数': f.q||1, '单价': unitPrice.toFixed(2), '金额(元)': f.sale,
-            '毛利': f.margin||0, '买家': f.buyer||'', '电话': f.tel||'', '身份证': f.idNo||'',
-            '付款明细': payDetailStr, '实收': (f.payPaid||0).toFixed(2),
-            '欠款': (f.payRemain||0).toFixed(2), '备注': f.note||''
+            '序号': arr.indexOf(f) + 1,
+            '创建时间': f.time.replace('T',' '),
+            '最后修改': (f.lastModified || f.time).replace('T',' '),
+            '单号': f.no,
+            '类型': '出库',
+            '品类': f.cat,
+            '品名': f.name,
+            '克重': -f.w,
+            '件数': f.q||1,
+            '单价': unitPrice.toFixed(2),
+            '金额(元)': f.sale,
+            '毛利': f.margin||0,
+            '买家': f.buyer||'',
+            '电话': f.tel||'',
+            '身份证': f.idNo||'',
+            '付款明细': payDetailStr,
+            '实收': (f.payPaid||0).toFixed(2),
+            '欠款': (f.payRemain||0).toFixed(2),
+            '备注': f.note||''
         };
     });
     if (outData.length) {
@@ -1937,8 +2193,8 @@ async function exportXlsx() {
         let outPaid = outData.reduce((s,r) => s + parseFloat(r['实收']), 0);
         let outRemain = outData.reduce((s,r) => s + parseFloat(r['欠款']), 0);
         outData.push({
-            '单号':'', '时间':'', '品类':'', '品名':'', '克重': outW,
-            '件数':'', '单价':'', '金额(元)': outTotal,
+            '序号':'', '创建时间':'', '最后修改':'', '单号':'', '类型':'', '品类':'', '品名':'',
+            '克重': outW, '件数':'', '单价':'', '金额(元)': outTotal,
             '毛利': outMargin, '买家':'合计', '电话':'', '身份证':'',
             '付款明细':'', '实收': outPaid.toFixed(2),
             '欠款': outRemain.toFixed(2), '备注':''
@@ -1983,6 +2239,7 @@ async function importXlsx(event) {
         try {
             const wb = XLSX.read(e.target.result, { type:'array' });
             let added = 0;
+            const now = nowFullStr();
             wb.SheetNames.forEach(sn => {
                 if (sn !== '入库' && sn !== '出库') return;
                 const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn]);
@@ -1999,6 +2256,7 @@ async function importXlsx(event) {
                             w: Math.abs(parseFloat(row['克重']) || 0),
                             q: parseInt(row['件数']) || 1,
                             time: (row['时间'] || todayStr() + 'T00:00:00').replace(' ', 'T'),
+                            lastModified: row['最后修改'] ? row['最后修改'].replace(' ', 'T') : now,
                             note: row['备注'] || ''
                         };
                         if (t === 'in') {
@@ -2101,7 +2359,7 @@ async function restoreBak(event) {
     reader.onload = async function(e) {
         try {
             const data = JSON.parse(e.target.result);
-            ['cats','names','flow','cust','prices','sources'].forEach(k => { if (data[k] !== undefined) D[k] = data[k]; });
+            ['cats','names','flow','cust','prices','sources','payChannels','stockOrder'].forEach(k => { if (data[k] !== undefined) D[k] = data[k]; });
             if (data._version) D._version = data._version;
             if (data._lastSeqId) D._lastSeqId = data._lastSeqId;
             if (data.stock) D.stock = data.stock;
@@ -2113,11 +2371,16 @@ async function restoreBak(event) {
     event.target.value = '';
 }
 function downCSV() {
-    let csv = '时间,类型,品类,品名,克重,金额,客户\n';
-    D.flow.forEach(f => {
+    let csv = '序号,创建时间,最后修改,单号,类型,品类,品名,克重,金额,客户\n';
+    const sorted = D.flow.slice().sort((a,b) => {
+        if (a.time !== b.time) return b.time.localeCompare(a.time);
+        return b.id - a.id;
+    });
+    sorted.forEach((f, idx) => {
         let amt = f.t==='in' ? -f.total : f.sale;
         let w = f.t==='in' ? f.w : -f.w;
-        csv += `${f.time},${f.t==='in'?'入库':'出库'},${f.cat},${f.name},${w},${amt},${f.cus||f.buyer||''}\n`;
+        let lastMod = f.lastModified || f.time;
+        csv += `${idx+1},${f.time.replace('T',' ')},${lastMod.replace('T',' ')},${f.no},${f.t==='in'?'入库':'出库'},${f.cat},${f.name},${w},${amt},${f.cus||f.buyer||''}\n`;
     });
     const blob = new Blob(['\uFEFF' + csv], { type:'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
@@ -2238,10 +2501,7 @@ async function switchTab(name) {
     const btn = document.querySelector(`nav button[data-tab="${name}"]`);
     if (btn) btn.classList.add('active');
     if (name === 'dash') renderDash();
-    else if (name === 'stock') {
-        rebuildStock();
-        renderStock();
-    }
+    else if (name === 'stock') { rebuildStock(); renderStock(); }
     else if (name === 'flow') renderFlow();
     else if (name === 'report') { renderReportOut(); renderReportIn(); }
     else if (name === 'cat') renderCats();
@@ -2307,7 +2567,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (sb) {
         document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-        logSync('🚀 系统已启动，Supabase 已就绪 (库存即时刷新 + 拖拽排序)', 'info');
+        logSync('🚀 系统已启动 (完整版 - 全局搜索修正)', 'info');
         pullFullState().then(() => {
             updateSyncStatus('ok');
             logSync('✅ 数据已同步', 'ok');
@@ -2320,7 +2580,7 @@ document.addEventListener('DOMContentLoaded', function() {
         logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
         updateSyncStatus('fail');
     }
-    console.log('✅ 前途珠宝专用 ERP系统 已启动 (库存即时刷新 + 拖拽排序)');
+    console.log('✅ 系统已启动 (完整版)');
 });
 </script>
 </body>
