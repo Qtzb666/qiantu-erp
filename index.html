@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
     </script>
     <style>
-        /* ===== 完整样式 ===== */
+        /* ===== 完整样式（与您原版完全一致） ===== */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -1188,7 +1188,7 @@
 
     <script>
         // ================================================================
-        // 完整 JavaScript - 已修复所有打印问题
+        // 完整 JavaScript - 已添加「切换页面自动刷新」功能
         // ================================================================
         const SUPABASE_URL = 'https://jbxfpjfwqiaijryyjnsg.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_WhI6ZD_WvGFmOXhlSUAXCw_r4VvI3Gr';
@@ -3162,7 +3162,6 @@
             }, 150);
         }
 
-        // ★★★ 修复：出库打印品名多级获取 ★★★
         function printOut() {
             switchTab('out');
             setTimeout(() => {
@@ -3259,7 +3258,6 @@
             }, 150);
         }
 
-        // 打印库存、流水、报表（只打印当前tab）
         function printStock() { switchTab('stock');
             setTimeout(() => { window.print(); }, 150); }
 
@@ -3745,8 +3743,9 @@
         document.addEventListener('visibilitychange', () => {});
         async function testConn() {}
 
-        // ===== Tab切换 =====
+        // ★★★★★ ===== Tab切换（已加入自动刷新） ===== ★★★★★
         async function switchTab(name) {
+            // 处理编辑状态：如果正在编辑且要切换的 tab 不同，提示用户
             if (editingId) {
                 const isInEditing = document.getElementById('in').classList.contains('active');
                 const isOutEditing = document.getElementById('out').classList.contains('active');
@@ -3756,23 +3755,37 @@
                     clearEditingState();
                 }
             }
+
+            // ★★★ 核心刷新逻辑：只有在没有编辑状态时才刷新，避免丢失正在编辑的内容 ★★★
+            if (!editingId) {
+                loadData();          // 从 localStorage 加载最新数据
+                rebuildStock();      // 重新构建库存
+                recalcMargins();     // 重新计算利润
+            }
+
+            // 切换 tab 显示
             document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
             const panel = document.getElementById(name);
             if (panel) panel.classList.add('active');
             const btn = document.querySelector(`nav button[data-tab="${name}"]`);
             if (btn) btn.classList.add('active');
+
+            // 按 tab 渲染内容
             if (name === 'dash') renderDash();
             else if (name === 'stock') { rebuildStock();
-                renderStock(); } else if (name === 'flow') renderFlow();
+                renderStock(); }
+            else if (name === 'flow') renderFlow();
             else if (name === 'report') { renderReportOut();
-                renderReportIn(); } else if (name === 'cat') renderCats();
+                renderReportIn(); }
+            else if (name === 'cat') renderCats();
             else if (name === 'names') renderNames();
             else if (name === 'cust') renderCust();
             else if (name === 'in') { renderCatSelects();
                 inLoadNames();
                 renderSourceSelects();
-                renderPayRows('in'); } else if (name === 'out') { renderCatSelects();
+                renderPayRows('in'); }
+            else if (name === 'out') { renderCatSelects();
                 outLoadNames();
                 renderPayRows('out'); }
         }
@@ -3831,7 +3844,7 @@
 
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-                logSync('🚀 系统已启动 (所有打印问题已修复)', 'info');
+                logSync('🚀 系统已启动 (含「切换页面自动刷新」功能)', 'info');
                 pullFullState().then(() => {
                     updateSyncStatus('ok');
                     logSync('✅ 数据已同步', 'ok');
@@ -3844,7 +3857,7 @@
                 logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
                 updateSyncStatus('fail');
             }
-            console.log('✅ 系统已启动 (所有打印问题已修复)');
+            console.log('✅ 系统已启动 (含「切换页面自动刷新」功能)');
         });
     </script>
 </body>
