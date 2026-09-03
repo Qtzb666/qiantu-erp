@@ -377,6 +377,90 @@
         .report-sub-panel.active {
             display: block;
         }
+        /* ★★★ 分页控件样式（增强版） ★★★ */
+        .pagination-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            padding: 12px 4px 4px 4px;
+            border-top: 1px solid #eee;
+            margin-top: 10px;
+        }
+        .pagination-bar .info {
+            font-size: 13px;
+            color: #666;
+        }
+        .pagination-bar .info strong {
+            color: #1a1a1a;
+        }
+        .pagination-bar .controls {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .pagination-bar .controls .btn {
+            min-width: 50px;
+            text-align: center;
+            padding: 4px 10px;
+            font-size: 12px;
+        }
+        .pagination-bar .controls .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .pagination-bar .page-num {
+            padding: 4px 10px;
+            background: #f0ede8;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 14px;
+            min-width: 32px;
+            text-align: center;
+            color: #1a1a1a;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: 0.15s;
+        }
+        .pagination-bar .page-num:hover {
+            background: #e4ddd4;
+        }
+        .pagination-bar .page-num.active {
+            background: #d4a017;
+            color: #fff;
+            border-color: #d4a017;
+        }
+        .pagination-bar .page-num.ellipsis {
+            background: transparent;
+            cursor: default;
+            border: none;
+        }
+        .pagination-bar .page-num.ellipsis:hover {
+            background: transparent;
+        }
+        .pagination-bar .jump-box {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 13px;
+            color: #666;
+        }
+        .pagination-bar .jump-box input {
+            width: 48px;
+            padding: 3px 4px;
+            border: 1px solid #d5d0c8;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 13px;
+        }
+        .pagination-bar .jump-box .btn {
+            min-width: 44px;
+            padding: 3px 8px;
+            font-size: 12px;
+        }
         @media (max-width: 1024px) {
             .container {
                 padding: 8px 12px;
@@ -421,6 +505,17 @@
             }
             .filter-area .field {
                 flex: 0 1 140px;
+            }
+            .pagination-bar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 6px;
+            }
+            .pagination-bar .controls {
+                justify-content: center;
+            }
+            .pagination-bar .jump-box {
+                justify-content: center;
             }
         }
         @media (max-width: 768px) {
@@ -518,6 +613,25 @@
             }
             .flow-table-wrap {
                 overflow-x: auto;
+            }
+            .pagination-bar .controls .btn {
+                min-width: 40px;
+                font-size: 11px;
+                padding: 3px 6px;
+            }
+            .pagination-bar .page-num {
+                font-size: 12px;
+                padding: 3px 6px;
+                min-width: 28px;
+            }
+            .pagination-bar .jump-box input {
+                width: 40px;
+                font-size: 12px;
+            }
+            .pagination-bar .jump-box .btn {
+                min-width: 36px;
+                font-size: 11px;
+                padding: 2px 6px;
             }
         }
         /* ===== ★★★ 打印时只显示当前激活的 tab-panel ★★★ ===== */
@@ -623,6 +737,9 @@
                 color: #d4a017;
                 margin: 12px 0 6px 0;
                 font-size: 14px;
+            }
+            .pagination-bar {
+                display: none !important;
             }
         }
         /* ===== 其余样式 ===== */
@@ -874,6 +991,25 @@
             color: #0066cc;
             font-weight: 600;
         }
+
+        /* 修复滚动时顶部空白 */
+        .flow-table-wrap {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .flow-table-wrap table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            background: #f5f2ed;
+        }
+        /* 确保容器内没有额外内边距导致空白 */
+        .tab-panel#flow {
+            padding-top: 14px;
+        }
+        .tab-panel#flow .card {
+            padding-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -1008,26 +1144,26 @@
         </div>
         <div id="flow" class="tab-panel">
             <div class="card">
-                <div class="card-title">📜 交易流水 <span class="text-muted">（按时间降序 · 序号固定）</span></div>
+                <div class="card-title">📜 交易流水 <span class="text-muted">（每页20条 · 序号固定）</span></div>
                 <div class="flex no-print mb-8">
-                    <button class="btn btn-gray btn-sm" onclick="flowFilter='all';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('globalSearchInput').value='';renderFlow()">全部</button>
-                    <button class="btn btn-gray btn-sm" onclick="flowFilter='in';renderFlow()">入库</button>
-                    <button class="btn btn-gray btn-sm" onclick="flowFilter='out';renderFlow()">出库</button>
-                    <span class="text-muted">从</span><input id="flowDtFrom" type="date" style="width:auto;padding:4px 8px;" onchange="renderFlow()">
-                    <span class="text-muted">至</span><input id="flowDtTo" type="date" style="width:auto;padding:4px 8px;" onchange="renderFlow()">
-                    <button class="btn btn-gray btn-sm" onclick="document.getElementById('flowDtFrom').value='';document.getElementById('flowDtTo').value='';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('globalSearchInput').value='';renderFlow()">清除</button>
+                    <button class="btn btn-gray btn-sm" onclick="flowCurrentPage=1;flowFilter='all';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('globalSearchInput').value='';renderFlow()">全部</button>
+                    <button class="btn btn-gray btn-sm" onclick="flowCurrentPage=1;flowFilter='in';renderFlow()">入库</button>
+                    <button class="btn btn-gray btn-sm" onclick="flowCurrentPage=1;flowFilter='out';renderFlow()">出库</button>
+                    <span class="text-muted">从</span><input id="flowDtFrom" type="date" style="width:auto;padding:4px 8px;" onchange="flowCurrentPage=1;renderFlow()">
+                    <span class="text-muted">至</span><input id="flowDtTo" type="date" style="width:auto;padding:4px 8px;" onchange="flowCurrentPage=1;renderFlow()">
+                    <button class="btn btn-gray btn-sm" onclick="flowCurrentPage=1;document.getElementById('flowDtFrom').value='';document.getElementById('flowDtTo').value='';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('globalSearchInput').value='';renderFlow()">清除</button>
                     <button class="btn btn-print btn-sm" onclick="printFlow()">🖨️ 打印</button>
                     <button class="btn btn-blue btn-sm" onclick="exportXlsx()">⬇ XLSX（含汇总）</button>
                     <label class="btn btn-green btn-sm" style="cursor:pointer;width:auto;"><input type="file" accept=".xlsx,.xls" style="display:none;" onchange="importXlsx(event)">⬆ 导入</label>
                 </div>
                 <div class="filter-area" id="flowFilterArea">
-                    <div class="field" style="flex:0 1 160px;"><label>筛选品类</label><select id="flowFilterCat" onchange="flowFilterNameChange()"><option value="">全部品类</option></select></div>
-                    <div class="field" style="flex:0 1 160px;"><label>筛选品名</label><select id="flowFilterName" onchange="renderFlow()"><option value="">全部品名</option></select></div>
+                    <div class="field" style="flex:0 1 160px;"><label>筛选品类</label><select id="flowFilterCat" onchange="flowCurrentPage=1;flowFilterNameChange()"><option value="">全部品类</option></select></div>
+                    <div class="field" style="flex:0 1 160px;"><label>筛选品名</label><select id="flowFilterName" onchange="flowCurrentPage=1;renderFlow()"><option value="">全部品名</option></select></div>
                     <div class="field global-search-field">
                         <label>🔍 全局搜索</label>
-                        <input id="globalSearchInput" type="text" placeholder="单号/品类/品名/客户/电话/来源/备注/变化量" oninput="renderFlow()">
+                        <input id="globalSearchInput" type="text" placeholder="单号/品类/品名/客户/电话/来源/备注/变化量" oninput="flowCurrentPage=1;renderFlow()">
                     </div>
-                    <button class="btn btn-gray btn-sm" onclick="document.getElementById('flowFilterCat').value='';document.getElementById('flowFilterName').value='';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('globalSearchInput').value='';flowFilterNameChange();renderFlow();">清除筛选</button>
+                    <button class="btn btn-gray btn-sm" onclick="flowCurrentPage=1;document.getElementById('flowFilterCat').value='';document.getElementById('flowFilterName').value='';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('globalSearchInput').value='';flowFilterNameChange();renderFlow();">清除筛选</button>
                     <span class="filter-summary" id="flowFilterSummary">共 0 条</span>
                 </div>
                 <div style="overflow-x:auto;max-height:500px;overflow-y:auto;" class="flow-table-wrap">
@@ -1055,6 +1191,18 @@
                         </thead>
                         <tbody id="flowBody"><tr><td colspan="17" style="text-align:center;color:#999;">暂无数据</td></tr></tbody>
                     </table>
+                </div>
+                <!-- ★★★ 增强版分页控件 ★★★ -->
+                <div class="pagination-bar no-print" id="flowPagination">
+                    <div class="info" id="flowPageInfo">共 <strong>0</strong> 条，第 <strong>0</strong> / <strong>0</strong> 页</div>
+                    <div class="controls" id="flowPageControls">
+                        <!-- 由 JavaScript 动态生成 -->
+                    </div>
+                    <div class="jump-box">
+                        <span>跳转</span>
+                        <input type="number" id="flowJumpInput" min="1" value="1" onkeydown="if(event.key==='Enter'){flowJumpToPage();}">
+                        <button class="btn btn-gray btn-sm" onclick="flowJumpToPage()">确定</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1188,7 +1336,7 @@
 
     <script>
         // ================================================================
-        // 完整 JavaScript - 已添加「切换页面自动刷新」功能
+        // 完整 JavaScript - 已添加流水分页功能（每页20条，增强控件）
         // ================================================================
         const SUPABASE_URL = 'https://jbxfpjfwqiaijryyjnsg.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_WhI6ZD_WvGFmOXhlSUAXCw_r4VvI3Gr';
@@ -1221,6 +1369,10 @@
         let isSyncing = false;
         let autoSyncTimer = null;
         let lastSyncCheck = 0;
+
+        // ★★★ 分页状态变量 ★★★
+        const FLOW_PAGE_SIZE = 20;
+        let flowCurrentPage = 1;
 
         // ================================================================
         //  数据加载与保存
@@ -1746,7 +1898,7 @@
         }
 
         // ================================================================
-        //  renderFlow 函数（支持变化量搜索）
+        //  renderFlow 函数（已添加分页逻辑 + 增强分页控件）
         // ================================================================
         function renderFlow() {
             const tb = document.getElementById('flowBody');
@@ -1808,18 +1960,63 @@
                 });
             }
 
-            if (!filteredItems.length) {
-                tb.innerHTML = '<tr><td colspan="17" style="text-align:center;color:#999;">暂无数据</td></tr>';
-                let summary = '共 0 条';
-                if (keyword) summary += ` | 🔍 搜索: "${escHtml(keyword)}"`;
-                if (flowCustomerFilter) summary += ` | 客户筛选(${flowCustomerFilterField==='tel'?'电话':'姓名'}): ${escHtml(flowCustomerFilter)}`;
-                document.getElementById('flowFilterSummary').textContent = summary;
-                return;
+            // 排序得到全部数据
+            const displayItems = filteredItems.slice().sort((a, b) => {
+                if (a.flow.time !== b.flow.time) return b.flow.time.localeCompare(a.flow.time);
+                return b.flow.id - a.flow.id;
+            });
+
+            // 保存全部数据用于导出
+            currentFlowArr = displayItems.map(item => item.flow);
+
+            // ★★★ 分页逻辑 ★★★
+            const totalItems = displayItems.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / FLOW_PAGE_SIZE));
+            if (flowCurrentPage > totalPages) flowCurrentPage = totalPages;
+            if (flowCurrentPage < 1) flowCurrentPage = 1;
+            const start = (flowCurrentPage - 1) * FLOW_PAGE_SIZE;
+            const end = Math.min(start + FLOW_PAGE_SIZE, totalItems);
+            const pageItems = displayItems.slice(start, end);
+
+            // 更新分页控件
+            document.getElementById('flowPageInfo').innerHTML =
+                `共 <strong>${totalItems}</strong> 条，第 <strong>${totalItems > 0 ? flowCurrentPage : 0}</strong> / <strong>${totalItems > 0 ? totalPages : 0}</strong> 页`;
+
+            // ★★★ 生成增强分页按钮 ★★★
+            const controls = document.getElementById('flowPageControls');
+            let html = '';
+            // 首页
+            html += `<button class="btn btn-gray btn-sm" onclick="flowGoPage('first')" ${flowCurrentPage<=1?'disabled':''}>首页</button>`;
+            // 上一页
+            html += `<button class="btn btn-gray btn-sm" onclick="flowGoPage('prev')" ${flowCurrentPage<=1?'disabled':''}>上一页</button>`;
+
+            // 页码列表（显示当前页前后各2页）
+            const range = 2;
+            let startPage = Math.max(1, flowCurrentPage - range);
+            let endPage = Math.min(totalPages, flowCurrentPage + range);
+            if (startPage > 1) {
+                html += `<span class="page-num ellipsis">…</span>`;
+            }
+            for (let i = startPage; i <= endPage; i++) {
+                const activeClass = i === flowCurrentPage ? 'active' : '';
+                html += `<span class="page-num ${activeClass}" onclick="flowGoPage(${i})">${i}</span>`;
+            }
+            if (endPage < totalPages) {
+                html += `<span class="page-num ellipsis">…</span>`;
             }
 
-            const stockMap = {};
-            filteredItems.forEach(item => { stockMap[item.flow.id] = item; });
+            // 下一页
+            html += `<button class="btn btn-gray btn-sm" onclick="flowGoPage('next')" ${flowCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
+            // 末页
+            html += `<button class="btn btn-gray btn-sm" onclick="flowGoPage('last')" ${flowCurrentPage>=totalPages?'disabled':''}>末页</button>`;
+            controls.innerHTML = html;
 
+            // 更新跳转输入框的最大值
+            const jumpInput = document.getElementById('flowJumpInput');
+            jumpInput.max = totalPages;
+            jumpInput.value = flowCurrentPage;
+
+            // 统计信息（基于全部数据）
             let totalInW = 0,
                 totalOutW = 0,
                 totalInAmount = 0,
@@ -1827,15 +2024,40 @@
                 totalMargin = 0,
                 totalPaid = 0,
                 totalRemain = 0;
-            let rows = '';
-            const displayItems = filteredItems.slice().sort((a, b) => {
-                if (a.flow.time !== b.flow.time) return b.flow.time.localeCompare(a.flow.time);
-                return b.flow.id - a.flow.id;
+            displayItems.forEach(item => {
+                const f = item.flow;
+                if (f.t === 'in') {
+                    totalInW += f.w;
+                    totalInAmount += f.total || 0;
+                    totalPaid += f.payPaid || 0;
+                    totalRemain += f.payRemain || 0;
+                } else {
+                    totalOutW += f.w;
+                    totalOutSale += f.sale || 0;
+                    totalMargin += f.margin || 0;
+                    totalPaid += f.payPaid || 0;
+                    totalRemain += f.payRemain || 0;
+                }
             });
 
-            displayItems.forEach((item, index) => {
+            if (!pageItems.length) {
+                tb.innerHTML = '<tr><td colspan="17" style="text-align:center;color:#999;">暂无数据</td></tr>';
+                let summary = `共 0 条`;
+                if (keyword) summary += ` | 🔍 搜索: "${escHtml(keyword)}"`;
+                if (flowCustomerFilter) summary += ` | 客户筛选(${flowCustomerFilterField==='tel'?'电话':'姓名'}): ${escHtml(flowCustomerFilter)}`;
+                document.getElementById('flowFilterSummary').textContent = summary;
+                return;
+            }
+
+            // 渲染当前页数据
+            const stockMap = {};
+            pageItems.forEach(item => { stockMap[item.flow.id] = item; });
+
+            let rows = '';
+            const globalStartIndex = start;
+            pageItems.forEach((item, idx) => {
                 const f = item.flow;
-                const seq = index + 1;
+                const seq = globalStartIndex + idx + 1;
                 const before = item.beforeStock;
                 const after = item.afterStock;
                 const delta = after - before;
@@ -1868,10 +2090,6 @@
                     amountDisplay = `<span class="amount-negative">-${f.total.toFixed(2)}</span>`;
                     unitPriceDisplay = unitPrice.toFixed(2);
                     if (f.fee) amountDisplay += `<br><span class="margin-text">工艺费 ${f.fee.toFixed(2)}</span>`;
-                    totalInW += f.w;
-                    totalInAmount += f.total || 0;
-                    totalPaid += f.payPaid || 0;
-                    totalRemain += f.payRemain || 0;
                 } else {
                     const unitPrice = f.w > 0 ? (f.sale / f.w) : 0;
                     weightDisplay = `<span class="weight-negative">-${f.w.toFixed(2)}</span>`;
@@ -1879,11 +2097,6 @@
                     unitPriceDisplay = unitPrice.toFixed(2);
                     if (f.margin !== undefined && f.margin !== null && Math.abs(f.margin) > 0.01) amountDisplay +=
                         `<br><span class="margin-text">利 ${f.margin.toFixed(2)}</span>`;
-                    totalOutW += f.w;
-                    totalOutSale += f.sale || 0;
-                    totalMargin += f.margin || 0;
-                    totalPaid += f.payPaid || 0;
-                    totalRemain += f.payRemain || 0;
                 }
 
                 rows += `<tr class="flow-row" onclick="editFlow(${f.id})">
@@ -1931,15 +2144,64 @@
             tb.innerHTML = rows + totalRow;
 
             let summary =
-                `共 ${displayItems.length} 条 | 入库 ${totalInW.toFixed(2)}g / ${totalInAmount.toFixed(2)}元 | 出库 ${totalOutW.toFixed(2)}g / ${totalOutSale.toFixed(2)}元 | 剩余 ${remainW.toFixed(2)}g | 净额 ${net.toFixed(2)}元`;
+                `共 ${totalItems} 条 | 入库 ${totalInW.toFixed(2)}g / ${totalInAmount.toFixed(2)}元 | 出库 ${totalOutW.toFixed(2)}g / ${totalOutSale.toFixed(2)}元 | 剩余 ${remainW.toFixed(2)}g | 净额 ${net.toFixed(2)}元`;
             if (keyword) summary += ` | 🔍 搜索: "${escHtml(keyword)}"`;
             if (flowCustomerFilter) summary += ` | 客户筛选(${flowCustomerFilterField==='tel'?'电话':'姓名'}): ${escHtml(flowCustomerFilter)}`;
+            summary += ` | 第 ${flowCurrentPage}/${totalPages} 页`;
             document.getElementById('flowFilterSummary').textContent = summary;
-            currentFlowArr = displayItems.map(item => item.flow);
+        }
+
+        // ★★★ 分页翻页函数（增强版） ★★★
+        function flowGoPage(target) {
+            // 计算总页数（通过重新获取当前显示数据的总数）
+            // 为了准确，我们调用renderFlow时内部会计算，但为了避免重复逻辑，我们可以先计算总数
+            // 但更简单：直接修改页码后调用renderFlow，它会自动修正
+            let newPage = flowCurrentPage;
+            if (target === 'first') newPage = 1;
+            else if (target === 'prev') newPage = flowCurrentPage - 1;
+            else if (target === 'next') newPage = flowCurrentPage + 1;
+            else if (target === 'last') {
+                // 需要先知道总页数，我们可以通过调用renderFlow来计算，但这里先简单处理
+                // 直接调用renderFlow内部会修正，但为了末页准确，我们临时计算总页数
+                // 先获取当前筛选后的数据总数（复用renderFlow的逻辑，但为了性能，我们临时计算）
+                let arr = D.flow.slice();
+                // 应用筛选条件...
+                // 简单起见，我们直接调用renderFlow，它会自动修正页码
+                // 但我们要传递末页标记，我们可以在内部计算
+                // 更健壮：直接调用renderFlow，它会根据总数调整
+                flowCurrentPage = 99999; // 设置一个很大的值，renderFlow会修正为总页数
+                renderFlow();
+                return;
+            }
+            if (newPage < 1) newPage = 1;
+            flowCurrentPage = newPage;
+            renderFlow();
+        }
+
+        // ★★★ 跳转函数 ★★★
+        function flowJumpToPage() {
+            const input = document.getElementById('flowJumpInput');
+            let page = parseInt(input.value);
+            if (isNaN(page) || page < 1) page = 1;
+            // 获取总页数（通过读取当前显示的页数信息，或者重新计算）
+            // 最简单：先调用renderFlow获取总页数，但为了避免重复，我们直接设置并调用
+            flowCurrentPage = page;
+            renderFlow();
+            // 如果修正了页码，更新输入框
+            const controls = document.getElementById('flowPageControls');
+            const pageNumEls = controls.querySelectorAll('.page-num:not(.ellipsis)');
+            let maxPage = 1;
+            pageNumEls.forEach(el => {
+                const num = parseInt(el.textContent);
+                if (!isNaN(num) && num > maxPage) maxPage = num;
+            });
+            // 但更准确是从info获取，但我们不折腾了
+            // 简单重新render后，控件已经更新
         }
 
         function filterByCustomer(keyword, field) {
             if (!keyword) return;
+            flowCurrentPage = 1;
             flowCustomerFilter = keyword;
             flowCustomerFilterField = field || 'name';
             renderFlow();
@@ -3087,7 +3349,7 @@
         }
 
         // ================================================================
-        //  ★★★ 打印功能 - 已修复所有问题 ★★★
+        //  ★★★ 打印功能 ★★★
         // ================================================================
 
         function printIn() {
@@ -3743,9 +4005,8 @@
         document.addEventListener('visibilitychange', () => {});
         async function testConn() {}
 
-        // ★★★★★ ===== Tab切换（已加入自动刷新） ===== ★★★★★
+        // ===== Tab切换 =====
         async function switchTab(name) {
-            // 处理编辑状态：如果正在编辑且要切换的 tab 不同，提示用户
             if (editingId) {
                 const isInEditing = document.getElementById('in').classList.contains('active');
                 const isOutEditing = document.getElementById('out').classList.contains('active');
@@ -3756,14 +4017,12 @@
                 }
             }
 
-            // ★★★ 核心刷新逻辑：只有在没有编辑状态时才刷新，避免丢失正在编辑的内容 ★★★
             if (!editingId) {
-                loadData();          // 从 localStorage 加载最新数据
-                rebuildStock();      // 重新构建库存
-                recalcMargins();     // 重新计算利润
+                loadData();
+                rebuildStock();
+                recalcMargins();
             }
 
-            // 切换 tab 显示
             document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
             const panel = document.getElementById(name);
@@ -3771,21 +4030,17 @@
             const btn = document.querySelector(`nav button[data-tab="${name}"]`);
             if (btn) btn.classList.add('active');
 
-            // 按 tab 渲染内容
             if (name === 'dash') renderDash();
             else if (name === 'stock') { rebuildStock();
-                renderStock(); }
-            else if (name === 'flow') renderFlow();
-            else if (name === 'report') { renderReportOut();
-                renderReportIn(); }
-            else if (name === 'cat') renderCats();
+                renderStock(); } else if (name === 'flow') { flowCurrentPage = 1;
+                renderFlow(); } else if (name === 'report') { renderReportOut();
+                renderReportIn(); } else if (name === 'cat') renderCats();
             else if (name === 'names') renderNames();
             else if (name === 'cust') renderCust();
             else if (name === 'in') { renderCatSelects();
                 inLoadNames();
                 renderSourceSelects();
-                renderPayRows('in'); }
-            else if (name === 'out') { renderCatSelects();
+                renderPayRows('in'); } else if (name === 'out') { renderCatSelects();
                 outLoadNames();
                 renderPayRows('out'); }
         }
@@ -3844,7 +4099,7 @@
 
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-                logSync('🚀 系统已启动 (含「切换页面自动刷新」功能)', 'info');
+                logSync('🚀 系统已启动 (含流水分页功能，每页20条，增强控件)', 'info');
                 pullFullState().then(() => {
                     updateSyncStatus('ok');
                     logSync('✅ 数据已同步', 'ok');
@@ -3857,7 +4112,7 @@
                 logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
                 updateSyncStatus('fail');
             }
-            console.log('✅ 系统已启动 (含「切换页面自动刷新」功能)');
+            console.log('✅ 系统已启动 (含流水分页功能，每页20条，增强控件)');
         });
     </script>
 </body>
