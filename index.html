@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>前途珠宝专用 ERP 系统 · 专业版</title>
+    <title>前途珠宝专用 ERP 系统 · 增强版</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
     </script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
@@ -1493,7 +1493,7 @@
 
     <script>
         // ================================================================
-        //  完整 JavaScript · 保留所有增强功能 + 原版打印逻辑
+        //  完整 JavaScript · 保留所有增强功能 + 原版打印 + 音量增至1
         // ================================================================
 
         // ---- Supabase 初始化 ----
@@ -1664,6 +1664,7 @@
                 btns.appendChild(btn);
             });
             document.getElementById('modal').style.display = 'flex';
+            playBeep(false); // 播放提示音（低音警告）
         }
 
         function closeModal() { document.getElementById('modal').style.display = 'none'; }
@@ -1688,6 +1689,7 @@
             });
         }
 
+        // ★★★ 音量已增大至 1.0 ★★★
         function playBeep(success) {
             try {
                 const audioCtx = new(window.AudioContext || window.webkitAudioContext)();
@@ -1697,7 +1699,7 @@
                 gain.connect(audioCtx.destination);
                 osc.type = 'sine';
                 osc.frequency.value = success ? 880 : 300;
-                gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+                gain.gain.setValueAtTime(1.0, audioCtx.currentTime); // 音量最大
                 gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
                 osc.start();
                 osc.stop(audioCtx.currentTime + 0.3);
@@ -1821,9 +1823,11 @@
                 stockCurrentPage = 1;
                 renderStock();
                 showErrorToast('✅ 已置顶到第一位', 'success');
+                playBeep(true);
             } catch (e) {
                 console.error('置顶错误', e);
                 showErrorToast('置顶失败：' + (e.message || e), '');
+                playBeep(false);
             }
         }
 
@@ -2892,6 +2896,7 @@
             refreshAll();
             renderTrash();
             showErrorToast('✅ 已恢复', 'success');
+            playBeep(true);
         }
 
         async function permanentDelete(index) {
@@ -2905,6 +2910,7 @@
             await updateSnapshot();
             renderTrash();
             showErrorToast('🗑️ 已永久删除', '');
+            playBeep(false);
         }
 
         async function emptyTrash() {
@@ -2920,6 +2926,7 @@
             await updateSnapshot();
             renderTrash();
             showErrorToast('🗑️ 回收站已清空', '');
+            playBeep(false);
         }
 
         // ---- 删除函数（软删除） ----
@@ -2935,6 +2942,7 @@
             await updateSnapshot();
             renderTrash();
             showErrorToast('🗑️ 已移入回收站', 'warning');
+            playBeep(false);
         }
 
         async function confirmDeleteStock(name, cat) {
@@ -2949,6 +2957,7 @@
             await updateSnapshot();
             renderTrash();
             showErrorToast('🗑️ 已移入回收站', 'warning');
+            playBeep(false);
         }
 
         async function confirmDeleteCust(idx) {
@@ -2965,6 +2974,7 @@
             renderCust();
             renderTrash();
             showErrorToast('🗑️ 已移入回收站', 'warning');
+            playBeep(false);
         }
 
         async function removeCat(c) {
@@ -2981,6 +2991,7 @@
             populateFilterSelects();
             renderTrash();
             showErrorToast('🗑️ 已移入回收站', 'warning');
+            playBeep(false);
         }
 
         function confirmDeleteName(cat, idx) {
@@ -3001,6 +3012,7 @@
                             renderTrash();
                             closeModal();
                             showErrorToast('🗑️ 已移入回收站', 'warning');
+                            playBeep(false);
                         } }
                     ]
                 );
@@ -3522,6 +3534,7 @@
                 console.error('doIn error', e);
                 showErrorToast('入库失败：' + e.message, '');
                 await showAlertModal('错误', '操作失败：' + e.message);
+                playBeep(false);
             }
         }
 
@@ -3600,6 +3613,7 @@
                 console.error('doOut error', e);
                 showErrorToast('出库失败：' + e.message, '');
                 await showAlertModal('错误', '操作失败：' + e.message);
+                playBeep(false);
             }
         }
 
@@ -4413,6 +4427,7 @@
                 const { data, error } = await sb.from('shop_state').select('id').limit(1);
                 if (error) throw error;
                 showErrorToast('✅ 连接成功', 'success');
+                playBeep(true);
             } catch (e) { showErrorToast('连接失败：' + e.message, ''); }
         }
 
@@ -4506,7 +4521,7 @@
 
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-                logSync('🚀 系统已启动 (含分页、回收站、置顶功能、原版打印)', 'info');
+                logSync('🚀 系统已启动 (含分页、回收站、置顶功能、原版打印、音量最大)', 'info');
                 pullFullState().then(() => {
                     updateSyncStatus('ok');
                     logSync('✅ 数据已同步', 'ok');
@@ -4517,7 +4532,7 @@
                 logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
                 updateSyncStatus('fail');
             }
-            console.log('✅ 系统已启动 (含分页、回收站、置顶功能、原版打印)');
+            console.log('✅ 系统已启动 (含分页、回收站、置顶功能、原版打印、音量最大)');
         });
 
         function subscribeRealtime() {}
