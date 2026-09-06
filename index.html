@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>前途珠宝专用 ERP系统</title>
+    <title>前途珠宝专用 ERP 系统 · 专业版</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
     </script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
     </script>
     <style>
-        /* ===== 完整样式（与您原版完全一致） ===== */
+        /* ===== 完整样式（与原版一致） ===== */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -202,6 +202,9 @@
         .btn-print {
             background: #4a4a4a;
         }
+        .btn-purple {
+            background: #7b2fbe;
+        }
         .btn-sm {
             width: auto;
             padding: 4px 14px;
@@ -377,7 +380,6 @@
         .report-sub-panel.active {
             display: block;
         }
-        /* ★★★ 分页控件样式（增强版） ★★★ */
         .pagination-bar {
             display: flex;
             justify-content: space-between;
@@ -634,7 +636,6 @@
                 padding: 2px 6px;
             }
         }
-        /* ===== ★★★ 打印时只显示当前激活的 tab-panel ★★★ ===== */
         @media print {
             header,
             nav,
@@ -742,7 +743,6 @@
                 display: none !important;
             }
         }
-        /* ===== 其余样式 ===== */
         .cust-tag {
             display: inline-flex;
             align-items: center;
@@ -991,8 +991,6 @@
             color: #0066cc;
             font-weight: 600;
         }
-
-        /* 修复滚动时顶部空白 */
         .flow-table-wrap {
             max-height: 500px;
             overflow-y: auto;
@@ -1003,19 +1001,107 @@
             z-index: 5;
             background: #f5f2ed;
         }
-        /* 确保容器内没有额外内边距导致空白 */
         .tab-panel#flow {
             padding-top: 14px;
         }
         .tab-panel#flow .card {
             padding-top: 10px;
         }
+        .trash-item {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px 12px;
+            padding: 6px 12px;
+            border: 1px solid #e0dbd2;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            background: #fcfcfa;
+        }
+        .trash-item .info {
+            flex: 1;
+            font-size: 13px;
+            color: #333;
+        }
+        .trash-item .info .badge {
+            display: inline-block;
+            padding: 0 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 6px;
+        }
+        .trash-item .info .badge.in {
+            background: #d4edda;
+            color: #155724;
+        }
+        .trash-item .info .badge.out {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .trash-item .del-time {
+            color: #999;
+            font-size: 12px;
+        }
+        .trash-item .actions {
+            display: flex;
+            gap: 4px;
+        }
+        .trash-item .actions .btn {
+            padding: 2px 10px;
+            font-size: 11px;
+        }
+        .trash-empty {
+            color: #999;
+            text-align: center;
+            padding: 20px 0;
+        }
+        .error-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #b33c2f;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 9999;
+            max-width: 400px;
+            font-size: 14px;
+            display: none;
+            animation: slideUp 0.3s ease;
+        }
+        .error-toast.success {
+            background: #1e7e34;
+        }
+        .error-toast.warning {
+            background: #d4a017;
+        }
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .top-btn {
+            cursor: pointer;
+            color: #0066cc;
+            font-size: 12px;
+            margin-left: 4px;
+        }
+        .top-btn:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
     <header>
-        <span>💎 前途珠宝专用 ERP系统</span>
-        <small>流水驱动 · 自动同步 · 导入导出增强</small>
+        <span>💎 前途珠宝专用 ERP 系统 · 增强版</span>
+        <small>分页 · 回收站 · 置顶排序</small>
         <div class="sync-status">
             <span class="dot offline" id="syncDot"></span>
             <span id="syncStatusText">连接中...</span>
@@ -1032,11 +1118,13 @@
         <button data-tab="cat">🏷️ 品类</button>
         <button data-tab="names">📝 品名</button>
         <button data-tab="cust">👤 客户</button>
+        <button data-tab="trash">🗑️ 回收站</button>
         <button data-tab="sync">☁ 同步</button>
         <button data-tab="bak">💾 备份</button>
         <button onclick="forceSyncNow()" style="background:#d4a017;color:#fff;font-weight:600;margin-left:auto;">🔄 立即同步</button>
     </nav>
     <div class="container">
+        <!-- 看板 -->
         <div id="dash" class="tab-panel active">
             <div class="card">
                 <div class="card-title">⚡ 实时金价</div>
@@ -1058,6 +1146,7 @@
                 <button class="btn btn-green" onclick="switchTab('out')">📤 录出库</button>
             </div>
         </div>
+        <!-- 入库 -->
         <div id="in" class="tab-panel">
             <div class="card"><div class="card-title">♻️ 回收入库 / 采购入库</div>
                 <div class="row2">
@@ -1091,6 +1180,7 @@
                 <div id="inMsg" class="text-muted mt-8"></div>
             </div>
         </div>
+        <!-- 出库 -->
         <div id="out" class="tab-panel">
             <div class="card"><div class="card-title">💰 销售出库</div>
                 <div class="row2">
@@ -1123,12 +1213,13 @@
                 <div id="outMsg" class="text-muted mt-8"></div>
             </div>
         </div>
+        <!-- 库存 -->
         <div id="stock" class="tab-panel">
             <div class="card">
-                <div class="card-title">📦 库存明细 <span class="text-muted">（拖动 ☰ 可自定义排序）</span></div>
+                <div class="card-title">📦 库存明细 <span class="text-muted">（拖动 ☰ 可调整当前页顺序 · 点击「⬆置顶」移到第一位）</span></div>
                 <div class="filter-area" id="stockFilterArea">
                     <div class="field" style="flex:0 1 160px;"><label>筛选品类</label><select id="stockFilterCat" onchange="stockFilterChange()"><option value="">全部品类</option></select></div>
-                    <div class="field" style="flex:0 1 160px;"><label>筛选品名</label><select id="stockFilterName" onchange="renderStock()"><option value="">全部品名</option></select></div>
+                    <div class="field" style="flex:0 1 160px;"><label>筛选品名</label><select id="stockFilterName" onchange="stockCurrentPage=1;renderStock()"><option value="">全部品名</option></select></div>
                     <button class="btn btn-gray btn-sm" onclick="document.getElementById('stockFilterCat').value='';document.getElementById('stockFilterName').value='';stockFilterChange();renderStock();">清除筛选</button>
                     <button class="btn btn-print btn-sm" onclick="printStock()">🖨️ 打印库存</button>
                     <button class="btn btn-blue btn-sm" onclick="exportStockXlsx()">⬇ 导出Excel</button>
@@ -1140,8 +1231,18 @@
                         <tbody id="stockBody"><tr><td colspan="10" style="text-align:center;color:#999;">暂无数据</td></tr></tbody>
                     </table>
                 </div>
+                <div class="pagination-bar no-print" id="stockPagination">
+                    <div class="info" id="stockPageInfo">共 <strong>0</strong> 条，第 <strong>0</strong> / <strong>0</strong> 页</div>
+                    <div class="controls" id="stockPageControls"></div>
+                    <div class="jump-box">
+                        <span>跳转</span>
+                        <input type="number" id="stockJumpInput" min="1" value="1" onkeydown="if(event.key==='Enter'){stockJumpToPage();}">
+                        <button class="btn btn-gray btn-sm" onclick="stockJumpToPage()">确定</button>
+                    </div>
+                </div>
             </div>
         </div>
+        <!-- 流水 -->
         <div id="flow" class="tab-panel">
             <div class="card">
                 <div class="card-title">📜 交易流水 <span class="text-muted">（每页20条 · 序号固定）</span></div>
@@ -1192,12 +1293,9 @@
                         <tbody id="flowBody"><tr><td colspan="17" style="text-align:center;color:#999;">暂无数据</td></tr></tbody>
                     </table>
                 </div>
-                <!-- ★★★ 增强版分页控件 ★★★ -->
                 <div class="pagination-bar no-print" id="flowPagination">
                     <div class="info" id="flowPageInfo">共 <strong>0</strong> 条，第 <strong>0</strong> / <strong>0</strong> 页</div>
-                    <div class="controls" id="flowPageControls">
-                        <!-- 由 JavaScript 动态生成 -->
-                    </div>
+                    <div class="controls" id="flowPageControls"></div>
                     <div class="jump-box">
                         <span>跳转</span>
                         <input type="number" id="flowJumpInput" min="1" value="1" onkeydown="if(event.key==='Enter'){flowJumpToPage();}">
@@ -1206,6 +1304,7 @@
                 </div>
             </div>
         </div>
+        <!-- 报表 -->
         <div id="report" class="tab-panel">
             <div class="card">
                 <div class="card-title">📊 数据报表 <span class="text-muted">（出库利润 / 入库成本分析）</span></div>
@@ -1215,9 +1314,9 @@
                 </div>
                 <div id="reportOutPanel" class="report-sub-panel active">
                     <div class="flex no-print mb-8">
-                        <span class="text-muted">从</span><input id="reportOutFrom" type="date" style="width:auto;padding:4px 8px;" onchange="renderReportOut()">
-                        <span class="text-muted">至</span><input id="reportOutTo" type="date" style="width:auto;padding:4px 8px;" onchange="renderReportOut()">
-                        <button class="btn btn-gray btn-sm" onclick="document.getElementById('reportOutFrom').value='';document.getElementById('reportOutTo').value='';renderReportOut()">重置</button>
+                        <span class="text-muted">从</span><input id="reportOutFrom" type="date" style="width:auto;padding:4px 8px;" onchange="reportOutCurrentPage=1;renderReportOut()">
+                        <span class="text-muted">至</span><input id="reportOutTo" type="date" style="width:auto;padding:4px 8px;" onchange="reportOutCurrentPage=1;renderReportOut()">
+                        <button class="btn btn-gray btn-sm" onclick="document.getElementById('reportOutFrom').value='';document.getElementById('reportOutTo').value='';reportOutCurrentPage=1;renderReportOut()">重置</button>
                         <button class="btn btn-print btn-sm" onclick="printReportOut()">🖨️ 打印</button>
                         <button class="btn btn-blue btn-sm" onclick="exportReportOutXlsx()">⬇ 导出Excel</button>
                     </div>
@@ -1229,19 +1328,37 @@
                     </div>
                     <div class="card-title mt-8">📈 按品类利润分析</div>
                     <div style="overflow-x:auto;"><table><thead><tr><th>品类</th><th>出库克重</th><th>销售额</th><th>成本</th><th>利润</th><th>利润率</th></tr></thead><tbody id="reportOutCatBody"><tr><td colspan="6" style="text-align:center;color:#999;">暂无数据</td></tr></tbody></table></div>
+                    <div class="pagination-bar no-print" id="reportOutCatPagination">
+                        <div class="info" id="reportOutCatPageInfo">共 <strong>0</strong> 条，第 <strong>0</strong> / <strong>0</strong> 页</div>
+                        <div class="controls" id="reportOutCatPageControls"></div>
+                        <div class="jump-box">
+                            <span>跳转</span>
+                            <input type="number" id="reportOutCatJumpInput" min="1" value="1" onkeydown="if(event.key==='Enter'){reportOutCatJumpToPage();}">
+                            <button class="btn btn-gray btn-sm" onclick="reportOutCatJumpToPage()">确定</button>
+                        </div>
+                    </div>
                     <div class="card-title mt-8">🏆 客户排行</div>
                     <div class="flex no-print mb-8">
-                        <button class="btn btn-gray btn-sm" onclick="reportOutSort='sale';renderReportOut()">💰 销售额排行</button>
-                        <button class="btn btn-gray btn-sm" onclick="reportOutSort='profit';renderReportOut()">📈 利润排行</button>
-                        <button class="btn btn-gray btn-sm" onclick="reportOutSort='count';renderReportOut()">🔢 交易次数排行</button>
+                        <button class="btn btn-gray btn-sm" onclick="reportOutSort='sale';reportOutCustCurrentPage=1;renderReportOut()">💰 销售额排行</button>
+                        <button class="btn btn-gray btn-sm" onclick="reportOutSort='profit';reportOutCustCurrentPage=1;renderReportOut()">📈 利润排行</button>
+                        <button class="btn btn-gray btn-sm" onclick="reportOutSort='count';reportOutCustCurrentPage=1;renderReportOut()">🔢 交易次数排行</button>
                     </div>
                     <div style="overflow-x:auto;"><table><thead><tr><th>排名</th><th>客户</th><th>交易次数</th><th>总销售额</th><th>总利润</th></tr></thead><tbody id="reportOutCustBody"><tr><td colspan="5" style="text-align:center;color:#999;">暂无数据</td></tr></tbody></table></div>
+                    <div class="pagination-bar no-print" id="reportOutCustPagination">
+                        <div class="info" id="reportOutCustPageInfo">共 <strong>0</strong> 条，第 <strong>0</strong> / <strong>0</strong> 页</div>
+                        <div class="controls" id="reportOutCustPageControls"></div>
+                        <div class="jump-box">
+                            <span>跳转</span>
+                            <input type="number" id="reportOutCustJumpInput" min="1" value="1" onkeydown="if(event.key==='Enter'){reportOutCustJumpToPage();}">
+                            <button class="btn btn-gray btn-sm" onclick="reportOutCustJumpToPage()">确定</button>
+                        </div>
+                    </div>
                 </div>
                 <div id="reportInPanel" class="report-sub-panel">
                     <div class="flex no-print mb-8">
-                        <span class="text-muted">从</span><input id="reportInFrom" type="date" style="width:auto;padding:4px 8px;" onchange="renderReportIn()">
-                        <span class="text-muted">至</span><input id="reportInTo" type="date" style="width:auto;padding:4px 8px;" onchange="renderReportIn()">
-                        <button class="btn btn-gray btn-sm" onclick="document.getElementById('reportInFrom').value='';document.getElementById('reportInTo').value='';renderReportIn()">重置</button>
+                        <span class="text-muted">从</span><input id="reportInFrom" type="date" style="width:auto;padding:4px 8px;" onchange="reportInCurrentPage=1;renderReportIn()">
+                        <span class="text-muted">至</span><input id="reportInTo" type="date" style="width:auto;padding:4px 8px;" onchange="reportInCurrentPage=1;renderReportIn()">
+                        <button class="btn btn-gray btn-sm" onclick="document.getElementById('reportInFrom').value='';document.getElementById('reportInTo').value='';reportInCurrentPage=1;renderReportIn()">重置</button>
                         <button class="btn btn-print btn-sm" onclick="printReportIn()">🖨️ 打印</button>
                         <button class="btn btn-blue btn-sm" onclick="exportReportInXlsx()">⬇ 导出Excel</button>
                     </div>
@@ -1254,17 +1371,37 @@
                     </div>
                     <div class="card-title mt-8">📊 按品类入库统计</div>
                     <div style="overflow-x:auto;"><table><thead><tr><th>品类</th><th>入库克重</th><th>总成本</th><th>平均单价</th><th>笔数</th></tr></thead><tbody id="reportInCatBody"><tr><td colspan="5" style="text-align:center;color:#999;">暂无数据</td></tr></tbody></table></div>
+                    <div class="pagination-bar no-print" id="reportInCatPagination">
+                        <div class="info" id="reportInCatPageInfo">共 <strong>0</strong> 条，第 <strong>0</strong> / <strong>0</strong> 页</div>
+                        <div class="controls" id="reportInCatPageControls"></div>
+                        <div class="jump-box">
+                            <span>跳转</span>
+                            <input type="number" id="reportInCatJumpInput" min="1" value="1" onkeydown="if(event.key==='Enter'){reportInCatJumpToPage();}">
+                            <button class="btn btn-gray btn-sm" onclick="reportInCatJumpToPage()">确定</button>
+                        </div>
+                    </div>
                     <div class="card-title mt-8">👤 按客户入库统计</div>
                     <div style="overflow-x:auto;"><table><thead><tr><th>客户</th><th>入库克重</th><th>总成本</th><th>平均单价</th><th>笔数</th></tr></thead><tbody id="reportInCustBody"><tr><td colspan="5" style="text-align:center;color:#999;">暂无数据</td></tr></tbody></table></div>
+                    <div class="pagination-bar no-print" id="reportInCustPagination">
+                        <div class="info" id="reportInCustPageInfo">共 <strong>0</strong> 条，第 <strong>0</strong> / <strong>0</strong> 页</div>
+                        <div class="controls" id="reportInCustPageControls"></div>
+                        <div class="jump-box">
+                            <span>跳转</span>
+                            <input type="number" id="reportInCustJumpInput" min="1" value="1" onkeydown="if(event.key==='Enter'){reportInCustJumpToPage();}">
+                            <button class="btn btn-gray btn-sm" onclick="reportInCustJumpToPage()">确定</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+        <!-- 品类 -->
         <div id="cat" class="tab-panel">
             <div class="card"><div class="card-title">🏷️ 品类管理</div>
                 <div class="row2"><div class="field"><label>新增品类</label><input id="newCat" placeholder="如: 玉器"></div><button class="btn btn-blue" onclick="addCat()" style="align-self:end;">+ 添加</button></div>
                 <div id="catList" class="flex mt-8"></div>
             </div>
         </div>
+        <!-- 品名 -->
         <div id="names" class="tab-panel">
             <div class="card"><div class="card-title">📝 品名管理</div>
                 <div class="row3">
@@ -1275,6 +1412,7 @@
                 <div id="nameList" class="flex mt-8"></div>
             </div>
         </div>
+        <!-- 客户 -->
         <div id="cust" class="tab-panel">
             <div class="card">
                 <div class="card-title" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; justify-content:space-between;">
@@ -1297,6 +1435,21 @@
                 <div style="font-size:12px; color:#999; margin-top:8px;">💡 点击「✏️」编辑客户 · 点击「×」删除</div>
             </div>
         </div>
+        <!-- 回收站 -->
+        <div id="trash" class="tab-panel">
+            <div class="card">
+                <div class="card-title" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; justify-content:space-between;">
+                    <span>🗑️ 回收站 <span class="text-muted">（已删除的数据可在此恢复或永久清除）</span></span>
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn btn-red btn-sm" onclick="emptyTrash()">🧹 清空回收站</button>
+                        <button class="btn btn-gray btn-sm" onclick="renderTrash()">🔄 刷新</button>
+                    </div>
+                </div>
+                <div id="trashList"></div>
+                <div class="text-muted mt-8" style="font-size:12px;">💡 删除的数据会保留在此，恢复后重新加入库存和流水。永久删除不可撤销。</div>
+            </div>
+        </div>
+        <!-- 同步 -->
         <div id="sync" class="tab-panel">
             <div class="card"><div class="card-title">☁ 云端同步</div>
                 <p>状态：<span id="syncSt" style="color:#b33c2f;">未连接</span></p>
@@ -1314,6 +1467,7 @@
                 </div>
             </div>
         </div>
+        <!-- 备份 -->
         <div id="bak" class="tab-panel">
             <div class="card"><div class="card-title">💾 本地备份</div>
                 <p class="text-muted">数据自动保存在浏览器。建议定期下载JSON备份。</p>
@@ -1326,6 +1480,7 @@
             </div>
         </div>
     </div>
+    <!-- 模态框 -->
     <div id="modal" class="modal" onclick="if(event.target===this)closeModal()">
         <div class="modal-box">
             <div class="modal-header"><h3 id="modalTitle">确认</h3><button class="modal-close" onclick="closeModal()">×</button></div>
@@ -1333,11 +1488,15 @@
             <div id="modalBtns" class="flex mt-8" style="justify-content:flex-end;"></div>
         </div>
     </div>
+    <!-- 错误提示条 -->
+    <div id="errorToast" class="error-toast"></div>
 
     <script>
         // ================================================================
-        // 完整 JavaScript - 已添加流水分页功能（每页20条，增强控件）
+        //  完整 JavaScript · 保留所有增强功能 + 原版打印逻辑
         // ================================================================
+
+        // ---- Supabase 初始化 ----
         const SUPABASE_URL = 'https://jbxfpjfwqiaijryyjnsg.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_WhI6ZD_WvGFmOXhlSUAXCw_r4VvI3Gr';
         let sb = null;
@@ -1354,10 +1513,23 @@
             payChannels: ['微信', '支付宝', '工商银行', '建设银行', '农业银行', '农商银行', '招商银行', '浦发银行', '兴业银行', '中国银行',
                 '交通银行', '现金'
             ],
+            trash: [],
             _version: 0,
             _lastSeqId: 0,
             stockOrder: []
         };
+
+        const FLOW_PAGE_SIZE = 20;
+        const STOCK_PAGE_SIZE = 20;
+        const REPORT_PAGE_SIZE = 15;
+
+        let flowCurrentPage = 1;
+        let stockCurrentPage = 1;
+        let reportOutCatCurrentPage = 1;
+        let reportOutCustCurrentPage = 1;
+        let reportInCatCurrentPage = 1;
+        let reportInCustCurrentPage = 1;
+
         let flowFilter = 'all';
         let flowCustomerFilter = null;
         let flowCustomerFilterField = null;
@@ -1365,25 +1537,39 @@
         let reportOutSort = 'sale';
         let editingId = null;
         let editingBackup = null;
-        let realtimeChannel = null;
-        let isSyncing = false;
-        let autoSyncTimer = null;
-        let lastSyncCheck = 0;
 
-        // ★★★ 分页状态变量 ★★★
-        const FLOW_PAGE_SIZE = 20;
-        let flowCurrentPage = 1;
+        // ---- 错误处理 ----
+        function showErrorToast(msg, type) {
+            const el = document.getElementById('errorToast');
+            if (!el) return;
+            el.textContent = msg;
+            el.className = 'error-toast ' + (type || '');
+            el.style.display = 'block';
+            el.style.opacity = '1';
+            clearTimeout(el._hideTimer);
+            el._hideTimer = setTimeout(() => { el.style.opacity = '0';
+                setTimeout(() => { el.style.display = 'none'; }, 300); }, 5000);
+        }
 
-        // ================================================================
-        //  数据加载与保存
-        // ================================================================
+        async function safeAsync(fn, context, fallback) {
+            try { return await fn(); } catch (e) {
+                const msg = context + ': ' + (e.message || e);
+                console.error(msg, e);
+                logSync('❌ ' + msg, 'fail');
+                showErrorToast('操作失败：' + msg, '');
+                if (fallback !== undefined) return fallback;
+                throw e;
+            }
+        }
+
+        // ---- 数据加载 ----
         function loadData() {
             try {
                 const raw = localStorage.getItem(STORE_KEY);
                 if (raw) { const parsed = JSON.parse(raw);
                     D = { ...D, ...parsed }; }
             } catch (e) { console.warn('Load error', e); }
-            ['cats', 'names', 'flow', 'cust', 'payChannels'].forEach(k => { if (!Array.isArray(D[k])) D[k] = []; });
+            ['cats', 'names', 'flow', 'cust', 'payChannels', 'trash'].forEach(k => { if (!Array.isArray(D[k])) D[k] = []; });
             if (!D.prices) D.prices = { gold: 0, silver: 0, plat: 0 };
             if (!Array.isArray(D.sources) || D.sources.length === 0) D.sources = ['散客', '朋友介绍', '老客户', '抖音', '门店', '同行',
                 '其他'
@@ -1398,6 +1584,7 @@
             if (typeof D._version !== 'number') D._version = 0;
             if (typeof D._lastSeqId !== 'number') D._lastSeqId = 0;
             if (!Array.isArray(D.stockOrder)) D.stockOrder = [];
+            if (!Array.isArray(D.trash)) D.trash = [];
         }
 
         function saveData() {
@@ -1406,9 +1593,7 @@
         }
         loadData();
 
-        // ================================================================
-        //  工具函数
-        // ================================================================
+        // ---- 工具 ----
         function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g,
             '&gt;'); }
 
@@ -1419,10 +1604,10 @@
         function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
         function todayStr() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d
-            .getDate()); }
+                .getDate()); }
 
         function nowTime() { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d
-            .getSeconds()); }
+                .getSeconds()); }
 
         function nowFullStr() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d
                 .getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
@@ -1431,10 +1616,7 @@
             const d = dateStr || todayStr();
             const ymd = d.replace(/-/g, '');
             const nums = D.flow.filter(f => f.no && f.no.startsWith(prefix + '-' + ymd))
-                .map(f => {
-                    const parts = f.no.split('-');
-                    return parseInt(parts[2]) || 0;
-                });
+                .map(f => { const parts = f.no.split('-'); return parseInt(parts[2]) || 0; });
             const maxSeq = nums.length > 0 ? Math.max(...nums) : 0;
             const seq = String(maxSeq + 1).padStart(3, '0');
             return prefix + '-' + ymd + '-' + seq;
@@ -1468,9 +1650,24 @@
             if (D._lastSeqId) seqInfo.textContent = 'Seq:' + D._lastSeqId;
         }
 
-        // ================================================================
-        //  居中确认/提示模态框
-        // ================================================================
+        // ---- 模态框 ----
+        function showModal(title, body, buttons) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalBody').innerHTML = body;
+            const btns = document.getElementById('modalBtns');
+            btns.innerHTML = '';
+            buttons.forEach(b => {
+                const btn = document.createElement('button');
+                btn.className = 'btn ' + b.class + ' btn-sm';
+                btn.textContent = b.text;
+                btn.onclick = b.action;
+                btns.appendChild(btn);
+            });
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function closeModal() { document.getElementById('modal').style.display = 'none'; }
+
         function showConfirmModal(title, message, confirmText = '确定', cancelText = '取消') {
             return new Promise((resolve) => {
                 showModal(title, message, [
@@ -1491,9 +1688,23 @@
             });
         }
 
-        // ================================================================
-        //  核心业务函数
-        // ================================================================
+        function playBeep(success) {
+            try {
+                const audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.value = success ? 880 : 300;
+                gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+            } catch (e) { /* 忽略 */ }
+        }
+
+        // ---- 核心业务 ----
         function rebuildStock() {
             const stockMap = {};
             const groups = {};
@@ -1576,12 +1787,8 @@
         function updateStockOrder() {
             const currentKeys = D.stock.map(item => getStockKey(item));
             const newOrder = [];
-            D.stockOrder.forEach(key => {
-                if (currentKeys.includes(key)) newOrder.push(key);
-            });
-            currentKeys.forEach(key => {
-                if (!newOrder.includes(key)) newOrder.push(key);
-            });
+            D.stockOrder.forEach(key => { if (currentKeys.includes(key)) newOrder.push(key); });
+            currentKeys.forEach(key => { if (!newOrder.includes(key)) newOrder.push(key); });
             D.stockOrder = newOrder;
             saveData();
         }
@@ -1599,6 +1806,44 @@
             });
         }
 
+        // ★ 置顶功能 ★
+        async function moveStockToTop(key) {
+            try {
+                const idx = D.stockOrder.indexOf(key);
+                if (idx === -1) {
+                    showErrorToast('未找到该库存项', 'warning');
+                    return;
+                }
+                D.stockOrder.splice(idx, 1);
+                D.stockOrder.unshift(key);
+                saveData();
+                await updateSnapshot();
+                stockCurrentPage = 1;
+                renderStock();
+                showErrorToast('✅ 已置顶到第一位', 'success');
+            } catch (e) {
+                console.error('置顶错误', e);
+                showErrorToast('置顶失败：' + (e.message || e), '');
+            }
+        }
+
+        // ---- 同步相关 ----
+        async function updateSnapshot() {
+            if (!sb) return;
+            try {
+                D._version = (D._version || 0) + 1;
+                const { error } = await sb.from('shop_state').upsert({
+                    id: 1,
+                    payload: JSON.stringify(D),
+                    updated_at: new Date().toISOString()
+                });
+                if (error) throw error;
+                logSync('📸 快照已更新 (版本 ' + D._version + ')', 'ok');
+            } catch (e) {
+                logSync('⚠️ 快照更新失败: ' + e.message, 'warn');
+            }
+        }
+
         function refreshAll() {
             rebuildStock();
             recalcMargins();
@@ -1606,15 +1851,9 @@
             renderAll();
             renderStock();
             renderDash();
-            setTimeout(() => {
-                renderStock();
-                renderDash();
-            }, 50);
-        }
-
-        function refreshStockAndDash() {
-            renderStock();
-            renderDash();
+            renderTrash();
+            setTimeout(() => { renderStock();
+                renderDash(); }, 50);
         }
 
         function renderAll() {
@@ -1629,6 +1868,7 @@
             renderCatSelects();
             renderSourceSelects();
             populateFilterSelects();
+            renderTrash();
             if (document.getElementById('out').classList.contains('active')) outLoadNames();
             if (document.getElementById('in').classList.contains('active')) { inLoadNames();
                 renderPayRows('in'); }
@@ -1653,6 +1893,7 @@
             document.getElementById('sMar').textContent = mar.toFixed(2);
         }
 
+        // ---- 库存分页 ----
         function renderStock() {
             const tb = document.getElementById('stockBody');
             const filterCat = document.getElementById('stockFilterCat').value;
@@ -1662,11 +1903,45 @@
             if (filterName) filtered = filtered.filter(s => s.name === filterName);
             filtered = sortStockByOrder(filtered);
 
-            if (!filtered.length) {
+            const totalItems = filtered.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / STOCK_PAGE_SIZE));
+            if (stockCurrentPage > totalPages) stockCurrentPage = totalPages;
+            if (stockCurrentPage < 1) stockCurrentPage = 1;
+            const start = (stockCurrentPage - 1) * STOCK_PAGE_SIZE;
+            const end = Math.min(start + STOCK_PAGE_SIZE, totalItems);
+            const pageItems = filtered.slice(start, end);
+
+            document.getElementById('stockPageInfo').innerHTML =
+                `共 <strong>${totalItems}</strong> 条，第 <strong>${totalItems > 0 ? stockCurrentPage : 0}</strong> / <strong>${totalItems > 0 ? totalPages : 0}</strong> 页`;
+            const controls = document.getElementById('stockPageControls');
+            let html = '';
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="stockGoPage('first')" ${stockCurrentPage<=1?'disabled':''}>首页</button>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="stockGoPage('prev')" ${stockCurrentPage<=1?'disabled':''}>上一页</button>`;
+            const range = 2;
+            let startPage = Math.max(1, stockCurrentPage - range);
+            let endPage = Math.min(totalPages, stockCurrentPage + range);
+            if (startPage > 1) html += `<span class="page-num ellipsis">…</span>`;
+            for (let i = startPage; i <= endPage; i++) {
+                const activeClass = i === stockCurrentPage ? 'active' : '';
+                html += `<span class="page-num ${activeClass}" onclick="stockGoPage(${i})">${i}</span>`;
+            }
+            if (endPage < totalPages) html += `<span class="page-num ellipsis">…</span>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="stockGoPage('next')" ${stockCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="stockGoPage('last')" ${stockCurrentPage>=totalPages?'disabled':''}>末页</button>`;
+            controls.innerHTML = html;
+            document.getElementById('stockJumpInput').max = totalPages;
+            document.getElementById('stockJumpInput').value = stockCurrentPage;
+
+            if (!pageItems.length) {
                 tb.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#999;">暂无数据</td></tr>';
-                document.getElementById('stockFilterSummary').textContent = '共 0 条';
+                document.getElementById('stockFilterSummary').textContent = `共 0 条`;
                 return;
             }
+
             const gp = D.prices.gold,
                 sp = D.prices.silver,
                 pp = D.prices.plat;
@@ -1676,7 +1951,9 @@
                 totalPro = 0,
                 totalQ = 0;
             let rows = '';
-            filtered.forEach((s, index) => {
+            const globalStartIndex = start;
+            pageItems.forEach((s, idx) => {
+                const seq = globalStartIndex + idx + 1;
                 const mp = s.cat === '黄金' ? gp : (s.cat === '白银' ? sp : (s.cat === '铂金' ? pp : 0));
                 const totalC = s.totalCost || (s.w * s.cost);
                 const val = s.w * mp,
@@ -1697,7 +1974,10 @@
                 <td>${totalC.toFixed(2)}</td>
                 <td>${mp>0?val.toFixed(2):'-'}</td>
                 <td style="color:${pro>=0?'#1e7e34':'#b33c2f'}">${mp>0?pro.toFixed(2):'-'}</td>
-                <td><span class="text-danger" style="cursor:pointer;" onclick="confirmDeleteStock('${escAttr(s.name)}','${escAttr(s.cat)}')">删</span></td>
+                <td>
+                    <span class="text-danger" style="cursor:pointer;" onclick="confirmDeleteStock('${escAttr(s.name)}','${escAttr(s.cat)}')">删</span>
+                    <span class="top-btn" onclick="moveStockToTop('${escAttr(key)}')">⬆置顶</span>
+                </td>
             </tr>`;
             });
             const avgCost = totalW > 0 ? totalCost / totalW : 0;
@@ -1705,7 +1985,7 @@
                 `<tr class="total-row"><td colspan="2" style="text-align:right;">📊 合计</td><td>${totalW.toFixed(2)}</td><td>${totalQ}</td><td style="font-weight:bold;color:#8b4513;">${avgCost>0?avgCost.toFixed(2):'-'}</td><td>${totalCost.toFixed(2)}</td><td>${totalVal.toFixed(2)}</td><td style="color:${totalPro>=0?'#1e7e34':'#b33c2f'}">${totalPro.toFixed(2)}</td><td></td></tr>`;
             tb.innerHTML = rows + totalRow;
             document.getElementById('stockFilterSummary').textContent =
-                `共 ${filtered.length} 条 | 总克重 ${totalW.toFixed(2)}g | 加权均价 ${avgCost.toFixed(2)}元/g | 总成本 ${totalCost.toFixed(2)}元`;
+                `共 ${totalItems} 条 | 总克重 ${totalW.toFixed(2)}g | 加权均价 ${avgCost.toFixed(2)}元/g | 总成本 ${totalCost.toFixed(2)}元 | 第 ${stockCurrentPage}/${totalPages} 页`;
 
             const rowsList = tb.querySelectorAll('tr[data-key]');
             rowsList.forEach(tr => {
@@ -1716,7 +1996,26 @@
             });
         }
 
-        // ===== 拖拽事件 =====
+        function stockGoPage(target) {
+            let newPage = stockCurrentPage;
+            if (target === 'first') newPage = 1;
+            else if (target === 'prev') newPage = stockCurrentPage - 1;
+            else if (target === 'next') newPage = stockCurrentPage + 1;
+            else if (target === 'last') { stockCurrentPage = 99999;
+                renderStock(); return; } else if (typeof target === 'number') newPage = target;
+            if (newPage < 1) newPage = 1;
+            stockCurrentPage = newPage;
+            renderStock();
+        }
+
+        function stockJumpToPage() {
+            const input = document.getElementById('stockJumpInput');
+            let page = parseInt(input.value);
+            if (isNaN(page) || page < 1) page = 1;
+            stockCurrentPage = page;
+            renderStock();
+        }
+
         let dragSrcIndex = null;
 
         function handleDragStart(e) {
@@ -1765,14 +2064,10 @@
             document.querySelectorAll('#stockBody tr.drag-over').forEach(el => el.classList.remove('drag-over'));
         }
 
-        // ================================================================
-        //  支付渠道管理
-        // ================================================================
-        function getPayChannels() {
-            return D.payChannels || ['微信', '支付宝', '工商银行', '建设银行', '农业银行', '农商银行', '招商银行', '浦发银行', '兴业银行', '中国银行',
-                '交通银行', '现金'
-            ];
-        }
+        // ---- 支付渠道 ----
+        function getPayChannels() { return D.payChannels || ['微信', '支付宝', '工商银行', '建设银行', '农业银行', '农商银行', '招商银行',
+                '浦发银行', '兴业银行', '中国银行', '交通银行', '现金'
+            ]; }
 
         function payOpts(selected) {
             let s = '<option value="">-- 渠道 --</option>';
@@ -1854,7 +2149,7 @@
             ]);
         }
 
-        async function addPayChannel() {
+        function addPayChannel() {
             const input = document.getElementById('newChannelInput');
             if (!input) return;
             const val = input.value.trim();
@@ -1864,7 +2159,7 @@
                 showAlertModal('提示', '该渠道已存在'); return; }
             D.payChannels.push(val);
             saveData();
-            await updateSnapshot();
+            updateSnapshot();
             document.querySelectorAll('.payCh').forEach(sel => {
                 const cur = sel.value;
                 sel.innerHTML = payOpts();
@@ -1875,40 +2170,37 @@
             showAlertModal('✅', '渠道已添加');
         }
 
-        async function removePayChannel(ch) {
+        function removePayChannel(ch) {
             if (D.payChannels.length <= 1) {
                 playBeep(false);
                 showAlertModal('提示', '至少保留一个渠道');
                 return;
             }
-            const ok = await showConfirmModal('确认删除', `确定要删除渠道 <b>${escHtml(ch)}</b> 吗？<br><span class="text-muted">已有流水中的付款记录不受影响</span>`,
-                '确定删除', '取消');
-            if (!ok) return;
-            D.payChannels = D.payChannels.filter(c => c !== ch);
-            saveData();
-            await updateSnapshot();
-            document.querySelectorAll('.payCh').forEach(sel => {
-                const cur = sel.value;
-                sel.innerHTML = payOpts();
-                if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+            showConfirmModal('确认删除', `确定要删除渠道 <b>${escHtml(ch)}</b> 吗？<br><span class="text-muted">已有流水中的付款记录不受影响</span>`,
+                '确定删除', '取消').then(ok => {
+                if (!ok) return;
+                D.payChannels = D.payChannels.filter(c => c !== ch);
+                saveData();
+                updateSnapshot();
+                document.querySelectorAll('.payCh').forEach(sel => {
+                    const cur = sel.value;
+                    sel.innerHTML = payOpts();
+                    if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+                });
+                managePayChannels();
+                playBeep(false);
+                showAlertModal('提示', '渠道已删除');
             });
-            managePayChannels();
-            playBeep(false);
-            showAlertModal('提示', '渠道已删除');
         }
 
-        // ================================================================
-        //  renderFlow 函数（已添加分页逻辑 + 增强分页控件）
-        // ================================================================
+        // ---- Flow 渲染 ----
         function renderFlow() {
             const tb = document.getElementById('flowBody');
             let arr = D.flow.slice();
-
             arr.sort((a, b) => {
                 if (a.time !== b.time) return b.time.localeCompare(a.time);
                 return b.id - a.id;
             });
-
             if (flowFilter !== 'all') arr = arr.filter(f => f.t === flowFilter);
             const dtFrom = document.getElementById('flowDtFrom').value;
             const dtTo = document.getElementById('flowDtTo').value;
@@ -1918,7 +2210,6 @@
             const filterName = document.getElementById('flowFilterName').value;
             if (filterCat) arr = arr.filter(f => f.cat === filterCat);
             if (filterName) arr = arr.filter(f => f.name === filterName);
-
             if (flowCustomerFilter) {
                 const kw = flowCustomerFilter.trim();
                 if (flowCustomerFilterField === 'tel') {
@@ -1927,7 +2218,6 @@
                     arr = arr.filter(f => (f.cus && f.cus.includes(kw)) || (f.buyer && f.buyer.includes(kw)));
                 }
             }
-
             const stockState = {};
             const flowWithStock = [];
             const sortedAsc = arr.slice().sort((a, b) => {
@@ -1943,7 +2233,6 @@
                 stockState[key] = after;
                 flowWithStock.push({ flow: f, beforeStock: before, afterStock: after });
             });
-
             const keyword = document.getElementById('globalSearchInput').value.trim();
             let filteredItems = flowWithStock;
             if (keyword) {
@@ -1952,24 +2241,16 @@
                     const f = item.flow;
                     const delta = item.afterStock - item.beforeStock;
                     const deltaStr = (delta >= 0 ? '+' : '') + delta.toFixed(2) + 'g';
-                    const fields = [
-                        f.no, f.cat, f.name, f.cus, f.buyer, f.tel,
-                        f.note, f.src, f.idNo, deltaStr
-                    ];
+                    const fields = [f.no, f.cat, f.name, f.cus, f.buyer, f.tel, f.note, f.src, f.idNo, deltaStr];
                     return fields.some(field => field && field.toString().toLowerCase().includes(lowerKW));
                 });
             }
-
-            // 排序得到全部数据
             const displayItems = filteredItems.slice().sort((a, b) => {
                 if (a.flow.time !== b.flow.time) return b.flow.time.localeCompare(a.flow.time);
                 return b.flow.id - a.flow.id;
             });
-
-            // 保存全部数据用于导出
             currentFlowArr = displayItems.map(item => item.flow);
 
-            // ★★★ 分页逻辑 ★★★
             const totalItems = displayItems.length;
             const totalPages = Math.max(1, Math.ceil(totalItems / FLOW_PAGE_SIZE));
             if (flowCurrentPage > totalPages) flowCurrentPage = totalPages;
@@ -1978,45 +2259,31 @@
             const end = Math.min(start + FLOW_PAGE_SIZE, totalItems);
             const pageItems = displayItems.slice(start, end);
 
-            // 更新分页控件
             document.getElementById('flowPageInfo').innerHTML =
                 `共 <strong>${totalItems}</strong> 条，第 <strong>${totalItems > 0 ? flowCurrentPage : 0}</strong> / <strong>${totalItems > 0 ? totalPages : 0}</strong> 页`;
-
-            // ★★★ 生成增强分页按钮 ★★★
             const controls = document.getElementById('flowPageControls');
             let html = '';
-            // 首页
-            html += `<button class="btn btn-gray btn-sm" onclick="flowGoPage('first')" ${flowCurrentPage<=1?'disabled':''}>首页</button>`;
-            // 上一页
-            html += `<button class="btn btn-gray btn-sm" onclick="flowGoPage('prev')" ${flowCurrentPage<=1?'disabled':''}>上一页</button>`;
-
-            // 页码列表（显示当前页前后各2页）
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="flowGoPage('first')" ${flowCurrentPage<=1?'disabled':''}>首页</button>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="flowGoPage('prev')" ${flowCurrentPage<=1?'disabled':''}>上一页</button>`;
             const range = 2;
             let startPage = Math.max(1, flowCurrentPage - range);
             let endPage = Math.min(totalPages, flowCurrentPage + range);
-            if (startPage > 1) {
-                html += `<span class="page-num ellipsis">…</span>`;
-            }
+            if (startPage > 1) html += `<span class="page-num ellipsis">…</span>`;
             for (let i = startPage; i <= endPage; i++) {
                 const activeClass = i === flowCurrentPage ? 'active' : '';
                 html += `<span class="page-num ${activeClass}" onclick="flowGoPage(${i})">${i}</span>`;
             }
-            if (endPage < totalPages) {
-                html += `<span class="page-num ellipsis">…</span>`;
-            }
-
-            // 下一页
-            html += `<button class="btn btn-gray btn-sm" onclick="flowGoPage('next')" ${flowCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
-            // 末页
-            html += `<button class="btn btn-gray btn-sm" onclick="flowGoPage('last')" ${flowCurrentPage>=totalPages?'disabled':''}>末页</button>`;
+            if (endPage < totalPages) html += `<span class="page-num ellipsis">…</span>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="flowGoPage('next')" ${flowCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="flowGoPage('last')" ${flowCurrentPage>=totalPages?'disabled':''}>末页</button>`;
             controls.innerHTML = html;
+            document.getElementById('flowJumpInput').max = totalPages;
+            document.getElementById('flowJumpInput').value = flowCurrentPage;
 
-            // 更新跳转输入框的最大值
-            const jumpInput = document.getElementById('flowJumpInput');
-            jumpInput.max = totalPages;
-            jumpInput.value = flowCurrentPage;
-
-            // 统计信息（基于全部数据）
             let totalInW = 0,
                 totalOutW = 0,
                 totalInAmount = 0,
@@ -2044,15 +2311,14 @@
                 tb.innerHTML = '<tr><td colspan="17" style="text-align:center;color:#999;">暂无数据</td></tr>';
                 let summary = `共 0 条`;
                 if (keyword) summary += ` | 🔍 搜索: "${escHtml(keyword)}"`;
-                if (flowCustomerFilter) summary += ` | 客户筛选(${flowCustomerFilterField==='tel'?'电话':'姓名'}): ${escHtml(flowCustomerFilter)}`;
+                if (flowCustomerFilter) summary +=
+                    ` | 客户筛选(${flowCustomerFilterField==='tel'?'电话':'姓名'}): ${escHtml(flowCustomerFilter)}`;
                 document.getElementById('flowFilterSummary').textContent = summary;
                 return;
             }
 
-            // 渲染当前页数据
             const stockMap = {};
             pageItems.forEach(item => { stockMap[item.flow.id] = item; });
-
             let rows = '';
             const globalStartIndex = start;
             pageItems.forEach((item, idx) => {
@@ -2063,7 +2329,6 @@
                 const delta = after - before;
                 const deltaStr = (delta >= 0 ? '+' : '') + delta.toFixed(2);
                 const deltaClass = delta >= 0 ? 'positive' : 'negative';
-
                 const stockDisplay =
                     `<span class="flow-stock-change">
                     <span class="from">${before.toFixed(2)}g</span>
@@ -2071,7 +2336,6 @@
                     <span class="delta ${deltaClass}">(${deltaStr}g)</span>
                     <span class="to">${after.toFixed(2)}g</span>
                 </span>`;
-
                 const payTxt = f.payDetail ? f.payDetail.map(p => p.ch + ' ¥' + (p.amt || 0).toFixed(2)).join('<br>') :
                 '-';
                 const remain = Math.abs(f.payRemain || 0) > 0.01 ? (f.t === 'in' ? (f.payRemain > 0 ? '未付' : '多付') : (f
@@ -2080,7 +2344,6 @@
                 const tel = escHtml(f.tel || '');
                 const createdAt = f.time || f.createdAt || f.time;
                 const lastMod = f.lastModified || f.time;
-
                 let weightDisplay = '',
                     amountDisplay = '',
                     unitPriceDisplay = '';
@@ -2098,7 +2361,6 @@
                     if (f.margin !== undefined && f.margin !== null && Math.abs(f.margin) > 0.01) amountDisplay +=
                         `<br><span class="margin-text">利 ${f.margin.toFixed(2)}</span>`;
                 }
-
                 rows += `<tr class="flow-row" onclick="editFlow(${f.id})">
                     <td class="seq-num">${seq}</td>
                     <td style="white-space:nowrap;font-size:12px;">${createdAt.replace('T',' ').slice(0,16)}</td>
@@ -2146,57 +2408,30 @@
             let summary =
                 `共 ${totalItems} 条 | 入库 ${totalInW.toFixed(2)}g / ${totalInAmount.toFixed(2)}元 | 出库 ${totalOutW.toFixed(2)}g / ${totalOutSale.toFixed(2)}元 | 剩余 ${remainW.toFixed(2)}g | 净额 ${net.toFixed(2)}元`;
             if (keyword) summary += ` | 🔍 搜索: "${escHtml(keyword)}"`;
-            if (flowCustomerFilter) summary += ` | 客户筛选(${flowCustomerFilterField==='tel'?'电话':'姓名'}): ${escHtml(flowCustomerFilter)}`;
+            if (flowCustomerFilter) summary +=
+                ` | 客户筛选(${flowCustomerFilterField==='tel'?'电话':'姓名'}): ${escHtml(flowCustomerFilter)}`;
             summary += ` | 第 ${flowCurrentPage}/${totalPages} 页`;
             document.getElementById('flowFilterSummary').textContent = summary;
         }
 
-        // ★★★ 分页翻页函数（增强版） ★★★
         function flowGoPage(target) {
-            // 计算总页数（通过重新获取当前显示数据的总数）
-            // 为了准确，我们调用renderFlow时内部会计算，但为了避免重复逻辑，我们可以先计算总数
-            // 但更简单：直接修改页码后调用renderFlow，它会自动修正
             let newPage = flowCurrentPage;
             if (target === 'first') newPage = 1;
             else if (target === 'prev') newPage = flowCurrentPage - 1;
             else if (target === 'next') newPage = flowCurrentPage + 1;
-            else if (target === 'last') {
-                // 需要先知道总页数，我们可以通过调用renderFlow来计算，但这里先简单处理
-                // 直接调用renderFlow内部会修正，但为了末页准确，我们临时计算总页数
-                // 先获取当前筛选后的数据总数（复用renderFlow的逻辑，但为了性能，我们临时计算）
-                let arr = D.flow.slice();
-                // 应用筛选条件...
-                // 简单起见，我们直接调用renderFlow，它会自动修正页码
-                // 但我们要传递末页标记，我们可以在内部计算
-                // 更健壮：直接调用renderFlow，它会根据总数调整
-                flowCurrentPage = 99999; // 设置一个很大的值，renderFlow会修正为总页数
-                renderFlow();
-                return;
-            }
+            else if (target === 'last') { flowCurrentPage = 99999;
+                renderFlow(); return; } else if (typeof target === 'number') newPage = target;
             if (newPage < 1) newPage = 1;
             flowCurrentPage = newPage;
             renderFlow();
         }
 
-        // ★★★ 跳转函数 ★★★
         function flowJumpToPage() {
             const input = document.getElementById('flowJumpInput');
             let page = parseInt(input.value);
             if (isNaN(page) || page < 1) page = 1;
-            // 获取总页数（通过读取当前显示的页数信息，或者重新计算）
-            // 最简单：先调用renderFlow获取总页数，但为了避免重复，我们直接设置并调用
             flowCurrentPage = page;
             renderFlow();
-            // 如果修正了页码，更新输入框
-            const controls = document.getElementById('flowPageControls');
-            const pageNumEls = controls.querySelectorAll('.page-num:not(.ellipsis)');
-            let maxPage = 1;
-            pageNumEls.forEach(el => {
-                const num = parseInt(el.textContent);
-                if (!isNaN(num) && num > maxPage) maxPage = num;
-            });
-            // 但更准确是从info获取，但我们不折腾了
-            // 简单重新render后，控件已经更新
         }
 
         function filterByCustomer(keyword, field) {
@@ -2208,15 +2443,14 @@
             if (!document.getElementById('flow').classList.contains('active')) switchTab('flow');
         }
 
-        // ================================================================
-        //  报表函数
-        // ================================================================
+        // ---- 报表分页 ----
         function renderReportOut() {
             const dtFrom = document.getElementById('reportOutFrom').value;
             const dtTo = document.getElementById('reportOutTo').value;
             let outFlows = D.flow.filter(f => f.t === 'out');
             if (dtFrom) outFlows = outFlows.filter(f => f.time.slice(0, 10) >= dtFrom);
             if (dtTo) outFlows = outFlows.filter(f => f.time.slice(0, 10) <= dtTo);
+
             let totalSale = 0,
                 totalCost = 0,
                 totalProfit = 0;
@@ -2228,6 +2462,7 @@
             document.getElementById('rOutCost').textContent = totalCost.toFixed(2);
             document.getElementById('rOutMarginRate').textContent = totalSale > 0 ? (totalProfit / totalSale * 100).toFixed(
                 1) + '%' : '0%';
+
             const catMap = {};
             outFlows.forEach(f => {
                 if (!catMap[f.cat]) catMap[f.cat] = { sale: 0, cost: 0, profit: 0, w: 0 };
@@ -2236,20 +2471,9 @@
                 catMap[f.cat].profit += f.margin || 0;
                 catMap[f.cat].w += f.w || 0;
             });
-            const catBody = document.getElementById('reportOutCatBody');
             const catKeys = Object.keys(catMap).sort((a, b) => catMap[b].profit - catMap[a].profit);
-            if (!catKeys.length) {
-                catBody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">暂无数据</td></tr>';
-            } else {
-                let catRows = '';
-                catKeys.forEach(cat => {
-                    const d = catMap[cat];
-                    const rate = d.sale > 0 ? (d.profit / d.sale * 100).toFixed(1) : '0.0';
-                    catRows +=
-                        `<tr><td>${escHtml(cat)}</td><td>${d.w.toFixed(2)}</td><td>${d.sale.toFixed(2)}</td><td>${d.cost.toFixed(2)}</td><td style="color:${d.profit>=0?'#1e7e34':'#b33c2f'}">${d.profit.toFixed(2)}</td><td style="color:${d.profit>=0?'#1e7e34':'#b33c2f'}">${rate}%</td></tr>`;
-                });
-                catBody.innerHTML = catRows;
-            }
+            renderReportOutCat(catKeys, catMap);
+
             const custMap = {};
             outFlows.forEach(f => {
                 let name = f.buyer || f.cus || '匿名';
@@ -2259,22 +2483,149 @@
                 custMap[name].profit += f.margin || 0;
                 custMap[name].count += 1;
             });
-            const custBody = document.getElementById('reportOutCustBody');
-            const custKeys = Object.keys(custMap);
-            if (!custKeys.length) {
-                custBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无数据</td></tr>';
-            } else {
-                let sorted = custKeys.map(k => ({ name: k, ...custMap[k] }));
-                if (reportOutSort === 'sale') sorted.sort((a, b) => b.sale - a.sale);
-                else if (reportOutSort === 'profit') sorted.sort((a, b) => b.profit - a.profit);
-                else sorted.sort((a, b) => b.count - a.count);
-                let custRows = '';
-                sorted.forEach((item, idx) => {
-                    custRows +=
-                        `<tr><td>${idx+1}</td><td>${escHtml(item.name)}</td><td>${item.count}</td><td>${item.sale.toFixed(2)}</td><td style="color:${item.profit>=0?'#1e7e34':'#b33c2f'}">${item.profit.toFixed(2)}</td></tr>`;
-                });
-                custBody.innerHTML = custRows;
+            let sortedCust = Object.keys(custMap).map(k => ({ name: k, ...custMap[k] }));
+            if (reportOutSort === 'sale') sortedCust.sort((a, b) => b.sale - a.sale);
+            else if (reportOutSort === 'profit') sortedCust.sort((a, b) => b.profit - a.profit);
+            else sortedCust.sort((a, b) => b.count - a.count);
+            renderReportOutCust(sortedCust);
+        }
+
+        function renderReportOutCat(catKeys, catMap) {
+            const totalItems = catKeys.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / REPORT_PAGE_SIZE));
+            if (reportOutCatCurrentPage > totalPages) reportOutCatCurrentPage = totalPages;
+            if (reportOutCatCurrentPage < 1) reportOutCatCurrentPage = 1;
+            const start = (reportOutCatCurrentPage - 1) * REPORT_PAGE_SIZE;
+            const end = Math.min(start + REPORT_PAGE_SIZE, totalItems);
+            const pageKeys = catKeys.slice(start, end);
+
+            document.getElementById('reportOutCatPageInfo').innerHTML =
+                `共 <strong>${totalItems}</strong> 条，第 <strong>${totalItems > 0 ? reportOutCatCurrentPage : 0}</strong> / <strong>${totalItems > 0 ? totalPages : 0}</strong> 页`;
+            const controls = document.getElementById('reportOutCatPageControls');
+            let html = '';
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportOutCatGoPage('first')" ${reportOutCatCurrentPage<=1?'disabled':''}>首页</button>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportOutCatGoPage('prev')" ${reportOutCatCurrentPage<=1?'disabled':''}>上一页</button>`;
+            const range = 2;
+            let startPage = Math.max(1, reportOutCatCurrentPage - range);
+            let endPage = Math.min(totalPages, reportOutCatCurrentPage + range);
+            if (startPage > 1) html += `<span class="page-num ellipsis">…</span>`;
+            for (let i = startPage; i <= endPage; i++) {
+                const activeClass = i === reportOutCatCurrentPage ? 'active' : '';
+                html += `<span class="page-num ${activeClass}" onclick="reportOutCatGoPage(${i})">${i}</span>`;
             }
+            if (endPage < totalPages) html += `<span class="page-num ellipsis">…</span>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportOutCatGoPage('next')" ${reportOutCatCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportOutCatGoPage('last')" ${reportOutCatCurrentPage>=totalPages?'disabled':''}>末页</button>`;
+            controls.innerHTML = html;
+            document.getElementById('reportOutCatJumpInput').max = totalPages;
+            document.getElementById('reportOutCatJumpInput').value = reportOutCatCurrentPage;
+
+            const body = document.getElementById('reportOutCatBody');
+            if (!pageKeys.length) {
+                body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">暂无数据</td></tr>';
+                return;
+            }
+            let rows = '';
+            pageKeys.forEach(cat => {
+                const d = catMap[cat];
+                const rate = d.sale > 0 ? (d.profit / d.sale * 100).toFixed(1) : '0.0';
+                rows +=
+                    `<tr><td>${escHtml(cat)}</td><td>${d.w.toFixed(2)}</td><td>${d.sale.toFixed(2)}</td><td>${d.cost.toFixed(2)}</td><td style="color:${d.profit>=0?'#1e7e34':'#b33c2f'}">${d.profit.toFixed(2)}</td><td style="color:${d.profit>=0?'#1e7e34':'#b33c2f'}">${rate}%</td></tr>`;
+            });
+            body.innerHTML = rows;
+        }
+
+        function renderReportOutCust(sortedCust) {
+            const totalItems = sortedCust.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / REPORT_PAGE_SIZE));
+            if (reportOutCustCurrentPage > totalPages) reportOutCustCurrentPage = totalPages;
+            if (reportOutCustCurrentPage < 1) reportOutCustCurrentPage = 1;
+            const start = (reportOutCustCurrentPage - 1) * REPORT_PAGE_SIZE;
+            const end = Math.min(start + REPORT_PAGE_SIZE, totalItems);
+            const pageItems = sortedCust.slice(start, end);
+
+            document.getElementById('reportOutCustPageInfo').innerHTML =
+                `共 <strong>${totalItems}</strong> 条，第 <strong>${totalItems > 0 ? reportOutCustCurrentPage : 0}</strong> / <strong>${totalItems > 0 ? totalPages : 0}</strong> 页`;
+            const controls = document.getElementById('reportOutCustPageControls');
+            let html = '';
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportOutCustGoPage('first')" ${reportOutCustCurrentPage<=1?'disabled':''}>首页</button>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportOutCustGoPage('prev')" ${reportOutCustCurrentPage<=1?'disabled':''}>上一页</button>`;
+            const range = 2;
+            let startPage = Math.max(1, reportOutCustCurrentPage - range);
+            let endPage = Math.min(totalPages, reportOutCustCurrentPage + range);
+            if (startPage > 1) html += `<span class="page-num ellipsis">…</span>`;
+            for (let i = startPage; i <= endPage; i++) {
+                const activeClass = i === reportOutCustCurrentPage ? 'active' : '';
+                html += `<span class="page-num ${activeClass}" onclick="reportOutCustGoPage(${i})">${i}</span>`;
+            }
+            if (endPage < totalPages) html += `<span class="page-num ellipsis">…</span>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportOutCustGoPage('next')" ${reportOutCustCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportOutCustGoPage('last')" ${reportOutCustCurrentPage>=totalPages?'disabled':''}>末页</button>`;
+            controls.innerHTML = html;
+            document.getElementById('reportOutCustJumpInput').max = totalPages;
+            document.getElementById('reportOutCustJumpInput').value = reportOutCustCurrentPage;
+
+            const body = document.getElementById('reportOutCustBody');
+            if (!pageItems.length) {
+                body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无数据</td></tr>';
+                return;
+            }
+            let rows = '';
+            const startIdx = start;
+            pageItems.forEach((item, idx) => {
+                const rank = startIdx + idx + 1;
+                rows +=
+                    `<tr><td>${rank}</td><td>${escHtml(item.name)}</td><td>${item.count}</td><td>${item.sale.toFixed(2)}</td><td style="color:${item.profit>=0?'#1e7e34':'#b33c2f'}">${item.profit.toFixed(2)}</td></tr>`;
+            });
+            body.innerHTML = rows;
+        }
+
+        function reportOutCatGoPage(target) {
+            let newPage = reportOutCatCurrentPage;
+            if (target === 'first') newPage = 1;
+            else if (target === 'prev') newPage = reportOutCatCurrentPage - 1;
+            else if (target === 'next') newPage = reportOutCatCurrentPage + 1;
+            else if (target === 'last') { reportOutCatCurrentPage = 99999;
+                renderReportOut(); return; } else if (typeof target === 'number') newPage = target;
+            if (newPage < 1) newPage = 1;
+            reportOutCatCurrentPage = newPage;
+            renderReportOut();
+        }
+
+        function reportOutCatJumpToPage() {
+            const input = document.getElementById('reportOutCatJumpInput');
+            let page = parseInt(input.value);
+            if (isNaN(page) || page < 1) page = 1;
+            reportOutCatCurrentPage = page;
+            renderReportOut();
+        }
+
+        function reportOutCustGoPage(target) {
+            let newPage = reportOutCustCurrentPage;
+            if (target === 'first') newPage = 1;
+            else if (target === 'prev') newPage = reportOutCustCurrentPage - 1;
+            else if (target === 'next') newPage = reportOutCustCurrentPage + 1;
+            else if (target === 'last') { reportOutCustCurrentPage = 99999;
+                renderReportOut(); return; } else if (typeof target === 'number') newPage = target;
+            if (newPage < 1) newPage = 1;
+            reportOutCustCurrentPage = newPage;
+            renderReportOut();
+        }
+
+        function reportOutCustJumpToPage() {
+            const input = document.getElementById('reportOutCustJumpInput');
+            let page = parseInt(input.value);
+            if (isNaN(page) || page < 1) page = 1;
+            reportOutCustCurrentPage = page;
+            renderReportOut();
         }
 
         function renderReportIn() {
@@ -2283,6 +2634,7 @@
             let inFlows = D.flow.filter(f => f.t === 'in');
             if (dtFrom) inFlows = inFlows.filter(f => f.time.slice(0, 10) >= dtFrom);
             if (dtTo) inFlows = inFlows.filter(f => f.time.slice(0, 10) <= dtTo);
+
             let totalW = 0,
                 totalCost = 0,
                 totalFee = 0;
@@ -2295,6 +2647,7 @@
             document.getElementById('rInAvg').textContent = avgPrice.toFixed(2);
             document.getElementById('rInCount').textContent = inFlows.length;
             document.getElementById('rInFee').textContent = totalFee.toFixed(2);
+
             const catMap = {};
             inFlows.forEach(f => {
                 if (!catMap[f.cat]) catMap[f.cat] = { w: 0, cost: 0, count: 0 };
@@ -2302,20 +2655,9 @@
                 catMap[f.cat].cost += f.total || 0;
                 catMap[f.cat].count += 1;
             });
-            const catBody = document.getElementById('reportInCatBody');
             const catKeys = Object.keys(catMap).sort((a, b) => catMap[b].cost - catMap[a].cost);
-            if (!catKeys.length) {
-                catBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无数据</td></tr>';
-            } else {
-                let catRows = '';
-                catKeys.forEach(cat => {
-                    const d = catMap[cat];
-                    const avg = d.w > 0 ? d.cost / d.w : 0;
-                    catRows +=
-                        `<tr><td>${escHtml(cat)}</td><td>${d.w.toFixed(2)}</td><td>${d.cost.toFixed(2)}</td><td>${avg.toFixed(2)}</td><td>${d.count}</td></tr>`;
-                });
-                catBody.innerHTML = catRows;
-            }
+            renderReportInCat(catKeys, catMap);
+
             const custMap = {};
             inFlows.forEach(f => {
                 let name = f.cus || '匿名';
@@ -2325,102 +2667,352 @@
                 custMap[name].cost += f.total || 0;
                 custMap[name].count += 1;
             });
-            const custBody = document.getElementById('reportInCustBody');
             const custKeys = Object.keys(custMap).sort((a, b) => custMap[b].cost - custMap[a].cost);
-            if (!custKeys.length) {
-                custBody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无数据</td></tr>';
-            } else {
-                let custRows = '';
-                custKeys.forEach(name => {
-                    const d = custMap[name];
-                    const avg = d.w > 0 ? d.cost / d.w : 0;
-                    custRows +=
-                        `<tr><td>${escHtml(name)}</td><td>${d.w.toFixed(2)}</td><td>${d.cost.toFixed(2)}</td><td>${avg.toFixed(2)}</td><td>${d.count}</td></tr>`;
-                });
-                custBody.innerHTML = custRows;
+            renderReportInCust(custKeys, custMap);
+        }
+
+        function renderReportInCat(catKeys, catMap) {
+            const totalItems = catKeys.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / REPORT_PAGE_SIZE));
+            if (reportInCatCurrentPage > totalPages) reportInCatCurrentPage = totalPages;
+            if (reportInCatCurrentPage < 1) reportInCatCurrentPage = 1;
+            const start = (reportInCatCurrentPage - 1) * REPORT_PAGE_SIZE;
+            const end = Math.min(start + REPORT_PAGE_SIZE, totalItems);
+            const pageKeys = catKeys.slice(start, end);
+
+            document.getElementById('reportInCatPageInfo').innerHTML =
+                `共 <strong>${totalItems}</strong> 条，第 <strong>${totalItems > 0 ? reportInCatCurrentPage : 0}</strong> / <strong>${totalItems > 0 ? totalPages : 0}</strong> 页`;
+            const controls = document.getElementById('reportInCatPageControls');
+            let html = '';
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportInCatGoPage('first')" ${reportInCatCurrentPage<=1?'disabled':''}>首页</button>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportInCatGoPage('prev')" ${reportInCatCurrentPage<=1?'disabled':''}>上一页</button>`;
+            const range = 2;
+            let startPage = Math.max(1, reportInCatCurrentPage - range);
+            let endPage = Math.min(totalPages, reportInCatCurrentPage + range);
+            if (startPage > 1) html += `<span class="page-num ellipsis">…</span>`;
+            for (let i = startPage; i <= endPage; i++) {
+                const activeClass = i === reportInCatCurrentPage ? 'active' : '';
+                html += `<span class="page-num ${activeClass}" onclick="reportInCatGoPage(${i})">${i}</span>`;
             }
+            if (endPage < totalPages) html += `<span class="page-num ellipsis">…</span>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportInCatGoPage('next')" ${reportInCatCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportInCatGoPage('last')" ${reportInCatCurrentPage>=totalPages?'disabled':''}>末页</button>`;
+            controls.innerHTML = html;
+            document.getElementById('reportInCatJumpInput').max = totalPages;
+            document.getElementById('reportInCatJumpInput').value = reportInCatCurrentPage;
+
+            const body = document.getElementById('reportInCatBody');
+            if (!pageKeys.length) {
+                body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无数据</td></tr>';
+                return;
+            }
+            let rows = '';
+            pageKeys.forEach(cat => {
+                const d = catMap[cat];
+                const avg = d.w > 0 ? d.cost / d.w : 0;
+                rows +=
+                    `<tr><td>${escHtml(cat)}</td><td>${d.w.toFixed(2)}</td><td>${d.cost.toFixed(2)}</td><td>${avg.toFixed(2)}</td><td>${d.count}</td></tr>`;
+            });
+            body.innerHTML = rows;
         }
 
-        function switchReport(type) {
-            document.querySelectorAll('.report-tab-btn').forEach(el => el.classList.remove('active'));
-            document.querySelector(`.report-tab-btn[data-report="${type}"]`).classList.add('active');
-            document.getElementById('reportOutPanel').classList.toggle('active', type === 'out');
-            document.getElementById('reportInPanel').classList.toggle('active', type === 'in');
-            if (type === 'out') renderReportOut();
-            else renderReportIn();
+        function renderReportInCust(custKeys, custMap) {
+            const totalItems = custKeys.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / REPORT_PAGE_SIZE));
+            if (reportInCustCurrentPage > totalPages) reportInCustCurrentPage = totalPages;
+            if (reportInCustCurrentPage < 1) reportInCustCurrentPage = 1;
+            const start = (reportInCustCurrentPage - 1) * REPORT_PAGE_SIZE;
+            const end = Math.min(start + REPORT_PAGE_SIZE, totalItems);
+            const pageKeys = custKeys.slice(start, end);
+
+            document.getElementById('reportInCustPageInfo').innerHTML =
+                `共 <strong>${totalItems}</strong> 条，第 <strong>${totalItems > 0 ? reportInCustCurrentPage : 0}</strong> / <strong>${totalItems > 0 ? totalPages : 0}</strong> 页`;
+            const controls = document.getElementById('reportInCustPageControls');
+            let html = '';
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportInCustGoPage('first')" ${reportInCustCurrentPage<=1?'disabled':''}>首页</button>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportInCustGoPage('prev')" ${reportInCustCurrentPage<=1?'disabled':''}>上一页</button>`;
+            const range = 2;
+            let startPage = Math.max(1, reportInCustCurrentPage - range);
+            let endPage = Math.min(totalPages, reportInCustCurrentPage + range);
+            if (startPage > 1) html += `<span class="page-num ellipsis">…</span>`;
+            for (let i = startPage; i <= endPage; i++) {
+                const activeClass = i === reportInCustCurrentPage ? 'active' : '';
+                html += `<span class="page-num ${activeClass}" onclick="reportInCustGoPage(${i})">${i}</span>`;
+            }
+            if (endPage < totalPages) html += `<span class="page-num ellipsis">…</span>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportInCustGoPage('next')" ${reportInCustCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
+            html +=
+                `<button class="btn btn-gray btn-sm" onclick="reportInCustGoPage('last')" ${reportInCustCurrentPage>=totalPages?'disabled':''}>末页</button>`;
+            controls.innerHTML = html;
+            document.getElementById('reportInCustJumpInput').max = totalPages;
+            document.getElementById('reportInCustJumpInput').value = reportInCustCurrentPage;
+
+            const body = document.getElementById('reportInCustBody');
+            if (!pageKeys.length) {
+                body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无数据</td></tr>';
+                return;
+            }
+            let rows = '';
+            pageKeys.forEach(name => {
+                const d = custMap[name];
+                const avg = d.w > 0 ? d.cost / d.w : 0;
+                rows +=
+                    `<tr><td>${escHtml(name)}</td><td>${d.w.toFixed(2)}</td><td>${d.cost.toFixed(2)}</td><td>${avg.toFixed(2)}</td><td>${d.count}</td></tr>`;
+            });
+            body.innerHTML = rows;
         }
 
-        // ================================================================
-        //  品类、品名、客户管理
-        // ================================================================
-        function populateFilterSelects() {
-            const flowCat = document.getElementById('flowFilterCat');
-            const curFlowCat = flowCat.value;
-            flowCat.innerHTML = '<option value="">全部品类</option>';
-            D.cats.forEach(c => { const opt = document.createElement('option');
-                opt.value = c;
-                opt.textContent = c;
-                flowCat.appendChild(opt); });
-            if (D.cats.includes(curFlowCat)) flowCat.value = curFlowCat;
-            const stockCat = document.getElementById('stockFilterCat');
-            const curStockCat = stockCat.value;
-            stockCat.innerHTML = '<option value="">全部品类</option>';
-            D.cats.forEach(c => { const opt = document.createElement('option');
-                opt.value = c;
-                opt.textContent = c;
-                stockCat.appendChild(opt); });
-            if (D.cats.includes(curStockCat)) stockCat.value = curStockCat;
-            flowFilterNameChange();
-            stockFilterChange();
+        function reportInCatGoPage(target) {
+            let newPage = reportInCatCurrentPage;
+            if (target === 'first') newPage = 1;
+            else if (target === 'prev') newPage = reportInCatCurrentPage - 1;
+            else if (target === 'next') newPage = reportInCatCurrentPage + 1;
+            else if (target === 'last') { reportInCatCurrentPage = 99999;
+                renderReportIn(); return; } else if (typeof target === 'number') newPage = target;
+            if (newPage < 1) newPage = 1;
+            reportInCatCurrentPage = newPage;
+            renderReportIn();
         }
 
-        function flowFilterNameChange() {
-            const cat = document.getElementById('flowFilterCat').value;
-            const sel = document.getElementById('flowFilterName');
-            const cur = sel.value;
-            sel.innerHTML = '<option value="">全部品名</option>';
-            const names = new Set();
-            D.names.filter(n => n.cat === cat || !cat).forEach(n => names.add(n.name));
-            D.flow.forEach(f => { if (!cat || f.cat === cat) names.add(f.name); });
-            names.forEach(name => { const opt = document.createElement('option');
-                opt.value = name;
-                opt.textContent = name;
-                sel.appendChild(opt); });
-            if ([...names].includes(cur)) sel.value = cur;
-            renderFlow();
+        function reportInCatJumpToPage() {
+            const input = document.getElementById('reportInCatJumpInput');
+            let page = parseInt(input.value);
+            if (isNaN(page) || page < 1) page = 1;
+            reportInCatCurrentPage = page;
+            renderReportIn();
         }
 
-        function stockFilterChange() {
-            const cat = document.getElementById('stockFilterCat').value;
-            const sel = document.getElementById('stockFilterName');
-            const cur = sel.value;
-            sel.innerHTML = '<option value="">全部品名</option>';
-            const names = new Set();
-            D.names.filter(n => n.cat === cat || !cat).forEach(n => names.add(n.name));
-            D.stock.forEach(s => { if (!cat || s.cat === cat) names.add(s.name); });
-            names.forEach(name => { const opt = document.createElement('option');
-                opt.value = name;
-                opt.textContent = name;
-                sel.appendChild(opt); });
-            if ([...names].includes(cur)) sel.value = cur;
-            renderStock();
+        function reportInCustGoPage(target) {
+            let newPage = reportInCustCurrentPage;
+            if (target === 'first') newPage = 1;
+            else if (target === 'prev') newPage = reportInCustCurrentPage - 1;
+            else if (target === 'next') newPage = reportInCustCurrentPage + 1;
+            else if (target === 'last') { reportInCustCurrentPage = 99999;
+                renderReportIn(); return; } else if (typeof target === 'number') newPage = target;
+            if (newPage < 1) newPage = 1;
+            reportInCustCurrentPage = newPage;
+            renderReportIn();
         }
 
+        function reportInCustJumpToPage() {
+            const input = document.getElementById('reportInCustJumpInput');
+            let page = parseInt(input.value);
+            if (isNaN(page) || page < 1) page = 1;
+            reportInCustCurrentPage = page;
+            renderReportIn();
+        }
+
+        // ---- 回收站 ----
+        function renderTrash() {
+            const el = document.getElementById('trashList');
+            if (!D.trash || !D.trash.length) {
+                el.innerHTML = '<div class="trash-empty">🗑️ 回收站为空</div>';
+                return;
+            }
+            const items = D.trash.slice().sort((a, b) => (b.deletedAt || '').localeCompare(a.deletedAt || ''));
+            let html = '';
+            items.forEach((item, idx) => {
+                const isFlow = !!item.t;
+                const label = isFlow ? (item.t === 'in' ? '入库' : '出库') : '其他';
+                const badgeClass = isFlow ? (item.t === 'in' ? 'in' : 'out') : '';
+                const info = isFlow ?
+                    `${item.no || '无单号'} · ${item.cat || ''} ${item.name || ''} · ${item.w || 0}g · ${item.total || item.sale || 0}元` :
+                    (item.name || '未命名');
+                const delTime = item.deletedAt || '未知时间';
+                html += `<div class="trash-item">
+                    <div class="info">
+                        <span class="badge ${badgeClass}">${label}</span>
+                        ${escHtml(info)}
+                        <span class="del-time">🗑️ ${escHtml(delTime)}</span>
+                    </div>
+                    <div class="actions">
+                        <button class="btn btn-green btn-sm" onclick="restoreFromTrash(${idx})">↩️ 恢复</button>
+                        <button class="btn btn-red btn-sm" onclick="permanentDelete(${idx})">🗑️ 永久删除</button>
+                    </div>
+                </div>`;
+            });
+            el.innerHTML = html;
+        }
+
+        function moveToTrash(item, type) {
+            if (!item) return;
+            const trashItem = { ...item, _type: type || 'flow', deletedAt: nowFullStr() };
+            if (type === 'flow' || item.t) {
+                D.flow = D.flow.filter(f => f.id !== item.id);
+            } else if (type === 'cust') {
+                D.cust = D.cust.filter(c => c.name !== item.name || c.tel !== item.tel);
+            } else if (type === 'cat') {
+                D.cats = D.cats.filter(c => c !== item);
+            } else if (type === 'name') {
+                D.names = D.names.filter(n => !(n.cat === item.cat && n.name === item.name));
+            } else {
+                if (item.id) D.flow = D.flow.filter(f => f.id !== item.id);
+            }
+            D.trash.push(trashItem);
+            saveData();
+            refreshAll();
+            renderTrash();
+        }
+
+        async function restoreFromTrash(index) {
+            const item = D.trash[index];
+            if (!item) return;
+            const ok = await showConfirmModal('确认恢复', `确定要恢复这条记录吗？<br><span class="text-muted">${escHtml(JSON.stringify(item).slice(0, 100))}</span>`,
+                '恢复', '取消');
+            if (!ok) return;
+            if (item.t) {
+                const restoreItem = { ...item };
+                delete restoreItem.deletedAt;
+                delete restoreItem._type;
+                D.flow.push(restoreItem);
+            } else if (item._type === 'cust' || (item.name && item.tel)) {
+                D.cust.push({ name: item.name, tel: item.tel || '', idNo: item.idNo || '', note: item.note || '' });
+            } else if (item._type === 'cat') {
+                if (!D.cats.includes(item)) D.cats.push(item);
+            } else if (item._type === 'name') {
+                if (!D.names.some(n => n.cat === item.cat && n.name === item.name)) {
+                    D.names.push({ cat: item.cat, name: item.name });
+                }
+            } else {
+                const restoreItem = { ...item };
+                delete restoreItem.deletedAt;
+                delete restoreItem._type;
+                D.flow.push(restoreItem);
+            }
+            D.trash.splice(index, 1);
+            saveData();
+            await updateSnapshot();
+            refreshAll();
+            renderTrash();
+            showErrorToast('✅ 已恢复', 'success');
+        }
+
+        async function permanentDelete(index) {
+            const item = D.trash[index];
+            if (!item) return;
+            const ok = await showConfirmModal('⚠️ 永久删除', `确定要永久删除这条记录吗？<br><span class="text-danger">此操作不可撤销！</span>`,
+                '永久删除', '取消');
+            if (!ok) return;
+            D.trash.splice(index, 1);
+            saveData();
+            await updateSnapshot();
+            renderTrash();
+            showErrorToast('🗑️ 已永久删除', '');
+        }
+
+        async function emptyTrash() {
+            if (!D.trash || !D.trash.length) {
+                showErrorToast('回收站已空', 'warning');
+                return;
+            }
+            const ok = await showConfirmModal('⚠️ 清空回收站', `确定要清空回收站吗？<br><span class="text-danger">所有 ${D.trash.length} 条记录将被永久删除，不可撤销！</span>`,
+                '清空', '取消');
+            if (!ok) return;
+            D.trash = [];
+            saveData();
+            await updateSnapshot();
+            renderTrash();
+            showErrorToast('🗑️ 回收站已清空', '');
+        }
+
+        // ---- 删除函数（软删除） ----
+        async function confirmDeleteFlow(id) {
+            const f = D.flow.find(x => x.id === id);
+            if (!f) return;
+            const ok = await showConfirmModal('🗑️ 删除流水',
+                `<p>单号：${escHtml(f.no)}<br>类型：${f.t==='in'?'入库':'出库'}<br>品名：${escHtml(f.name)}<br>克重：${f.w.toFixed(2)}g</p><p class="text-muted">将移入回收站，可随时恢复。</p>`,
+                '移入回收站', '取消');
+            if (!ok) return;
+            moveToTrash(f, 'flow');
+            refreshAll();
+            await updateSnapshot();
+            renderTrash();
+            showErrorToast('🗑️ 已移入回收站', 'warning');
+        }
+
+        async function confirmDeleteStock(name, cat) {
+            const items = D.flow.filter(f => f.cat === cat && f.name === name);
+            if (!items.length) { showErrorToast('未找到相关流水', 'warning'); return; }
+            const ok = await showConfirmModal('🗑️ 删除库存',
+                `<p>品类：${escHtml(cat)}<br>品名：${escHtml(name)}<br>相关流水：${items.length} 条</p><p class="text-muted">将移入回收站，可随时恢复。</p>`,
+                '移入回收站', '取消');
+            if (!ok) return;
+            items.forEach(f => moveToTrash(f, 'flow'));
+            refreshAll();
+            await updateSnapshot();
+            renderTrash();
+            showErrorToast('🗑️ 已移入回收站', 'warning');
+        }
+
+        async function confirmDeleteCust(idx) {
+            const c = D.cust[idx];
+            if (!c) return;
+            const ok = await showConfirmModal('🗑️ 删除客户', `<p>确定删除客户 <b>${escHtml(c.name)}</b> 吗？<br><span class="text-muted">将移入回收站。</span>`,
+                '移入回收站', '取消');
+            if (!ok) return;
+            const item = { ...c, _type: 'cust' };
+            D.cust.splice(idx, 1);
+            D.trash.push({ ...item, deletedAt: nowFullStr() });
+            saveData();
+            await updateSnapshot();
+            renderCust();
+            renderTrash();
+            showErrorToast('🗑️ 已移入回收站', 'warning');
+        }
+
+        async function removeCat(c) {
+            const ok = await showConfirmModal('🗑️ 删除品类', `<p>确定删除品类 <b>${escHtml(c)}</b> 吗？<br><span class="text-muted">将移入回收站。</span>`,
+                '移入回收站', '取消');
+            if (!ok) return;
+            const item = { _type: 'cat', name: c };
+            D.cats = D.cats.filter(x => x !== c);
+            D.trash.push({ ...item, deletedAt: nowFullStr() });
+            saveData();
+            await updateSnapshot();
+            renderCats();
+            renderCatSelects();
+            populateFilterSelects();
+            renderTrash();
+            showErrorToast('🗑️ 已移入回收站', 'warning');
+        }
+
+        function confirmDeleteName(cat, idx) {
+            const arr = D.names.filter(n => n.cat === cat);
+            const target = arr[idx];
+            if (!target) return;
+            showModal('🗑️ 删除品名', `<p>确定删除品名 <b>${escHtml(target.name)}</b> 吗？<br><span class="text-muted">将移入回收站。</span>`,
+                [
+                    { text: '取消', class: 'btn-gray', action: closeModal },
+                    { text: '移入回收站', class: 'btn-red', action: async () => {
+                            const item = { _type: 'name', cat: cat, name: target.name };
+                            D.names = D.names.filter(n => !(n.cat === cat && n.name === target.name));
+                            D.trash.push({ ...item, deletedAt: nowFullStr() });
+                            saveData();
+                            await updateSnapshot();
+                            renderNames();
+                            populateFilterSelects();
+                            renderTrash();
+                            closeModal();
+                            showErrorToast('🗑️ 已移入回收站', 'warning');
+                        } }
+                    ]
+                );
+        }
+
+        // ---- 品类/品名/客户管理 ----
         function renderCats() {
             const el = document.getElementById('catList');
             if (!D.cats || D.cats.length === 0) { el.innerHTML = '<span class="text-muted">暂无品类，请添加</span>'; return; }
             el.innerHTML = D.cats.map(c =>
                 `<span style="display:inline-flex;align-items:center;padding:4px 12px;border:1px solid #d5d0c8;border-radius:4px;margin:3px;gap:6px;">${escHtml(c)}<span class="text-danger" style="cursor:pointer;" onclick="removeCat('${escAttr(c)}')">×</span></span>`
                 ).join('');
-        }
-
-        async function removeCat(c) {
-            D.cats = D.cats.filter(x => x !== c);
-            saveData();
-            await updateSnapshot();
-            renderCats();
-            renderCatSelects();
-            populateFilterSelects();
         }
 
         function renderSourceSelects() {
@@ -2497,6 +3089,59 @@
             populateFilterSelects();
         }
 
+        function populateFilterSelects() {
+            const flowCat = document.getElementById('flowFilterCat');
+            const curFlowCat = flowCat.value;
+            flowCat.innerHTML = '<option value="">全部品类</option>';
+            D.cats.forEach(c => { const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                flowCat.appendChild(opt); });
+            if (D.cats.includes(curFlowCat)) flowCat.value = curFlowCat;
+            const stockCat = document.getElementById('stockFilterCat');
+            const curStockCat = stockCat.value;
+            stockCat.innerHTML = '<option value="">全部品类</option>';
+            D.cats.forEach(c => { const opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c;
+                stockCat.appendChild(opt); });
+            if (D.cats.includes(curStockCat)) stockCat.value = curStockCat;
+            flowFilterNameChange();
+            stockFilterChange();
+        }
+
+        function flowFilterNameChange() {
+            const cat = document.getElementById('flowFilterCat').value;
+            const sel = document.getElementById('flowFilterName');
+            const cur = sel.value;
+            sel.innerHTML = '<option value="">全部品名</option>';
+            const names = new Set();
+            D.names.filter(n => n.cat === cat || !cat).forEach(n => names.add(n.name));
+            D.flow.forEach(f => { if (!cat || f.cat === cat) names.add(f.name); });
+            names.forEach(name => { const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                sel.appendChild(opt); });
+            if ([...names].includes(cur)) sel.value = cur;
+            renderFlow();
+        }
+
+        function stockFilterChange() {
+            const cat = document.getElementById('stockFilterCat').value;
+            const sel = document.getElementById('stockFilterName');
+            const cur = sel.value;
+            sel.innerHTML = '<option value="">全部品名</option>';
+            const names = new Set();
+            D.names.filter(n => n.cat === cat || !cat).forEach(n => names.add(n.name));
+            D.stock.forEach(s => { if (!cat || s.cat === cat) names.add(s.name); });
+            names.forEach(name => { const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                sel.appendChild(opt); });
+            if ([...names].includes(cur)) sel.value = cur;
+            renderStock();
+        }
+
         async function addCat() {
             const n = document.getElementById('newCat').value.trim();
             if (!n) { playBeep(false);
@@ -2547,25 +3192,6 @@
             await showAlertModal('提示', '品名已修改');
         }
 
-        function confirmDeleteName(cat, idx) {
-            const arr = D.names.filter(n => n.cat === cat);
-            const target = arr[idx];
-            if (!target) return;
-            showModal('确认删除', `<p>确定删除品名 <b>${escHtml(target.name)}</b> 吗？</p><p class="text-muted">此操作不可撤销</p>`, [
-                { text: '取消', class: 'btn-gray', action: closeModal },
-                { text: '确认删除', class: 'btn-red', action: async () => {
-                        D.names = D.names.filter(n => !(n.cat === cat && n.name === target.name));
-                        saveData();
-                        await updateSnapshot();
-                        renderNames();
-                        populateFilterSelects();
-                        closeModal();
-                        playBeep(false);
-                        showAlertModal('提示', '品名已删除');
-                    } }
-            ]);
-        }
-
         async function addCust() {
             const name = document.getElementById('custName').value.trim();
             const tel = document.getElementById('custTel').value.trim();
@@ -2614,24 +3240,7 @@
                         playBeep(true);
                         await showAlertModal('提示', '客户已更新');
                     } }
-            ]);
-        }
-
-        function confirmDeleteCust(idx) {
-            const c = D.cust[idx];
-            if (!c) return;
-            showModal('确认删除', `<p>确定删除客户 <b>${escHtml(c.name)}</b> 吗？</p><p class="text-muted">不可撤销</p>`, [
-                { text: '取消', class: 'btn-gray', action: closeModal },
-                { text: '确认删除', class: 'btn-red', action: async () => {
-                        D.cust.splice(idx, 1);
-                        saveData();
-                        await updateSnapshot();
-                        renderCust();
-                        closeModal();
-                        playBeep(false);
-                        showAlertModal('提示', '客户已删除');
-                    } }
-            ]);
+                ]);
         }
 
         async function exportCustXLSX() {
@@ -2684,9 +3293,6 @@
             event.target.value = '';
         }
 
-        // ================================================================
-        //  客户自动填充
-        // ================================================================
         function autoFillCust(prefix, name) {
             const listId = prefix === 'in' ? 'inCusList' : 'outBuyerList';
             const datalist = document.getElementById(listId);
@@ -2695,11 +3301,9 @@
             const val = name.trim();
             if (!val || val.length < 2) return;
             const matches = D.cust.filter(c => c.name && c.name.includes(val));
-            matches.forEach(c => {
-                const opt = document.createElement('option');
+            matches.forEach(c => { const opt = document.createElement('option');
                 opt.value = c.name;
-                datalist.appendChild(opt);
-            });
+                datalist.appendChild(opt); });
             if (matches.length === 1 && matches[0].name === val) {
                 const c = matches[0];
                 if (prefix === 'in') {
@@ -2722,11 +3326,9 @@
             const val = tel.trim();
             if (!val || val.length < 9) return;
             const matches = D.cust.filter(c => c.tel && c.tel.includes(val));
-            matches.forEach(c => {
-                const opt = document.createElement('option');
+            matches.forEach(c => { const opt = document.createElement('option');
                 opt.value = c.tel;
-                datalist.appendChild(opt);
-            });
+                datalist.appendChild(opt); });
             if (matches.length === 1 && matches[0].tel === val) {
                 const c = matches[0];
                 if (prefix === 'in') {
@@ -2749,11 +3351,9 @@
             const val = idNo.trim();
             if (!val || val.length < 15) return;
             const matches = D.cust.filter(c => c.idNo && c.idNo.includes(val));
-            matches.forEach(c => {
-                const opt = document.createElement('option');
+            matches.forEach(c => { const opt = document.createElement('option');
                 opt.value = c.idNo;
-                datalist.appendChild(opt);
-            });
+                datalist.appendChild(opt); });
             if (matches.length === 1 && matches[0].idNo === val) {
                 const c = matches[0];
                 if (prefix === 'in') {
@@ -2842,25 +3442,6 @@
             document.getElementById('outTotal').value = (w > 0 && p > 0) ? (w * p).toFixed(2) : '';
         }
 
-        // ================================================================
-        //  提示音
-        // ================================================================
-        function playBeep(success) {
-            try {
-                const audioCtx = new(window.AudioContext || window.webkitAudioContext)();
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.type = 'sine';
-                osc.frequency.value = success ? 880 : 300;
-                gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.3);
-            } catch (e) { /* 忽略 */ }
-        }
-
         function calcInUnit() {
             const w = parseFloat(document.getElementById('inW').value) || 0;
             const t = parseFloat(document.getElementById('inTotal').value) || 0;
@@ -2875,47 +3456,7 @@
             saveData();
         }
 
-        // ================================================================
-        //  快照更新
-        // ================================================================
-        async function updateSnapshot() {
-            if (!sb) return;
-            try {
-                D._version = (D._version || 0) + 1;
-                const { error } = await sb.from('shop_state').upsert({
-                    id: 1,
-                    payload: JSON.stringify(D),
-                    updated_at: new Date().toISOString()
-                });
-                if (error) throw error;
-                logSync('📸 快照已更新 (版本 ' + D._version + ')', 'ok');
-            } catch (e) {
-                logSync('⚠️ 快照更新失败: ' + e.message, 'warn');
-            }
-        }
-
-        // ================================================================
-        //  applyPrice
-        // ================================================================
-        async function applyPrice() {
-            const gold = parseFloat(document.getElementById('goldP').value) || 0;
-            const silver = parseFloat(document.getElementById('silverP').value) || 0;
-            const plat = parseFloat(document.getElementById('platP').value) || 0;
-            D.prices.gold = gold;
-            D.prices.silver = silver;
-            D.prices.plat = plat;
-            saveData();
-            await updateSnapshot();
-            renderDash();
-            renderStock();
-            playBeep(true);
-            await showAlertModal('✅ 金价已更新',
-                `黄金 ${gold} 元/g，白银 ${silver} 元/g，铂金 ${plat} 元/g\n\n库存货值和浮动盈亏已重新计算。`);
-        }
-
-        // ================================================================
-        //  doIn / doOut
-        // ================================================================
+        // ---- doIn / doOut ----
         async function doIn() {
             try {
                 const cat = document.getElementById('inCat').value;
@@ -2930,10 +3471,7 @@
                 let flow;
                 if (editingId) {
                     const old = editingBackup;
-                    if (!old || old.t !== 'in') {
-                        await showAlertModal('错误', '要修改的单据不存在或类型不匹配');
-                        return;
-                    }
+                    if (!old || old.t !== 'in') { await showAlertModal('错误', '要修改的单据不存在或类型不匹配'); return; }
                     const dateVal = document.getElementById('inDate').value || todayStr();
                     const costUnit = total / w;
                     const payDet = getPayDetail('in');
@@ -2945,28 +3483,9 @@
                     const fee = feeEl ? parseFloat(feeEl.value) || 0 : 0;
                     const note = document.getElementById('inNote').value.trim();
                     const src = document.getElementById('inSrc').value;
-                    flow = {
-                        id: old.id,
-                        no: old.no,
-                        t: 'in',
-                        cat,
-                        name,
-                        w: w * q,
-                        q: q,
-                        total,
-                        fee,
-                        costUnit,
-                        cus,
-                        tel,
-                        idNo,
-                        src,
-                        note,
-                        payDetail: payDet.detail,
-                        payPaid: paidSum,
-                        payRemain: total - paidSum,
-                        time: old.time,
-                        lastModified: now
-                    };
+                    flow = { id: old.id, no: old.no, t: 'in', cat, name, w: w * q, q: q, total, fee, costUnit, cus, tel,
+                        idNo, src, note, payDetail: payDet.detail, payPaid: paidSum, payRemain: total - paidSum,
+                        time: old.time, lastModified: now };
                     D.flow = D.flow.filter(f => f.id !== editingId);
                     editingId = null;
                     editingBackup = null;
@@ -2985,28 +3504,9 @@
                     const src = document.getElementById('inSrc').value;
                     if (!D.names.some(n => n.cat === cat && n.name === name)) { D.names.push({ cat, name }); }
                     if (cus) upsertCust(cus, tel, idNo);
-                    flow = {
-                        id: genId(),
-                        no,
-                        t: 'in',
-                        cat,
-                        name,
-                        w: w * q,
-                        q: q,
-                        total,
-                        fee,
-                        costUnit,
-                        cus,
-                        tel,
-                        idNo,
-                        src,
-                        note,
-                        payDetail: payDet.detail,
-                        payPaid: paidSum,
-                        payRemain: total - paidSum,
-                        time: dateVal + 'T' + nowTime(),
-                        lastModified: now
-                    };
+                    flow = { id: genId(), no, t: 'in', cat, name, w: w * q, q: q, total, fee, costUnit, cus, tel, idNo,
+                        src, note, payDetail: payDet.detail, payPaid: paidSum, payRemain: total - paidSum,
+                        time: dateVal + 'T' + nowTime(), lastModified: now };
                 }
                 D.flow.push(flow);
                 refreshAll();
@@ -3018,8 +3518,11 @@
                 playBeep(true);
                 await updateSnapshot();
                 refreshStockAndDash();
-            } catch (e) { console.error('doIn error', e);
-                await showAlertModal('错误', '操作失败：' + e.message); }
+            } catch (e) {
+                console.error('doIn error', e);
+                showErrorToast('入库失败：' + e.message, '');
+                await showAlertModal('错误', '操作失败：' + e.message);
+            }
         }
 
         async function doOut() {
@@ -3036,10 +3539,7 @@
                 let flow;
                 if (editingId) {
                     const old = editingBackup;
-                    if (!old || old.t !== 'out') {
-                        await showAlertModal('错误', '要修改的单据不存在或类型不匹配');
-                        return;
-                    }
+                    if (!old || old.t !== 'out') { await showAlertModal('错误', '要修改的单据不存在或类型不匹配'); return; }
                     const dateVal = document.getElementById('outDate').value || todayStr();
                     const sale = ow * p;
                     const payDet = getPayDetail('out');
@@ -3058,26 +3558,9 @@
                         await showAlertModal('库存不足', '当前可用：' + (stockItem ? stockItem.w.toFixed(2) : '0') + 'g');
                         return;
                     }
-                    flow = {
-                        id: old.id,
-                        no: old.no,
-                        t: 'out',
-                        cat,
-                        name,
-                        w: ow,
-                        q: oq,
-                        sale,
-                        buyer,
-                        tel,
-                        note,
-                        payDetail: payDet.detail,
-                        payPaid: paidSum,
-                        payRemain: sale - paidSum,
-                        time: old.time,
-                        lastModified: now,
-                        cost: 0,
-                        margin: 0
-                    };
+                    flow = { id: old.id, no: old.no, t: 'out', cat, name, w: ow, q: oq, sale, buyer, tel, note,
+                        payDetail: payDet.detail, payPaid: paidSum, payRemain: sale - paidSum, time: old.time,
+                        lastModified: now, cost: 0, margin: 0 };
                     editingId = null;
                     editingBackup = null;
                 } else {
@@ -3097,26 +3580,9 @@
                     const tel = document.getElementById('outTel').value.trim();
                     const note = document.getElementById('outNote').value.trim();
                     if (buyer) upsertCust(buyer, tel, '');
-                    flow = {
-                        id: genId(),
-                        no,
-                        t: 'out',
-                        cat,
-                        name,
-                        w: ow,
-                        q: oq,
-                        sale,
-                        buyer,
-                        tel,
-                        note,
-                        payDetail: payDet.detail,
-                        payPaid: paidSum,
-                        payRemain: sale - paidSum,
-                        time: dateVal + 'T' + nowTime(),
-                        lastModified: now,
-                        cost: 0,
-                        margin: 0
-                    };
+                    flow = { id: genId(), no, t: 'out', cat, name, w: ow, q: oq, sale, buyer, tel, note,
+                        payDetail: payDet.detail, payPaid: paidSum, payRemain: sale - paidSum,
+                        time: dateVal + 'T' + nowTime(), lastModified: now, cost: 0, margin: 0 };
                 }
                 D.flow.push(flow);
                 refreshAll();
@@ -3130,19 +3596,16 @@
                 playBeep(true);
                 await updateSnapshot();
                 refreshStockAndDash();
-            } catch (e) { console.error('doOut error', e);
-                await showAlertModal('错误', '操作失败：' + e.message); }
+            } catch (e) {
+                console.error('doOut error', e);
+                showErrorToast('出库失败：' + e.message, '');
+                await showAlertModal('错误', '操作失败：' + e.message);
+            }
         }
 
-        // ================================================================
-        //  清空表单
-        // ================================================================
         function clearInForm() {
             const fields = ['inName', 'inW', 'inTotal', 'inCus', 'inTel', 'inId', 'inNote', 'inUnit', 'inFee'];
-            fields.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
+            fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
             const qEl = document.getElementById('inQ');
             if (qEl) qEl.value = '1';
             const dateEl = document.getElementById('inDate');
@@ -3152,36 +3615,20 @@
             const srcEl = document.getElementById('inSrc');
             if (srcEl && srcEl.options.length > 0) srcEl.selectedIndex = 0;
             const payBox = document.getElementById('inPayBox');
-            if (payBox) {
-                payBox.innerHTML = '';
+            if (payBox) { payBox.innerHTML = '';
                 delete payBox.dataset.inited;
-                renderPayRows('in');
-            }
+                renderPayRows('in'); }
             const paidSum = document.getElementById('inPaidSum');
             if (paidSum) paidSum.value = '';
             const remain = document.getElementById('inRemain');
             if (remain) remain.value = '';
             const msg = document.getElementById('inMsg');
             if (msg) msg.innerHTML = '';
-            const container = document.getElementById('in');
-            if (container) {
-                const inputs = container.querySelectorAll(
-                    'input[type="text"], input[type="number"], input[type="tel"], input[type="search"], input[type="email"], input[type="password"]'
-                    );
-                inputs.forEach(inp => {
-                    if (inp.type !== 'date' && inp.type !== 'hidden' && inp.type !== 'readonly') {
-                        inp.value = '';
-                    }
-                });
-            }
         }
 
         function clearOutForm() {
             const fields = ['outName', 'outW', 'outP', 'outBuyer', 'outTel', 'outNote', 'outAvail', 'outTotal', 'outAvailQ'];
-            fields.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = '';
-            });
+            fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
             const qEl = document.getElementById('outQ');
             if (qEl) qEl.value = '1';
             const dateEl = document.getElementById('outDate');
@@ -3189,33 +3636,17 @@
             const catEl = document.getElementById('outCat');
             if (catEl && catEl.options.length > 0) catEl.selectedIndex = 0;
             const payBox = document.getElementById('outPayBox');
-            if (payBox) {
-                payBox.innerHTML = '';
+            if (payBox) { payBox.innerHTML = '';
                 delete payBox.dataset.inited;
-                renderPayRows('out');
-            }
+                renderPayRows('out'); }
             const paidSum = document.getElementById('outPaidSum');
             if (paidSum) paidSum.value = '';
             const remain = document.getElementById('outRemain');
             if (remain) remain.value = '';
             const msg = document.getElementById('outMsg');
             if (msg) msg.innerHTML = '';
-            const container = document.getElementById('out');
-            if (container) {
-                const inputs = container.querySelectorAll(
-                    'input[type="text"], input[type="number"], input[type="tel"], input[type="search"], input[type="email"], input[type="password"]'
-                    );
-                inputs.forEach(inp => {
-                    if (inp.type !== 'date' && inp.type !== 'hidden' && inp.type !== 'readonly') {
-                        inp.value = '';
-                    }
-                });
-            }
         }
 
-        // ================================================================
-        //  编辑/删除流水
-        // ================================================================
         function clearEditingState() {
             if (editingBackup) {
                 const exist = D.flow.find(f => f.id === editingBackup.id);
@@ -3234,6 +3665,7 @@
             clearOutForm();
         }
 
+        // ---- 编辑流水 ----
         async function editFlow(id) {
             if (editingId && editingId !== id) {
                 playBeep(false);
@@ -3245,7 +3677,6 @@
             if (!f) { await showAlertModal('提示', '流水不存在'); return; }
             editingId = id;
             editingBackup = JSON.parse(JSON.stringify(f));
-
             if (f.t === 'in') {
                 switchTab('in');
                 document.getElementById('inCat').value = f.cat;
@@ -3313,45 +3744,24 @@
             switchTab('flow');
         }
 
-        function confirmDeleteFlow(id) {
-            const f = D.flow.find(x => x.id === id);
-            if (!f) return;
-            showModal('确认删除',
-                `<p>单号：${escHtml(f.no)}<br>类型：${f.t==='in'?'入库':'出库'}<br>品名：${escHtml(f.name)}<br>克重：${f.w.toFixed(2)}g</p><p class="text-danger">删除后库存将自动重建，此操作不可撤销。</p>`,
-                [
-                    { text: '取消', class: 'btn-gray', action: closeModal },
-                    { text: '确认删除', class: 'btn-red', action: async function() {
-                            closeModal();
-                            D.flow = D.flow.filter(x => x.id !== id);
-                            refreshAll();
-                            playBeep(false);
-                            await showAlertModal('提示', '✅ 已删除，正在同步...');
-                            await updateSnapshot();
-                            refreshStockAndDash();
-                        } }
-                ]);
+        // ---- applyPrice ----
+        async function applyPrice() {
+            const gold = parseFloat(document.getElementById('goldP').value) || 0;
+            const silver = parseFloat(document.getElementById('silverP').value) || 0;
+            const plat = parseFloat(document.getElementById('platP').value) || 0;
+            D.prices.gold = gold;
+            D.prices.silver = silver;
+            D.prices.plat = plat;
+            saveData();
+            await updateSnapshot();
+            renderDash();
+            renderStock();
+            playBeep(true);
+            await showAlertModal('✅ 金价已更新',
+                `黄金 ${gold} 元/g，白银 ${silver} 元/g，铂金 ${plat} 元/g\n\n库存货值和浮动盈亏已重新计算。`);
         }
 
-        function confirmDeleteStock(name, cat) {
-            showModal('确认删除库存', `<p>品类：${escHtml(cat)}<br>品名：${escHtml(name)}</p><p class="text-danger">将同时删除所有相关流水，库存自动重建。不可撤销。</p>`,
-                [
-                    { text: '取消', class: 'btn-gray', action: closeModal },
-                    { text: '确认删除', class: 'btn-red', action: async function() {
-                            closeModal();
-                            D.flow = D.flow.filter(f => !(f.cat === cat && f.name === name));
-                            refreshAll();
-                            await updateSnapshot();
-                            playBeep(false);
-                            await showAlertModal('提示', '库存及相关流水已删除');
-                            refreshStockAndDash();
-                        } }
-                ]);
-        }
-
-        // ================================================================
-        //  ★★★ 打印功能 ★★★
-        // ================================================================
-
+        // ★★★ 原版打印逻辑 ★★★
         function printIn() {
             switchTab('in');
             setTimeout(() => {
@@ -3542,9 +3952,7 @@
             setTimeout(() => { window.print(); }, 150);
         }
 
-        // ================================================================
-        //  导出 Excel 功能
-        // ================================================================
+        // ---- 导出（保留） ----
         function exportStockXlsx() {
             const data = D.stock.map(s => ({
                 '品类': s.cat,
@@ -3781,7 +4189,6 @@
                         const payDetail = row['付款'] ? [{ ch: '导入', amt: parseFloat(row['实付']) || 0 }] : [];
                         const paid = parseFloat(row['实付']) || 0;
                         const remain = parseFloat(row['欠款']) || 0;
-
                         const flow = {
                             id: genId(),
                             no: no,
@@ -3824,6 +4231,7 @@
             event.target.value = '';
         }
 
+        // ---- 备份 ----
         function downBak() {
             const json = JSON.stringify(D, null, 2);
             const blob = new Blob([json], { type: 'application/json' });
@@ -3844,9 +4252,7 @@
             reader.onload = async function(e) {
                 try {
                     const data = JSON.parse(e.target.result);
-                    Object.keys(data).forEach(key => {
-                        if (key in D) D[key] = data[key];
-                    });
+                    Object.keys(data).forEach(key => { if (key in D) D[key] = data[key]; });
                     saveData();
                     refreshAll();
                     await updateSnapshot();
@@ -3929,12 +4335,11 @@
             showAlertModal('提示', 'CSV 导出完成');
         }
 
-        // ================================================================
-        //  同步、Tab切换等
-        // ================================================================
+        // ---- 同步 ----
         async function forceSync() {
             if (editingId) {
-                const ok = await showConfirmModal('提示', '当前正在编辑单据，同步将丢失未保存的修改。\n点击"确定"放弃修改并同步，点击"取消"继续编辑。', '确定', '取消');
+                const ok = await showConfirmModal('提示', '当前正在编辑单据，同步将丢失未保存的修改。\n点击"确定"放弃修改并同步，点击"取消"继续编辑。', '确定',
+                    '取消');
                 if (!ok) return;
                 clearEditingState();
             }
@@ -3950,13 +4355,14 @@
 
         async function forceSyncNow() {
             if (editingId) {
-                const ok = await showConfirmModal('提示', '当前正在编辑单据，立即同步将丢失未保存的修改。\n点击"确定"放弃修改并同步，点击"取消"继续编辑。', '确定', '取消');
+                const ok = await showConfirmModal('提示', '当前正在编辑单据，立即同步将丢失未保存的修改。\n点击"确定"放弃修改并同步，点击"取消"继续编辑。', '确定',
+                    '取消');
                 if (!ok) return;
                 clearEditingState();
             }
             logSync('🔄 立即同步...', 'info');
             updateSyncStatus('syncing');
-            await checkRemoteVersion(true);
+            await pullFullState();
             updateSyncStatus('ok');
             refreshStockAndDash();
         }
@@ -3982,6 +4388,7 @@
                     D._version = remote._version || 0;
                     if (remote._lastSeqId) D._lastSeqId = remote._lastSeqId;
                     if (remote.stockOrder) D.stockOrder = remote.stockOrder;
+                    if (remote.trash) D.trash = remote.trash;
                     saveData();
                     refreshAll();
                     logSync('✅ 全量数据已加载 (版本 ' + D._version + ')', 'ok');
@@ -3990,6 +4397,7 @@
                 }
             } catch (e) {
                 logSync('⚠️ 全量拉取失败: ' + e.message, 'warn');
+                showErrorToast('同步失败：' + e.message, '');
                 return false;
             }
         }
@@ -3999,37 +4407,43 @@
             populateFilterSelects();
             logSync('🔄 本地已刷新', 'info'); }
 
-        async function checkRemoteVersion(force) {}
-        function subscribeRealtime() {}
-        function startAutoSync() {}
-        document.addEventListener('visibilitychange', () => {});
-        async function testConn() {}
+        async function testConn() {
+            if (!sb) { showErrorToast('Supabase 未初始化', ''); return; }
+            try {
+                const { data, error } = await sb.from('shop_state').select('id').limit(1);
+                if (error) throw error;
+                showErrorToast('✅ 连接成功', 'success');
+            } catch (e) { showErrorToast('连接失败：' + e.message, ''); }
+        }
 
-        // ===== Tab切换 =====
+        function refreshStockAndDash() {
+            renderStock();
+            renderDash();
+        }
+
+        // ---- Tab切换 ----
         async function switchTab(name) {
             if (editingId) {
                 const isInEditing = document.getElementById('in').classList.contains('active');
                 const isOutEditing = document.getElementById('out').classList.contains('active');
                 if ((isInEditing && name !== 'in') || (isOutEditing && name !== 'out')) {
-                    const ok = await showConfirmModal('提示', '当前正在编辑单据，离开将丢失修改。\n点击"确定"放弃修改并切换，点击"取消"继续编辑。', '确定', '取消');
+                    const ok = await showConfirmModal('提示', '当前正在编辑单据，离开将丢失修改。\n点击"确定"放弃修改并切换，点击"取消"继续编辑。', '确定',
+                        '取消');
                     if (!ok) return;
                     clearEditingState();
                 }
             }
-
             if (!editingId) {
                 loadData();
                 rebuildStock();
                 recalcMargins();
             }
-
             document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
             const panel = document.getElementById(name);
             if (panel) panel.classList.add('active');
             const btn = document.querySelector(`nav button[data-tab="${name}"]`);
             if (btn) btn.classList.add('active');
-
             if (name === 'dash') renderDash();
             else if (name === 'stock') { rebuildStock();
                 renderStock(); } else if (name === 'flow') { flowCurrentPage = 1;
@@ -4037,6 +4451,7 @@
                 renderReportIn(); } else if (name === 'cat') renderCats();
             else if (name === 'names') renderNames();
             else if (name === 'cust') renderCust();
+            else if (name === 'trash') renderTrash();
             else if (name === 'in') { renderCatSelects();
                 inLoadNames();
                 renderSourceSelects();
@@ -4049,26 +4464,19 @@
             btn.addEventListener('click', function() { switchTab(this.dataset.tab); });
         });
 
-        // ===== 模态框 =====
-        function showModal(title, body, buttons) {
-            document.getElementById('modalTitle').textContent = title;
-            document.getElementById('modalBody').innerHTML = body;
-            const btns = document.getElementById('modalBtns');
-            btns.innerHTML = '';
-            buttons.forEach(b => {
-                const btn = document.createElement('button');
-                btn.className = 'btn ' + b.class + ' btn-sm';
-                btn.textContent = b.text;
-                btn.onclick = b.action;
-                btns.appendChild(btn);
-            });
-            document.getElementById('modal').style.display = 'flex';
-            playBeep(false);
+        function switchReport(type) {
+            document.querySelectorAll('.report-tab-btn').forEach(el => el.classList.remove('active'));
+            document.querySelector(`.report-tab-btn[data-report="${type}"]`).classList.add('active');
+            document.getElementById('reportOutPanel').classList.toggle('active', type === 'out');
+            document.getElementById('reportInPanel').classList.toggle('active', type === 'in');
+            if (type === 'out') { reportOutCatCurrentPage = 1;
+                reportOutCustCurrentPage = 1;
+                renderReportOut(); } else { reportInCatCurrentPage = 1;
+                reportInCustCurrentPage = 1;
+                renderReportIn(); }
         }
 
-        function closeModal() { document.getElementById('modal').style.display = 'none'; }
-
-        // ===== 页面关闭前提示 =====
+        // ---- 页面关闭前提示 ----
         window.addEventListener('beforeunload', function(e) {
             if (editingId) {
                 e.preventDefault();
@@ -4077,9 +4485,7 @@
             }
         });
 
-        // ================================================================
-        //  初始化
-        // ================================================================
+        // ---- 初始化 ----
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('inDate').value = todayStr();
             document.getElementById('outDate').value = todayStr();
@@ -4096,15 +4502,14 @@
             renderPayRows('in');
             renderPayRows('out');
             renderSourceSelects();
+            renderTrash();
 
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-                logSync('🚀 系统已启动 (含流水分页功能，每页20条，增强控件)', 'info');
+                logSync('🚀 系统已启动 (含分页、回收站、置顶功能、原版打印)', 'info');
                 pullFullState().then(() => {
                     updateSyncStatus('ok');
                     logSync('✅ 数据已同步', 'ok');
-                    subscribeRealtime();
-                    startAutoSync();
                     refreshStockAndDash();
                 });
             } else {
@@ -4112,8 +4517,11 @@
                 logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
                 updateSyncStatus('fail');
             }
-            console.log('✅ 系统已启动 (含流水分页功能，每页20条，增强控件)');
+            console.log('✅ 系统已启动 (含分页、回收站、置顶功能、原版打印)');
         });
+
+        function subscribeRealtime() {}
+        function startAutoSync() {}
     </script>
 </body>
 </html>
