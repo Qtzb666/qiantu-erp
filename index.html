@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>前途珠宝专用 ERP 系统 · 增强版</title>
+    <title>前途珠宝专用 ERP 系统 · 增强版（超卖加权平均）</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
     </script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js">
@@ -1101,7 +1101,7 @@
 <body>
     <header>
         <span>💎 前途珠宝专用 ERP 系统 · 增强版</span>
-        <small>分页 · 回收站 · 置顶排序</small>
+        <small>分页 · 回收站 · 置顶排序 · 超卖加权平均</small>
         <div class="sync-status">
             <span class="dot offline" id="syncDot"></span>
             <span id="syncStatusText">连接中...</span>
@@ -1136,7 +1136,7 @@
                 <button class="btn btn-gold btn-sm" onclick="applyPrice()">更新金价 &amp; 重算盈亏</button>
             </div>
             <div class="row4">
-                <div class="stat-box"><div class="num" id="sVal">0</div><div class="lbl">库存货值 (元)</div></div>
+                <div class="stat-box"><div class="num" id="sVal">0</div><div class="lbl">库存货值 (总成本)</div></div>
                 <div class="stat-box"><div class="num" id="sPro">0</div><div class="lbl">浮动盈亏 (元)</div></div>
                 <div class="stat-box"><div class="num" id="sSale">0</div><div class="lbl">累计销售额</div></div>
                 <div class="stat-box"><div class="num" id="sMar">0</div><div class="lbl">累计毛利</div></div>
@@ -1493,7 +1493,7 @@
 
     <script>
         // ================================================================
-        //  完整 JavaScript · 保留所有增强功能 + 原版打印 + 音量增至1
+        //  完整 JavaScript · 超卖加权平均 + 所有功能保留
         // ================================================================
 
         // ---- Supabase 初始化 ----
@@ -1549,17 +1549,6 @@
             clearTimeout(el._hideTimer);
             el._hideTimer = setTimeout(() => { el.style.opacity = '0';
                 setTimeout(() => { el.style.display = 'none'; }, 300); }, 5000);
-        }
-
-        async function safeAsync(fn, context, fallback) {
-            try { return await fn(); } catch (e) {
-                const msg = context + ': ' + (e.message || e);
-                console.error(msg, e);
-                logSync('❌ ' + msg, 'fail');
-                showErrorToast('操作失败：' + msg, '');
-                if (fallback !== undefined) return fallback;
-                throw e;
-            }
         }
 
         // ---- 数据加载 ----
@@ -1664,7 +1653,7 @@
                 btns.appendChild(btn);
             });
             document.getElementById('modal').style.display = 'flex';
-            playBeep(false); // 播放提示音（低音警告）
+            playBeep(false);
         }
 
         function closeModal() { document.getElementById('modal').style.display = 'none'; }
@@ -1689,7 +1678,6 @@
             });
         }
 
-        // ★★★ 音量已增大至 1.0 ★★★
         function playBeep(success) {
             try {
                 const audioCtx = new(window.AudioContext || window.webkitAudioContext)();
@@ -1699,14 +1687,14 @@
                 gain.connect(audioCtx.destination);
                 osc.type = 'sine';
                 osc.frequency.value = success ? 880 : 300;
-                gain.gain.setValueAtTime(1.0, audioCtx.currentTime); // 音量最大
+                gain.gain.setValueAtTime(1.0, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
                 osc.start();
                 osc.stop(audioCtx.currentTime + 0.3);
             } catch (e) { /* 忽略 */ }
         }
 
-        // ---- 核心业务 ----
+        // ========== ★★★ 核心修正：rebuildStock 支持超卖加权平均 ★★★ ==========
         function rebuildStock() {
             const stockMap = {};
             const groups = {};
@@ -1721,24 +1709,72 @@
                     if (a.time !== b.time) return a.time.localeCompare(b.time);
                     return a.id - b.id;
                 });
-                let totalW = 0,
-                    totalCost = 0,
-                    totalQ = 0;
+
+                // 状态：正库存（重量，成本）和 超卖库存（重量，单价）
+                let posW = 0,
+                    posCost = 0;
+                let shortW = 0,
+                    shortPrice = 0;
+                let totalQ = 0;
+
                 flows.forEach(f => {
                     const qty = f.q || 1;
                     if (f.t === 'in') {
-                        totalW += f.w;
+                        const inUnitPrice = (f.total || 0) / f.w;
+                        let inW = f.w;
+                        // 1) 先平仓（补超卖）
+                        if (shortW < 0) {
+                            const cover = Math.min(inW, -shortW);
+                            shortW += cover; // 向零靠近
+                            inW -= cover;
+                            // 超卖单价不变
+                            if (shortW === 0) {
+                                shortPrice = 0; // 退出超卖模式
+                            }
+                        }
+                        // 2) 剩余入库进入正库存
+                        if (inW > 0) {
+                            posW += inW;
+                            posCost += inW * inUnitPrice;
+                        }
                         totalQ += qty;
-                        totalCost += (f.total || 0) + (f.fee || 0);
                     } else if (f.t === 'out') {
-                        const avgCost = totalW > 0.001 ? totalCost / totalW : 0;
-                        const outCost = f.w * avgCost;
-                        totalW = Math.max(0, totalW - f.w);
+                        const outW = f.w;
+                        const unitPrice = f.sale / outW;
+                        let remain = outW;
+                        // 1) 先消耗正库存
+                        if (posW > 0) {
+                            const consume = Math.min(remain, posW);
+                            const avgCost = posCost / posW;
+                            posW -= consume;
+                            posCost -= consume * avgCost;
+                            remain -= consume;
+                        }
+                        // 2) 剩余进入超卖（或继续超卖）
+                        if (remain > 0) {
+                            // 如果当前没有超卖（shortW == 0），初始化
+                            if (shortW === 0) {
+                                shortW = -remain;
+                                shortPrice = unitPrice;
+                            } else {
+                                // ★ 加权平均：新的超卖单价 = (旧短仓总成本 + 新增超卖金额) / (旧短仓重量 + 新增超卖重量)
+                                const oldShortCost = shortW * shortPrice; // shortW为负
+                                const newShortCost = -remain * unitPrice; // 新增成本（负值）
+                                const totalShortW = shortW - remain; // 更负
+                                const totalShortCost = oldShortCost + newShortCost;
+                                shortPrice = totalShortCost / totalShortW;
+                                shortW = totalShortW;
+                            }
+                        }
                         totalQ = Math.max(0, totalQ - qty);
-                        totalCost = Math.max(0, totalCost - outCost);
                     }
                 });
-                if (totalW > 0.001) {
+
+                // 最终库存 = 正库存 + 超卖库存
+                const totalW = posW + shortW;
+                const totalCost = posCost + (shortW * shortPrice || 0);
+
+                if (totalW !== 0) {
                     const unitCost = totalCost / totalW;
                     stockMap[key] = {
                         cat: flows[0].cat,
@@ -1754,35 +1790,46 @@
             updateStockOrder();
         }
 
+        // ---- recalcMargins（出库利润分账） ----
         function recalcMargins() {
-            const groups = {};
-            D.flow.forEach(f => {
+            const sorted = D.flow.slice().sort((a, b) => {
+                if (a.time !== b.time) return a.time.localeCompare(b.time);
+                return a.id - b.id;
+            });
+            const stockState = {};
+
+            sorted.forEach(f => {
                 if (f.id === editingId) return;
                 const key = f.cat + '|' + f.name;
-                if (!groups[key]) groups[key] = [];
-                groups[key].push(f);
-            });
-            Object.keys(groups).forEach(key => {
-                const flows = groups[key].sort((a, b) => {
-                    if (a.time !== b.time) return a.time.localeCompare(b.time);
-                    return a.id - b.id;
-                });
-                let totalW = 0,
-                    totalCost = 0;
-                flows.forEach(f => {
-                    if (f.id === editingId) return;
-                    if (f.t === 'in') {
-                        totalW += f.w;
-                        totalCost += (f.total || 0) + (f.fee || 0);
-                    } else if (f.t === 'out') {
-                        const avgCost = totalW > 0.001 ? totalCost / totalW : 0;
-                        const outCost = f.w * avgCost;
-                        f.cost = parseFloat(avgCost.toFixed(4));
-                        f.margin = parseFloat((f.sale - outCost).toFixed(4));
-                        totalW = Math.max(0, totalW - f.w);
-                        totalCost = Math.max(0, totalCost - outCost);
+                if (!stockState[key]) stockState[key] = { w: 0, cost: 0 };
+                const state = stockState[key];
+
+                if (f.t === 'in') {
+                    state.w += f.w;
+                    state.cost += (f.total || 0) + (f.fee || 0);
+                } else if (f.t === 'out') {
+                    const unitPrice = f.sale / f.w;
+                    let realProfit = 0;
+                    let outW = f.w;
+
+                    if (state.w > 0) {
+                        const consume = Math.min(outW, state.w);
+                        const avgCost = state.cost / state.w;
+                        realProfit = (unitPrice - avgCost) * consume;
+                        state.w -= consume;
+                        state.cost -= avgCost * consume;
+                        outW -= consume;
                     }
-                });
+
+                    if (outW > 0) {
+                        const shortCost = outW * unitPrice;
+                        state.w -= outW;
+                        state.cost -= shortCost;
+                    }
+
+                    f.margin = parseFloat(realProfit.toFixed(4));
+                    f.cost = parseFloat((f.w * unitPrice).toFixed(4));
+                }
             });
         }
 
@@ -1808,7 +1855,6 @@
             });
         }
 
-        // ★ 置顶功能 ★
         async function moveStockToTop(key) {
             try {
                 const idx = D.stockOrder.indexOf(key);
@@ -1879,20 +1925,35 @@
         }
 
         function renderDash() {
-            let val = 0,
-                cost = 0,
+            let marketVal = 0,
+                totalCost = 0,
                 sale = 0,
                 mar = 0;
+
             D.stock.forEach(s => {
-                const mp = s.cat === '黄金' ? D.prices.gold : (s.cat === '白银' ? D.prices.silver : (s.cat === '铂金' ? D
-                    .prices.plat : 0));
-                if (mp > 0) { val += s.w * mp;
-                    cost += s.w * s.cost; }
+                const mp = s.cat === '黄金' ? D.prices.gold :
+                    (s.cat === '白银' ? D.prices.silver :
+                    (s.cat === '铂金' ? D.prices.plat : 0));
+                if (mp > 0) {
+                    marketVal += s.w * mp;
+                }
+                totalCost += s.totalCost || (s.w * s.cost);
             });
-            D.flow.forEach(f => { if (f.t === 'out') { sale += f.sale;
-                    mar += f.margin || 0; } });
-            document.getElementById('sVal').textContent = val.toFixed(2);
-            document.getElementById('sPro').textContent = (val - cost).toFixed(2);
+
+            D.flow.forEach(f => {
+                if (f.t === 'out') {
+                    sale += f.sale;
+                    mar += f.margin || 0;
+                }
+            });
+            D.flow.forEach(f => {
+                if (f.t === 'in' && f.margin && Math.abs(f.margin) > 0.01) {
+                    mar += f.margin;
+                }
+            });
+
+            document.getElementById('sVal').textContent = totalCost.toFixed(2);
+            document.getElementById('sPro').textContent = (marketVal - totalCost).toFixed(2);
             document.getElementById('sSale').textContent = sale.toFixed(2);
             document.getElementById('sMar').textContent = mar.toFixed(2);
         }
@@ -2020,12 +2081,10 @@
             renderStock();
         }
 
-        let dragSrcIndex = null;
-
+        // ---- 拖拽排序 ----
         function handleDragStart(e) {
             const tr = e.target.closest('tr[data-key]');
             if (!tr) return;
-            dragSrcIndex = tr.rowIndex;
             tr.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', tr.dataset.key);
@@ -2233,7 +2292,7 @@
                 const before = stockState[key] || 0;
                 let after = before;
                 if (f.t === 'in') after = before + f.w;
-                else if (f.t === 'out') after = Math.max(0, before - f.w);
+                else if (f.t === 'out') after = before - f.w;
                 stockState[key] = after;
                 flowWithStock.push({ flow: f, beforeStock: before, afterStock: after });
             });
@@ -2340,7 +2399,7 @@
                     <span class="delta ${deltaClass}">(${deltaStr}g)</span>
                     <span class="to">${after.toFixed(2)}g</span>
                 </span>`;
-                const payTxt = f.payDetail ? f.payDetail.map(p => p.ch + ' ¥' + (p.amt || 0).toFixed(2)).join('<br>') :
+                const payTxt = f.payDetail ? f.payDetail.map(p => escHtml(p.ch) + ' ¥' + (p.amt || 0).toFixed(2)).join('<br>') :
                 '-';
                 const remain = Math.abs(f.payRemain || 0) > 0.01 ? (f.t === 'in' ? (f.payRemain > 0 ? '未付' : '多付') : (f
                     .payRemain > 0 ? '欠付' : '多付')) + ' ' + Math.abs(f.payRemain).toFixed(2) : '-';
@@ -2357,6 +2416,9 @@
                     amountDisplay = `<span class="amount-negative">-${f.total.toFixed(2)}</span>`;
                     unitPriceDisplay = unitPrice.toFixed(2);
                     if (f.fee) amountDisplay += `<br><span class="margin-text">工艺费 ${f.fee.toFixed(2)}</span>`;
+                    if (f.margin && Math.abs(f.margin) > 0.01) {
+                        amountDisplay += `<br><span class="margin-text" style="color:#1e7e34;">利 ${f.margin.toFixed(2)}</span>`;
+                    }
                 } else {
                     const unitPrice = f.w > 0 ? (f.sale / f.w) : 0;
                     weightDisplay = `<span class="weight-negative">-${f.w.toFixed(2)}</span>`;
@@ -2367,14 +2429,14 @@
                 }
                 rows += `<tr class="flow-row" onclick="editFlow(${f.id})">
                     <td class="seq-num">${seq}</td>
-                    <td style="white-space:nowrap;font-size:12px;">${createdAt.replace('T',' ').slice(0,16)}</td>
-                    <td style="white-space:nowrap;font-size:12px;" class="last-modified">${lastMod.replace('T',' ').slice(0,16)}</td>
+                    <td style="white-space:nowrap;font-size:12px;">${escHtml(createdAt.replace('T',' ').slice(0,16))}</td>
+                    <td style="white-space:nowrap;font-size:12px;" class="last-modified">${escHtml(lastMod.replace('T',' ').slice(0,16))}</td>
                     <td><b>${escHtml(f.no)}</b></td>
                     <td>${f.t==='in'?'<span style="color:#1e7e34;">⬆入库</span>':'<span style="color:#b33c2f;">⬇出库</span>'}</td>
                     <td>${escHtml(f.cat)}</td>
                     <td>${escHtml(f.name)}</td>
                     <td>${stockDisplay}</td>
-                    <td>${unitPriceDisplay}</td>
+                    <td>${escHtml(unitPriceDisplay)}</td>
                     <td>${amountDisplay}</td>
                     <td><a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(cus)}','name'); return false;" style="color:#0066cc;text-decoration:underline;">${cus}</a></td>
                     <td>${tel ? `<a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(tel)}','tel'); return false;" style="color:#0066cc;text-decoration:underline;">${tel}</a>` : '-'}</td>
@@ -2929,7 +2991,7 @@
             playBeep(false);
         }
 
-        // ---- 删除函数（软删除） ----
+        // ---- 删除函数 ----
         async function confirmDeleteFlow(id) {
             const f = D.flow.find(x => x.id === id);
             if (!f) return;
@@ -3468,7 +3530,7 @@
             saveData();
         }
 
-        // ---- doIn / doOut ----
+        // ---- doIn ----
         async function doIn() {
             try {
                 const cat = document.getElementById('inCat').value;
@@ -3480,12 +3542,28 @@
                 if (!name || w <= 0 || total <= 0) { playBeep(false);
                     await showAlertModal('提示', '品名、克重、总金额必填'); return; }
                 const now = nowFullStr();
+
+                // 计算补货利润（需要先知道当前超卖单价）
+                rebuildStock();
+                const key = cat + '|' + name;
+                const stockItem = D.stock.find(s => s.cat === cat && s.name === name);
+                let coverProfit = 0;
+                const inUnitPrice = total / (w * q);
+
+                // 查找该品类的超卖单价（从stockItem的cost反推，或从D中获取）
+                if (stockItem && stockItem.w < 0 && w > 0) {
+                    // 从最近一笔出库获取超卖单价（加权平均后）
+                    // 更准确：从stockItem.cost获取当前加权均价
+                    const shortPrice = stockItem.cost; // 当前超卖加权均价
+                    const coverW = Math.min(w, Math.abs(stockItem.w));
+                    coverProfit = (shortPrice - inUnitPrice) * coverW;
+                }
+
                 let flow;
                 if (editingId) {
                     const old = editingBackup;
                     if (!old || old.t !== 'in') { await showAlertModal('错误', '要修改的单据不存在或类型不匹配'); return; }
                     const dateVal = document.getElementById('inDate').value || todayStr();
-                    const costUnit = total / w;
                     const payDet = getPayDetail('in');
                     const paidSum = payDet.paid;
                     const cus = document.getElementById('inCus').value.trim();
@@ -3495,16 +3573,16 @@
                     const fee = feeEl ? parseFloat(feeEl.value) || 0 : 0;
                     const note = document.getElementById('inNote').value.trim();
                     const src = document.getElementById('inSrc').value;
-                    flow = { id: old.id, no: old.no, t: 'in', cat, name, w: w * q, q: q, total, fee, costUnit, cus, tel,
-                        idNo, src, note, payDetail: payDet.detail, payPaid: paidSum, payRemain: total - paidSum,
-                        time: old.time, lastModified: now };
+                    flow = { id: old.id, no: old.no, t: 'in', cat, name, w: w * q, q: q, total, fee, costUnit: inUnitPrice,
+                        cus, tel, idNo, src, note, payDetail: payDet.detail, payPaid: paidSum,
+                        payRemain: total - paidSum,
+                        time: old.time, lastModified: now, margin: coverProfit };
                     D.flow = D.flow.filter(f => f.id !== editingId);
                     editingId = null;
                     editingBackup = null;
                 } else {
                     const dateVal = document.getElementById('inDate').value || todayStr();
                     const no = genNo('RK', dateVal);
-                    const costUnit = total / w;
                     const payDet = getPayDetail('in');
                     const paidSum = payDet.paid;
                     const cus = document.getElementById('inCus').value.trim();
@@ -3516,9 +3594,10 @@
                     const src = document.getElementById('inSrc').value;
                     if (!D.names.some(n => n.cat === cat && n.name === name)) { D.names.push({ cat, name }); }
                     if (cus) upsertCust(cus, tel, idNo);
-                    flow = { id: genId(), no, t: 'in', cat, name, w: w * q, q: q, total, fee, costUnit, cus, tel, idNo,
-                        src, note, payDetail: payDet.detail, payPaid: paidSum, payRemain: total - paidSum,
-                        time: dateVal + 'T' + nowTime(), lastModified: now };
+                    flow = { id: genId(), no, t: 'in', cat, name, w: w * q, q: q, total, fee, costUnit: inUnitPrice,
+                        cus, tel, idNo, src, note, payDetail: payDet.detail, payPaid: paidSum,
+                        payRemain: total - paidSum,
+                        time: dateVal + 'T' + nowTime(), lastModified: now, margin: coverProfit };
                 }
                 D.flow.push(flow);
                 refreshAll();
@@ -3538,6 +3617,7 @@
             }
         }
 
+        // ---- doOut ----
         async function doOut() {
             try {
                 const cat = document.getElementById('outCat').value;
@@ -3549,6 +3629,7 @@
                 if (!name || ow <= 0 || p <= 0) { playBeep(false);
                     await showAlertModal('提示', '请选品名、填克重和单价'); return; }
                 const now = nowFullStr();
+
                 let flow;
                 if (editingId) {
                     const old = editingBackup;
@@ -3561,15 +3642,9 @@
                     const tel = document.getElementById('outTel').value.trim();
                     const note = document.getElementById('outNote').value.trim();
                     if (buyer) upsertCust(buyer, tel, '');
-                    D.flow = D.flow.filter(f => f.id !== editingId);
-                    rebuildStock();
-                    const stockItem = D.stock.find(s => s.cat === cat && s.name === name);
-                    if (!stockItem || stockItem.w < ow - 0.001) {
-                        D.flow.push(old);
-                        refreshAll();
-                        playBeep(false);
-                        await showAlertModal('库存不足', '当前可用：' + (stockItem ? stockItem.w.toFixed(2) : '0') + 'g');
-                        return;
+                    const existingIdx = D.flow.findIndex(f => f.id === old.id);
+                    if (existingIdx !== -1) {
+                        D.flow.splice(existingIdx, 1);
                     }
                     flow = { id: old.id, no: old.no, t: 'out', cat, name, w: ow, q: oq, sale, buyer, tel, note,
                         payDetail: payDet.detail, payPaid: paidSum, payRemain: sale - paidSum, time: old.time,
@@ -3577,13 +3652,6 @@
                     editingId = null;
                     editingBackup = null;
                 } else {
-                    rebuildStock();
-                    const stockItem = D.stock.find(s => s.cat === cat && s.name === name);
-                    if (!stockItem || stockItem.w < ow - 0.001) {
-                        playBeep(false);
-                        await showAlertModal('库存不足', '当前可用：' + (stockItem ? stockItem.w.toFixed(2) : '0') + 'g');
-                        return;
-                    }
                     const dateVal = document.getElementById('outDate').value || todayStr();
                     const no = genNo('CK', dateVal);
                     const sale = ow * p;
@@ -3662,11 +3730,6 @@
         }
 
         function clearEditingState() {
-            if (editingBackup) {
-                const exist = D.flow.find(f => f.id === editingBackup.id);
-                if (!exist) { D.flow.push(editingBackup);
-                    refreshAll(); }
-            }
             editingId = null;
             editingBackup = null;
             document.getElementById('btnCancelIn').style.display = 'none';
@@ -3716,8 +3779,6 @@
                 document.getElementById('inMsg').innerHTML =
                     `<span class="text-primary">✏️ 正在修改入库单 ${escHtml(f.no)}</span>`;
             } else {
-                D.flow = D.flow.filter(x => x.id !== id);
-                refreshAll();
                 switchTab('out');
                 document.getElementById('outCat').value = f.cat;
                 outLoadNames();
@@ -3737,7 +3798,7 @@
                 document.getElementById('btnCancelOut').style.display = 'inline-block';
                 document.getElementById('btnDoOut').textContent = '💾 保存修改';
                 document.getElementById('outMsg').innerHTML =
-                    `<span class="text-primary">✏️ 正在修改出库单 ${escHtml(f.no)}，旧出库已回滚，可用库存已更新</span>`;
+                    `<span class="text-primary">✏️ 正在修改出库单 ${escHtml(f.no)}</span>`;
             }
         }
 
@@ -3775,7 +3836,7 @@
                 `黄金 ${gold} 元/g，白银 ${silver} 元/g，铂金 ${plat} 元/g\n\n库存货值和浮动盈亏已重新计算。`);
         }
 
-        // ★★★ 原版打印逻辑 ★★★
+        // ---- 打印函数 ----
         function printIn() {
             switchTab('in');
             setTimeout(() => {
@@ -3966,7 +4027,7 @@
             setTimeout(() => { window.print(); }, 150);
         }
 
-        // ---- 导出（保留） ----
+        // ---- 导出 ----
         function exportStockXlsx() {
             const data = D.stock.map(s => ({
                 '品类': s.cat,
@@ -4081,7 +4142,7 @@
                 const before = stockState[key] || 0;
                 let after = before;
                 if (f.t === 'in') after = before + f.w;
-                else if (f.t === 'out') after = Math.max(0, before - f.w);
+                else if (f.t === 'out') after = before - f.w;
                 stockState[key] = after;
                 return { flow: f, before: before, after: after, delta: after - before };
             });
@@ -4163,6 +4224,14 @@
             showAlertModal('提示', '流水导出成功');
         }
 
+        function parseNumber(s) {
+            if (typeof s === 'number') return s;
+            if (typeof s !== 'string') s = String(s);
+            const cleaned = s.replace(/[^0-9.\-]/g, '');
+            const num = parseFloat(cleaned);
+            return isNaN(num) ? 0 : num;
+        }
+
         function importXlsx(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -4188,21 +4257,20 @@
                         const name = row['品名'] || '';
                         const delta = row['变化克重'] || '';
                         let w = 0;
-                        if (delta) w = parseFloat(delta) || 0;
+                        if (delta) w = parseNumber(delta);
                         if (!w) {
                             const changeStr = row['库存变化'] || '';
                             const wMatch = changeStr.match(/\(([+-]?[\d.]+)g\)/);
                             if (wMatch) w = parseFloat(wMatch[1]) || 0;
                         }
-                        const amountStr = row['金额'] || '';
-                        const amount = parseFloat(amountStr.replace(/[^0-9.-]/g, '')) || 0;
+                        const amount = parseNumber(row['金额'] || 0);
                         const customer = row['客户'] || '';
                         const tel = row['电话'] || '';
                         const idNo = row['身份证'] || '';
                         const note = row['备注'] || '';
-                        const payDetail = row['付款'] ? [{ ch: '导入', amt: parseFloat(row['实付']) || 0 }] : [];
-                        const paid = parseFloat(row['实付']) || 0;
-                        const remain = parseFloat(row['欠款']) || 0;
+                        const payDetail = row['付款'] ? [{ ch: '导入', amt: parseNumber(row['实付']) || 0 }] : [];
+                        const paid = parseNumber(row['实付']) || 0;
+                        const remain = parseNumber(row['欠款']) || 0;
                         const flow = {
                             id: genId(),
                             no: no,
@@ -4296,7 +4364,7 @@
                 const before = stockState[key] || 0;
                 let after = before;
                 if (f.t === 'in') after = before + f.w;
-                else if (f.t === 'out') after = Math.max(0, before - f.w);
+                else if (f.t === 'out') after = before - f.w;
                 stockState[key] = after;
                 return { flow: f, before: before, after: after, delta: after - before };
             });
@@ -4359,8 +4427,8 @@
             }
             logSync('🔄 强制同步中...', 'info');
             updateSyncStatus('syncing');
-            await pullFullState();
             await updateSnapshot();
+            await pullFullState();
             logSync('✅ 强制同步完成', 'ok');
             updateSyncStatus('ok');
             await showAlertModal('提示', '同步完成');
@@ -4376,6 +4444,7 @@
             }
             logSync('🔄 立即同步...', 'info');
             updateSyncStatus('syncing');
+            await updateSnapshot();
             await pullFullState();
             updateSyncStatus('ok');
             refreshStockAndDash();
@@ -4521,7 +4590,7 @@
 
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-                logSync('🚀 系统已启动 (含分页、回收站、置顶功能、原版打印、音量最大)', 'info');
+                logSync('🚀 系统已启动 (超卖加权平均，所有功能保留)', 'info');
                 pullFullState().then(() => {
                     updateSyncStatus('ok');
                     logSync('✅ 数据已同步', 'ok');
@@ -4532,7 +4601,7 @@
                 logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
                 updateSyncStatus('fail');
             }
-            console.log('✅ 系统已启动 (含分页、回收站、置顶功能、原版打印、音量最大)');
+            console.log('✅ 系统已启动 (超卖加权平均)');
         });
 
         function subscribeRealtime() {}
