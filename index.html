@@ -227,6 +227,15 @@
             color: #777;
             margin-top: 2px;
         }
+        .stat-box .num.clickable {
+            cursor: pointer;
+            color: #0066cc;
+            text-decoration: underline;
+            text-decoration-style: dotted;
+        }
+        .stat-box .num.clickable:hover {
+            color: #d4a017;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -301,6 +310,9 @@
             width: 92%;
             max-height: 80vh;
             overflow-y: auto;
+        }
+        .modal-box.wide {
+            max-width: 760px;
         }
         .modal-header {
             display: flex;
@@ -591,6 +603,9 @@
             }
             .modal-box {
                 padding: 16px 16px;
+                max-width: 96%;
+            }
+            .modal-box.wide {
                 max-width: 96%;
             }
             .source-wrapper select {
@@ -1139,7 +1154,7 @@
                 <div class="stat-box"><div class="num" id="sVal">0</div><div class="lbl">库存货值 (总成本)</div></div>
                 <div class="stat-box"><div class="num" id="sPro">0</div><div class="lbl">浮动盈亏 (元)</div></div>
                 <div class="stat-box"><div class="num" id="sSale">0</div><div class="lbl">累计销售额</div></div>
-                <div class="stat-box"><div class="num" id="sMar">0</div><div class="lbl">累计毛利</div></div>
+                <div class="stat-box"><div class="num" id="sMar" class="num clickable" onclick="showProfitDetail()" title="点击查看利润明细">0</div><div class="lbl">累计毛利（点击查看明细）</div></div>
             </div>
             <div class="row2 mt-8">
                 <button class="btn btn-gold" onclick="switchTab('in')">📥 录入库</button>
@@ -1482,18 +1497,18 @@
     </div>
     <!-- 模态框 -->
     <div id="modal" class="modal" onclick="if(event.target===this)closeModal()">
-        <div class="modal-box">
+        <div class="modal-box" id="modalBox">
             <div class="modal-header"><h3 id="modalTitle">确认</h3><button class="modal-close" onclick="closeModal()">×</button></div>
             <div id="modalBody"></div>
             <div id="modalBtns" class="flex mt-8" style="justify-content:flex-end;"></div>
         </div>
     </div>
-    <!-- 错误提示条 -->
+    <!-- 错误提示条（保留但不再用于超卖警告） -->
     <div id="errorToast" class="error-toast"></div>
 
     <script>
         // ================================================================
-        //  完整 JavaScript · 超卖加权平均 + 所有功能保留
+        //  完整 JavaScript · 已添加：弹窗居中 + 利润明细 + 导出利润列
         // ================================================================
 
         // ---- Supabase 初始化 ----
@@ -1522,6 +1537,7 @@
         const FLOW_PAGE_SIZE = 20;
         const STOCK_PAGE_SIZE = 20;
         const REPORT_PAGE_SIZE = 15;
+        const PROFIT_PAGE_SIZE = 15;
 
         let flowCurrentPage = 1;
         let stockCurrentPage = 1;
@@ -1529,6 +1545,7 @@
         let reportOutCustCurrentPage = 1;
         let reportInCatCurrentPage = 1;
         let reportInCustCurrentPage = 1;
+        let profitCurrentPage = 1;
 
         let flowFilter = 'all';
         let flowCustomerFilter = null;
@@ -1639,10 +1656,13 @@
             if (D._lastSeqId) seqInfo.textContent = 'Seq:' + D._lastSeqId;
         }
 
-        // ---- 模态框 ----
-        function showModal(title, body, buttons) {
+        // ---- 模态框（增强版：支持宽屏） ----
+        function showModal(title, body, buttons, wide) {
             document.getElementById('modalTitle').textContent = title;
             document.getElementById('modalBody').innerHTML = body;
+            const box = document.getElementById('modalBox');
+            if (wide) box.classList.add('wide');
+            else box.classList.remove('wide');
             const btns = document.getElementById('modalBtns');
             btns.innerHTML = '';
             buttons.forEach(b => {
@@ -1694,6 +1714,148 @@
             } catch (e) { /* 忽略 */ }
         }
 
+        // ========== ★★★ 新增：利润明细弹窗 ★★★ ==========
+        function showProfitDetail() {
+            // 收集所有有利润的出库单
+            const profitFlows = D.flow
+                .filter(f => f.t === 'out' && f.margin !== undefined && f.margin !== null && Math.abs(f.margin) > 0.001)
+                .sort((a, b) => {
+                    if (a.time !== b.time) return b.time.localeCompare(a.time);
+                    return b.id - a.id;
+                });
+
+            if (profitFlows.length === 0) {
+                showAlertModal('📊 利润明细', '暂无利润记录');
+                return;
+            }
+
+            const totalItems = profitFlows.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / PROFIT_PAGE_SIZE));
+            if (profitCurrentPage > totalPages) profitCurrentPage = totalPages;
+            if (profitCurrentPage < 1) profitCurrentPage = 1;
+            const start = (profitCurrentPage - 1) * PROFIT_PAGE_SIZE;
+            const end = Math.min(start + PROFIT_PAGE_SIZE, totalItems);
+            const pageItems = profitFlows.slice(start, end);
+
+            let html = `
+                <div style="margin-bottom:10px;font-size:13px;color:#666;">
+                    共 <strong>${totalItems}</strong> 笔利润，合计 <strong style="color:#1e7e34;">${profitFlows.reduce((s,f) => s + f.margin, 0).toFixed(2)}</strong> 元
+                </div>
+                <div style="overflow-x:auto;max-height:350px;overflow-y:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>单号</th>
+                            <th>日期</th>
+                            <th>品类</th>
+                            <th>品名</th>
+                            <th>克重</th>
+                            <th>利润</th>
+                            <th>客户</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            const globalStart = start;
+            pageItems.forEach((f, idx) => {
+                const seq = globalStart + idx + 1;
+                const dateStr = f.time ? f.time.replace('T', ' ').slice(0, 16) : '';
+                const profitColor = f.margin >= 0 ? '#1e7e34' : '#b33c2f';
+                const customer = f.buyer || f.cus || '-';
+                html += `
+                    <tr>
+                        <td>${seq}</td>
+                        <td><b>${escHtml(f.no)}</b></td>
+                        <td style="font-size:12px;">${escHtml(dateStr)}</td>
+                        <td>${escHtml(f.cat)}</td>
+                        <td>${escHtml(f.name)}</td>
+                        <td>${(f.w || 0).toFixed(2)}</td>
+                        <td style="color:${profitColor};font-weight:700;">${f.margin.toFixed(2)}</td>
+                        <td>${escHtml(customer)}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+                </div>
+                <div class="pagination-bar" style="border-top:none;padding-top:8px;margin-top:4px;">
+                    <div class="info">第 ${totalItems > 0 ? profitCurrentPage : 0} / ${totalItems > 0 ? totalPages : 0} 页</div>
+                    <div class="controls">
+                        <button class="btn btn-gray btn-sm" onclick="profitGoPage(1)" ${profitCurrentPage<=1?'disabled':''}>首页</button>
+                        <button class="btn btn-gray btn-sm" onclick="profitGoPage(${profitCurrentPage-1})" ${profitCurrentPage<=1?'disabled':''}>上一页</button>
+                        <span style="padding:4px 8px;background:#f0ede8;border-radius:4px;font-weight:600;">${profitCurrentPage}</span>
+                        <button class="btn btn-gray btn-sm" onclick="profitGoPage(${profitCurrentPage+1})" ${profitCurrentPage>=totalPages?'disabled':''}>下一页</button>
+                        <button class="btn btn-gray btn-sm" onclick="profitGoPage(${totalPages})" ${profitCurrentPage>=totalPages?'disabled':''}>末页</button>
+                    </div>
+                    <div class="jump-box">
+                        <span>跳转</span>
+                        <input type="number" id="profitJumpInput" min="1" max="${totalPages}" value="${profitCurrentPage}" style="width:48px;padding:3px 4px;border:1px solid #d5d0c8;border-radius:4px;text-align:center;font-size:13px;">
+                        <button class="btn btn-gray btn-sm" onclick="profitJumpToPage()">确定</button>
+                    </div>
+                </div>
+            `;
+
+            showModal('📊 累计毛利明细', html, [
+                { text: '关闭', class: 'btn-gray', action: closeModal }
+            ], true);
+        }
+
+        function profitGoPage(page) {
+            const totalItems = D.flow.filter(f => f.t === 'out' && f.margin !== undefined && Math.abs(f.margin) > 0.001)
+                .length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / PROFIT_PAGE_SIZE));
+            if (page < 1) page = 1;
+            if (page > totalPages) page = totalPages;
+            profitCurrentPage = page;
+            // 重新渲染弹窗内容
+            showProfitDetail();
+        }
+
+        function profitJumpToPage() {
+            const input = document.getElementById('profitJumpInput');
+            if (!input) return;
+            let page = parseInt(input.value);
+            if (isNaN(page) || page < 1) page = 1;
+            profitGoPage(page);
+        }
+
+        // ---- 超卖检查（改用居中弹窗） ----
+        function checkOutStock() {
+            const cat = document.getElementById('outCat').value;
+            const name = document.getElementById('outName').value;
+            const outW = parseFloat(document.getElementById('outW').value) || 0;
+            if (!cat || !name || outW <= 0) return;
+
+            // 查找当前库存
+            const stockItem = D.stock.find(s => s.cat === cat && s.name === name);
+            const available = stockItem ? stockItem.w : 0;
+            const outWEl = document.getElementById('outW');
+
+            if (outW > available + 0.001) {
+                // ★ 改用居中弹窗 ★
+                const shortage = (outW - available).toFixed(2);
+                const msg = `
+                    <div style="padding:6px 0;">
+                        <p style="font-size:16px;font-weight:600;color:#b33c2f;">⚠️ 超卖预警</p>
+                        <p>当前库存：<strong>${available.toFixed(2)} g</strong></p>
+                        <p>卖出克重：<strong>${outW.toFixed(2)} g</strong></p>
+                        <p style="color:#b33c2f;">超卖 <strong>${shortage} g</strong>，库存将变为负数</p>
+                        <p style="font-size:13px;color:#666;margin-top:8px;">💡 系统支持超卖，但建议确认后再操作</p>
+                    </div>
+                `;
+                showAlertModal('⚠️ 超卖提醒', msg);
+                outWEl.style.borderColor = '#b33c2f';
+                outWEl.style.backgroundColor = '#fff0f0';
+            } else {
+                outWEl.style.borderColor = '#d5d0c8';
+                outWEl.style.backgroundColor = '#faf9f7';
+            }
+        }
+
         // ========== ★★★ 核心修正：rebuildStock 支持超卖加权平均 ★★★ ==========
         function rebuildStock() {
             const stockMap = {};
@@ -1727,9 +1889,8 @@
                             const cover = Math.min(inW, -shortW);
                             shortW += cover; // 向零靠近
                             inW -= cover;
-                            // 超卖单价不变
                             if (shortW === 0) {
-                                shortPrice = 0; // 退出超卖模式
+                                shortPrice = 0;
                             }
                         }
                         // 2) 剩余入库进入正库存
@@ -1752,15 +1913,13 @@
                         }
                         // 2) 剩余进入超卖（或继续超卖）
                         if (remain > 0) {
-                            // 如果当前没有超卖（shortW == 0），初始化
                             if (shortW === 0) {
                                 shortW = -remain;
                                 shortPrice = unitPrice;
                             } else {
-                                // ★ 加权平均：新的超卖单价 = (旧短仓总成本 + 新增超卖金额) / (旧短仓重量 + 新增超卖重量)
-                                const oldShortCost = shortW * shortPrice; // shortW为负
-                                const newShortCost = -remain * unitPrice; // 新增成本（负值）
-                                const totalShortW = shortW - remain; // 更负
+                                const oldShortCost = shortW * shortPrice;
+                                const newShortCost = -remain * unitPrice;
+                                const totalShortW = shortW - remain;
                                 const totalShortCost = oldShortCost + newShortCost;
                                 shortPrice = totalShortCost / totalShortW;
                                 shortW = totalShortW;
@@ -1770,7 +1929,6 @@
                     }
                 });
 
-                // 最终库存 = 正库存 + 超卖库存
                 const totalW = posW + shortW;
                 const totalCost = posCost + (shortW * shortPrice || 0);
 
@@ -1955,7 +2113,22 @@
             document.getElementById('sVal').textContent = totalCost.toFixed(2);
             document.getElementById('sPro').textContent = (marketVal - totalCost).toFixed(2);
             document.getElementById('sSale').textContent = sale.toFixed(2);
-            document.getElementById('sMar').textContent = mar.toFixed(2);
+            const marEl = document.getElementById('sMar');
+            marEl.textContent = mar.toFixed(2);
+            // 如果有利润，让数字可点击
+            if (Math.abs(mar) > 0.01) {
+                marEl.style.cursor = 'pointer';
+                marEl.style.color = '#0066cc';
+                marEl.style.textDecoration = 'underline dotted';
+                marEl.onclick = showProfitDetail;
+                marEl.title = '点击查看利润明细';
+            } else {
+                marEl.style.cursor = 'default';
+                marEl.style.color = '#1a1a1a';
+                marEl.style.textDecoration = 'none';
+                marEl.onclick = null;
+                marEl.title = '';
+            }
         }
 
         // ---- 库存分页 ----
@@ -3467,6 +3640,8 @@
                 }
             });
             outSel();
+            // 检查超卖
+            setTimeout(checkOutStock, 100);
         }
 
         function outSel() {
@@ -3477,6 +3652,8 @@
             if (availEl) availEl.value = opt && opt.dataset.w ? opt.dataset.w : '';
             const availQEl = document.getElementById('outAvailQ');
             if (availQEl) availQEl.value = opt && opt.dataset.q ? opt.dataset.q : '';
+            // 检查超卖
+            setTimeout(checkOutStock, 100);
         }
 
         function recalcPay(type) {
@@ -3543,18 +3720,14 @@
                     await showAlertModal('提示', '品名、克重、总金额必填'); return; }
                 const now = nowFullStr();
 
-                // 计算补货利润（需要先知道当前超卖单价）
                 rebuildStock();
                 const key = cat + '|' + name;
                 const stockItem = D.stock.find(s => s.cat === cat && s.name === name);
                 let coverProfit = 0;
                 const inUnitPrice = total / (w * q);
 
-                // 查找该品类的超卖单价（从stockItem的cost反推，或从D中获取）
                 if (stockItem && stockItem.w < 0 && w > 0) {
-                    // 从最近一笔出库获取超卖单价（加权平均后）
-                    // 更准确：从stockItem.cost获取当前加权均价
-                    const shortPrice = stockItem.cost; // 当前超卖加权均价
+                    const shortPrice = stockItem.cost;
                     const coverW = Math.min(w, Math.abs(stockItem.w));
                     coverProfit = (shortPrice - inUnitPrice) * coverW;
                 }
@@ -3727,6 +3900,12 @@
             if (remain) remain.value = '';
             const msg = document.getElementById('outMsg');
             if (msg) msg.innerHTML = '';
+            // 重置输入框样式
+            const outWEl = document.getElementById('outW');
+            if (outWEl) {
+                outWEl.style.borderColor = '#d5d0c8';
+                outWEl.style.backgroundColor = '#faf9f7';
+            }
         }
 
         function clearEditingState() {
@@ -4027,7 +4206,7 @@
             setTimeout(() => { window.print(); }, 150);
         }
 
-        // ---- 导出 ----
+        // ---- 导出（★ 修改：增加利润列 ★） ----
         function exportStockXlsx() {
             const data = D.stock.map(s => ({
                 '品类': s.cat,
@@ -4127,6 +4306,7 @@
             showAlertModal('提示', '入库报表导出成功');
         }
 
+        // ★ 修改：exportXlsx 增加利润列 ★
         function exportXlsx() {
             if (!currentFlowArr || !currentFlowArr.length) {
                 showAlertModal('提示', '当前没有流水数据可导出。');
@@ -4164,6 +4344,8 @@
                     payDetail = f.payDetail.map(p => p.ch + '¥' + (p.amt || 0).toFixed(2)).join(';');
                 }
                 const customer = f.t === 'in' ? f.cus : f.buyer;
+                // ★ 增加利润列 ★
+                const profit = (f.margin !== undefined && f.margin !== null) ? f.margin : 0;
                 data.push({
                     '#': index + 1,
                     '创建时间': f.time || '',
@@ -4177,6 +4359,7 @@
                     '单价': f.t === 'out' && f.w > 0 ? (f.sale / f.w).toFixed(2) : (f.t === 'in' && f.w > 0 ? (f.total / f
                         .w).toFixed(2) : ''),
                     '金额': amountStr,
+                    '利润': profit.toFixed(2),
                     '客户': customer || '',
                     '电话': f.tel || '',
                     '身份证': f.idNo || '',
@@ -4189,6 +4372,7 @@
             const totalAmount = data.reduce((s, r) => s + parseFloat(r['金额'] || 0), 0);
             const totalPaid = data.reduce((s, r) => s + parseFloat(r['实付'] || 0), 0);
             const totalRemain = data.reduce((s, r) => s + parseFloat(r['欠款'] || 0), 0);
+            const totalProfit = data.reduce((s, r) => s + parseFloat(r['利润'] || 0), 0);
             data.push({
                 '#': '合计',
                 '创建时间': '',
@@ -4201,6 +4385,7 @@
                 '库存变化': '',
                 '单价': '',
                 '金额': totalAmount.toFixed(2),
+                '利润': totalProfit.toFixed(2),
                 '客户': '',
                 '电话': '',
                 '身份证': '',
@@ -4349,6 +4534,7 @@
             event.target.value = '';
         }
 
+        // ★ 修改：downCSV 增加利润列 ★
         function downCSV() {
             if (!currentFlowArr || !currentFlowArr.length) {
                 showAlertModal('提示', '当前没有流水数据可导出。');
@@ -4373,7 +4559,7 @@
                 return b.flow.id - a.flow.id;
             });
             let csv =
-                '序号,创建时间,最后修改,单号,类型,品类,品名,变化克重,库存变化,单价,金额,客户,电话,身份证,付款,实付,欠款,备注\n';
+                '序号,创建时间,最后修改,单号,类型,品类,品名,变化克重,库存变化,单价,金额,利润,客户,电话,身份证,付款,实付,欠款,备注\n';
             displayItems.forEach((item, idx) => {
                 const f = item.flow;
                 const deltaStr = (item.delta >= 0 ? '+' : '') + item.delta.toFixed(2);
@@ -4383,6 +4569,7 @@
                 if (f.payDetail && f.payDetail.length) {
                     payDetail = f.payDetail.map(p => p.ch + '¥' + (p.amt || 0).toFixed(2)).join(';');
                 }
+                const profit = (f.margin !== undefined && f.margin !== null) ? f.margin : 0;
                 const line = [
                     idx + 1,
                     f.time || '',
@@ -4396,6 +4583,7 @@
                     f.t === 'out' && f.w > 0 ? (f.sale / f.w).toFixed(2) : (f.t === 'in' && f.w > 0 ? (f.total / f.w)
                         .toFixed(2) : ''),
                     (amount || 0).toFixed(2),
+                    profit.toFixed(2),
                     customer || '',
                     f.tel || '',
                     f.idNo || '',
@@ -4578,6 +4766,11 @@
             document.getElementById('platP').value = D.prices.plat || '';
             document.getElementById('inW').addEventListener('input', calcInUnit);
             document.getElementById('inTotal').addEventListener('input', calcInUnit);
+            // 出库克重输入框失去焦点时检查超卖
+            const outWEl = document.getElementById('outW');
+            if (outWEl) {
+                outWEl.addEventListener('blur', checkOutStock);
+            }
             refreshAll();
             populateFilterSelects();
             renderCatSelects();
@@ -4590,7 +4783,7 @@
 
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-                logSync('🚀 系统已启动 (超卖加权平均，所有功能保留)', 'info');
+                logSync('🚀 系统已启动 (弹窗居中 + 利润明细 + 导出利润列)', 'info');
                 pullFullState().then(() => {
                     updateSyncStatus('ok');
                     logSync('✅ 数据已同步', 'ok');
@@ -4601,7 +4794,7 @@
                 logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
                 updateSyncStatus('fail');
             }
-            console.log('✅ 系统已启动 (超卖加权平均)');
+            console.log('✅ 系统已启动 (新增功能：弹窗居中 + 利润明细 + 导出利润列)');
         });
 
         function subscribeRealtime() {}
