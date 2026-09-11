@@ -1616,7 +1616,7 @@
                 '交通银行', '现金'
             ],
             trash: [],
-            interest: [], // ★★★ 利息记录数组 ★★★
+            interest: [],
             _version: 0,
             _lastSeqId: 0,
             stockOrder: []
@@ -1843,7 +1843,6 @@
                     return b.id - a.id;
                 });
 
-            // 利息收入也算利润
             const interestTotal = D.interest.reduce((s, i) => s + (i.amount || 0), 0);
             const profitWithInterest = profitFlows.concat(
                 D.interest.map(i => ({
@@ -2072,7 +2071,7 @@
             updateStockOrder();
         }
 
-        // ---- recalcMargins ----
+        // ---- recalcMargins ★★★ 修复成本计算Bug的核心函数 ★★★ ----
         function recalcMargins() {
             const sorted = D.flow.slice().sort((a, b) => {
                 if (a.time !== b.time) return a.time.localeCompare(b.time);
@@ -2092,25 +2091,28 @@
                 } else if (f.t === 'out') {
                     const unitPrice = f.sale / f.w;
                     let realProfit = 0;
+                    let realCost = 0; // ★ 新增：记录真实出库成本
                     let outW = f.w;
 
                     if (state.w > 0) {
                         const consume = Math.min(outW, state.w);
                         const avgCost = state.cost / state.w;
                         realProfit = (unitPrice - avgCost) * consume;
+                        realCost += avgCost * consume; // ★ 记录成本
                         state.w -= consume;
                         state.cost -= avgCost * consume;
                         outW -= consume;
                     }
 
                     if (outW > 0) {
-                        const shortCost = outW * unitPrice;
+                        // 超卖部分的成本视为售价（利润为0）
+                        realCost += outW * unitPrice; // ★ 记录超卖成本
                         state.w -= outW;
-                        state.cost -= shortCost;
+                        state.cost -= outW * unitPrice;
                     }
 
                     f.margin = parseFloat(realProfit.toFixed(4));
-                    f.cost = parseFloat((f.w * unitPrice).toFixed(4));
+                    f.cost = parseFloat(realCost.toFixed(4)); // ★ 修正：存储真实成本，而不是销售额
                 }
             });
         }
@@ -2238,7 +2240,6 @@
                 }
             });
 
-            // ★★★ 利息收入计入累计毛利 ★★★
             const interestTotal = D.interest.reduce((s, i) => s + (i.amount || 0), 0);
             mar += interestTotal;
 
@@ -2562,9 +2563,8 @@
             });
         }
 
-        // ---- Flow 渲染（此处省略，与完美版相同） ----
+        // ---- Flow 渲染 ----
         function renderFlow() {
-            // 与之前完美版相同，保留全部功能
             const tb = document.getElementById('flowBody');
             let arr = D.flow.slice();
             arr.sort((a, b) => {
@@ -2816,7 +2816,7 @@
             if (!document.getElementById('flow').classList.contains('active')) switchTab('flow');
         }
 
-        // ---- 报表分页（省略，与完美版相同） ----
+        // ---- 报表分页 ----
         function renderReportOut() {
             const dtFrom = document.getElementById('reportOutFrom').value;
             const dtTo = document.getElementById('reportOutTo').value;
@@ -2827,9 +2827,11 @@
             let totalSale = 0,
                 totalCost = 0,
                 totalProfit = 0;
-            outFlows.forEach(f => { totalSale += f.sale || 0;
+            outFlows.forEach(f => { 
+                totalSale += f.sale || 0;
                 totalCost += f.cost || 0;
-                totalProfit += f.margin || 0; });
+                totalProfit += f.margin || 0; 
+            });
             document.getElementById('rOutProfit').textContent = totalProfit.toFixed(2);
             document.getElementById('rOutSale').textContent = totalSale.toFixed(2);
             document.getElementById('rOutCost').textContent = totalCost.toFixed(2);
@@ -4011,7 +4013,6 @@
             if (remain) remain.value = '';
             const msg = document.getElementById('inMsg');
             if (msg) msg.innerHTML = '';
-            // 重置抵押字段
             document.getElementById('inMortgageDate').value = '';
             document.getElementById('inMortgageRate').value = '';
             toggleMortgageFields();
@@ -4153,7 +4154,7 @@
                 `黄金 ${gold} 元/g，白银 ${silver} 元/g，铂金 ${plat} 元/g\n\n库存货值和浮动盈亏已重新计算。`);
         }
 
-        // ---- 打印函数（保留） ----
+        // ---- 打印函数 ----
         function printIn() {
             switchTab('in');
             setTimeout(() => {
@@ -4354,7 +4355,7 @@
             setTimeout(() => { window.print(); }, 150);
         }
 
-        // ---- 导出（保留） ----
+        // ---- 导出 ----
         function exportStockXlsx() {
             const data = D.stock.map(s => ({
                 '品类': s.cat,
@@ -4454,7 +4455,6 @@
             showAlertModal('提示', '入库报表导出成功');
         }
 
-        // ★ 修改：exportXlsx 增加利润列 ★
         function exportXlsx() {
             if (!currentFlowArr || !currentFlowArr.length) {
                 showAlertModal('提示', '当前没有流水数据可导出。');
@@ -4681,7 +4681,6 @@
             event.target.value = '';
         }
 
-        // ★ 修改：downCSV 增加利润列 ★
         function downCSV() {
             if (!currentFlowArr || !currentFlowArr.length) {
                 showAlertModal('提示', '当前没有流水数据可导出。');
@@ -4908,7 +4907,6 @@
 
         // ========== ★★★ 利息管理核心函数 ★★★ ==========
 
-        // 获取所有抵押品品名（品类为“抵押”且有库存的品名）
         function getMortgageNames() {
             const names = new Set();
             D.flow.forEach(f => {
@@ -4916,20 +4914,17 @@
                     names.add(f.name);
                 }
             });
-            // 也包含已赎回但还有记录的
             D.interest.forEach(i => {
                 if (i.mortgageName) names.add(i.mortgageName);
             });
             return [...names].sort();
         }
 
-        // 渲染利息列表
         function renderInterest() {
             const tb = document.getElementById('interestBody');
             const filterName = document.getElementById('interestFilterName').value;
             const filterCust = document.getElementById('interestFilterCust').value.trim();
 
-            // 更新筛选下拉
             const nameSel = document.getElementById('interestFilterName');
             const curName = nameSel.value;
             const mortgageNames = getMortgageNames();
@@ -4953,7 +4948,6 @@
                 items = items.filter(i => (i.cust || '').toLowerCase().includes(kw));
             }
 
-            // 统计
             const totalInterest = items.reduce((s, i) => s + (i.amount || 0), 0);
             const thisMonth = new Date();
             const monthStart = thisMonth.getFullYear() + '-' + String(thisMonth.getMonth() + 1).padStart(2, '0') + '-01';
@@ -4965,7 +4959,6 @@
             document.getElementById('interestCount').textContent = items.length;
             document.getElementById('interestMortgageCount').textContent = mortgageCount;
 
-            // 分页
             const totalItems = items.length;
             const totalPages = Math.max(1, Math.ceil(totalItems / INTEREST_PAGE_SIZE));
             if (interestCurrentPage > totalPages) interestCurrentPage = totalPages;
@@ -5011,7 +5004,6 @@
                 const seq = globalStart + idx + 1;
                 const dateStr = item.date || '';
                 const cust = item.cust || '-';
-                // 查找该抵押品的本金和月息率（从入库流水中获取）
                 const mortgageFlow = D.flow.find(f => f.cat === '抵押' && f.name === item.mortgageName && f.t === 'in');
                 const principal = mortgageFlow ? mortgageFlow.total || 0 : 0;
                 const rate = mortgageFlow ? (mortgageFlow.rate || '') : '';
@@ -5057,7 +5049,6 @@
             renderInterest();
         }
 
-        // 显示添加利息弹窗
         function showAddInterest() {
             const mortgageNames = getMortgageNames();
             if (mortgageNames.length === 0) {
@@ -5096,7 +5087,6 @@
                             return;
                         }
 
-                        // 自动匹配客户
                         let finalCust = cust;
                         if (!finalCust) {
                             const flow = D.flow.find(f => f.cat === '抵押' && f.name === mortgageName && f.t === 'in');
@@ -5124,7 +5114,6 @@
                     } }
             ], false);
 
-            // 自动填充客户
             const nameSel = document.getElementById('interestMortgageName');
             const custInput = document.getElementById('interestCust');
             if (nameSel && custInput) {
@@ -5134,7 +5123,6 @@
                         custInput.value = flow.cus;
                     }
                 });
-                // 触发一次
                 const flow = D.flow.find(f => f.cat === '抵押' && f.name === nameSel.value && f.t === 'in');
                 if (flow && flow.cus) {
                     custInput.value = flow.cus;
@@ -5142,7 +5130,6 @@
             }
         }
 
-        // 删除利息记录
         function confirmDeleteInterest(id) {
             const item = D.interest.find(i => i.id === id);
             if (!item) return;
@@ -5163,7 +5150,6 @@
             );
         }
 
-        // ★★★ 导出利息 ★★★
         function exportInterestXlsx() {
             if (!D.interest || D.interest.length === 0) {
                 showAlertModal('提示', '暂无利息数据可导出');
