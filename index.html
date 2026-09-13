@@ -302,7 +302,7 @@
                     <span class="text-muted">至</span><input id="flowDtTo" type="date" style="width:auto;padding:4px 8px;" onchange="flowCurrentPage=1;renderFlow()">
                     <button class="btn btn-gray btn-sm" onclick="flowCurrentPage=1;document.getElementById('flowDtFrom').value='';document.getElementById('flowDtTo').value='';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('globalSearchInput').value='';renderFlow()">清除</button>
                     <button class="btn btn-print btn-sm" onclick="printFlow()">🖨️ 打印</button>
-                    <button class="btn btn-blue btn-sm" onclick="exportXlsx()">⬇ XLSX（含汇总）</button>
+                    <button class="btn btn-blue btn-sm" onclick="exportXlsx()">⬇ XLSX（含利润说明）</button>
                     <label class="btn btn-green btn-sm" style="cursor:pointer;width:auto;"><input type="file" accept=".xlsx,.xls" style="display:none;" onchange="importXlsx(event)">⬆ 导入</label>
                 </div>
                 <div class="filter-area" id="flowFilterArea">
@@ -972,8 +972,6 @@
             if (!f) { showAlertModal('提示', '找不到该流水'); return; }
             const marginVal = (f.margin !== undefined && f.margin !== null) ? f.margin : 0;
             let html = `<div class="profit-detail-header"><div class="no">${escHtml(f.no || '')}</div><div class="sub">${escHtml(f.cat || '')} · ${escHtml(f.name || '')} · ${escHtml((f.time || '').replace('T', ' ').slice(0, 16))}</div></div>`;
-
-            // ★ 重放历史，获取"这一笔时"的库存状态
             const sameKey = D.flow.filter(x => x.cat === f.cat && x.name === f.name)
                 .sort((a, b) => { if (a.time !== b.time) return a.time.localeCompare(b.time); return a.id - b.id; });
             let beforePosW = 0, beforeAvgCost = 0, beforeShortW = 0, beforeShortPrice = 0, afterTotalStock = 0;
@@ -1010,18 +1008,15 @@
                 }
                 if (x.id === f.id) { afterTotalStock = state.w + state.shortW; break; }
             }
-
             if (f.t === 'in') {
                 const inUnit = f.w > 0 ? ((f.total + (f.fee || 0)) / f.w) : 0;
                 const coverW = Math.min(f.w, Math.abs(beforeShortW));
                 const newStockW = f.w - coverW;
-
                 html += `<div class="profit-detail-section">📥 入库信息</div>
                     <div class="profit-detail-row"><span class="lbl">入库克重</span><span class="val">${(f.w || 0).toFixed(2)} g</span></div>
                     <div class="profit-detail-row"><span class="lbl">入库金额</span><span class="val">${(f.total || 0).toFixed(2)} 元</span></div>
                     ${f.fee ? `<div class="profit-detail-row"><span class="lbl">工艺费</span><span class="val">${(f.fee).toFixed(2)} 元</span></div>` : ''}
                     <div class="profit-detail-row"><span class="lbl">入库单价</span><span class="val">${inUnit.toFixed(2)} 元/g</span></div>`;
-
                 if (coverW > 0.001) {
                     html += `<div class="profit-detail-section">💰 利润构成（补货冲销）</div>
                         <div class="profit-detail-row"><span class="lbl">冲销逻辑</span><span class="val">此单入库时，前面有超卖欠货未冲销</span></div>
@@ -1042,14 +1037,12 @@
                 const consumedPos = Math.max(0, Math.min(f.w, beforePosW));
                 const shortPart = Math.max(0, f.w - consumedPos);
                 const profitOnPos = consumedPos * (unitPrice - beforeAvgCost);
-
                 html += `<div class="profit-detail-section">📤 出库信息</div>
                     <div class="profit-detail-row"><span class="lbl">出库克重</span><span class="val">${(f.w || 0).toFixed(2)} g</span></div>
                     <div class="profit-detail-row"><span class="lbl">售出单价</span><span class="val">${unitPrice.toFixed(2)} 元/g</span></div>
                     <div class="profit-detail-row"><span class="lbl">出库前库存</span><span class="val">${beforePosW.toFixed(2)} g</span></div>
                     <div class="profit-detail-row"><span class="lbl">出库前成本</span><span class="val" style="color:#8b4513;font-weight:600;">${beforeAvgCost.toFixed(2)} 元/g</span></div>
                     <div class="profit-detail-row"><span class="lbl">出库后库存</span><span class="val" style="color:${afterTotalStock < 0 ? '#b33c2f' : '#1e7e34'};">${afterTotalStock.toFixed(2)} g ${afterTotalStock < 0 ? '（超卖）' : ''}</span></div>`;
-
                 html += `<div class="profit-detail-section">💰 利润构成</div>`;
                 if (beforePosW > 0) {
                     html += `<div class="profit-detail-row"><span class="lbl">✅ 正库存部分</span><span class="val">${consumedPos.toFixed(2)} g × (${unitPrice.toFixed(2)} − ${beforeAvgCost.toFixed(2)}) = <b style="color:#1e7e34;">+${profitOnPos.toFixed(2)}</b></span></div>`;
@@ -1062,7 +1055,6 @@
                 }
                 html += `<div class="profit-detail-row profit-detail-total"><span class="lbl">本单利润</span><span class="val" style="color:${marginVal >= 0 ? '#1e7e34' : '#b33c2f'};font-weight:700;font-size:16px;">${marginVal >= 0 ? '+' : ''}${marginVal.toFixed(2)} 元</span></div>`;
             }
-
             showModal('💰 利润构成明细', html, [{ text: '关闭', class: 'btn-gray', action: closeModal }], false);
         }
 
@@ -2134,12 +2126,77 @@
             if (!currentFlowArr || !currentFlowArr.length) { showAlertModal('提示', '当前没有流水数据可导出。'); return; }
             const sortedAsc = currentFlowArr.slice().sort((a, b) => { if (a.time !== b.time) return a.time.localeCompare(b.time); return a.id - b.id; });
             const stockState = {};
-            const flowWithDelta = sortedAsc.map(f => { const key = f.cat + '|' + f.name; const before = stockState[key] || 0; let after = before; if (f.t === 'in') after = before + f.w; else if (f.t === 'out') after = before - f.w; stockState[key] = after; return { flow: f, before: before, after: after, delta: after - before }; });
-            const displayItems = flowWithDelta.slice().sort((a, b) => { if (a.flow.time !== b.flow.time) return b.flow.time.localeCompare(a.flow.time); return b.flow.id - a.flow.id; });
+            const replay = sortedAsc.map(f => {
+                const key = f.cat + '|' + f.name;
+                const beforeRaw = stockState[key] || { w: 0, cost: 0, shortW: 0, shortPrice: 0 };
+                const before = { w: beforeRaw.w, cost: beforeRaw.cost, shortW: beforeRaw.shortW, shortPrice: beforeRaw.shortPrice };
+                const s = { w: before.w, cost: before.cost, shortW: before.shortW, shortPrice: before.shortPrice };
+                if (f.t === 'in') {
+                    const inUnit = (f.total + (f.fee || 0)) / f.w;
+                    let inW = f.w;
+                    if (s.shortW < 0) {
+                        const cover = Math.min(inW, -s.shortW);
+                        s.shortW += cover;
+                        if (Math.abs(s.shortW) < 0.0001) s.shortW = 0;
+                        inW -= cover;
+                    }
+                    if (inW > 0) { s.w += inW; s.cost += inW * inUnit; }
+                } else {
+                    let outW = f.w;
+                    const up = f.sale / f.w;
+                    if (s.w > 0) {
+                        const consume = Math.min(outW, s.w);
+                        const ac = s.cost / s.w;
+                        s.w -= consume; s.cost -= ac * consume; outW -= consume;
+                    }
+                    if (outW > 0) {
+                        if (s.shortW === 0) { s.shortW = -outW; s.shortPrice = up; }
+                        else { const osc = s.shortW * s.shortPrice; const nsc = -outW * up; const tsw = s.shortW - outW; const tsc = osc + nsc; s.shortPrice = tsc / tsw; s.shortW = tsw; }
+                    }
+                }
+                const after = { w: s.w, cost: s.cost, shortW: s.shortW, shortPrice: s.shortPrice };
+                stockState[key] = after;
+                return { flow: f, before: before, after: after };
+            });
+            const displayItems = replay.slice().reverse();
             const data = [];
             displayItems.forEach((item, index) => {
-                const f = item.flow; let type = f.t === 'in' ? '入库' : '出库';
-                const deltaStr = (item.delta >= 0 ? '+' : '') + item.delta.toFixed(2);
+                const f = item.flow;
+                const before = item.before; const after = item.after;
+                const deltaW = (f.t === 'in' ? f.w : -f.w);
+                const beforeTotalStock = before.w + before.shortW;
+                const afterTotalStock = after.w + after.shortW;
+                const deltaStr = (deltaW >= 0 ? '+' : '') + deltaW.toFixed(2);
+                const stockChangeStr = `${beforeTotalStock.toFixed(2)}g → (${deltaStr}g) ${afterTotalStock.toFixed(2)}g`;
+                let unitPrice = ''; let costPrice = ''; let profitStr = '0.00'; let profitDetail = '';
+                if (f.t === 'in') {
+                    const inUnit = (f.total + (f.fee || 0)) / f.w;
+                    unitPrice = inUnit.toFixed(2); costPrice = inUnit.toFixed(2);
+                    profitStr = (f.margin || 0).toFixed(2);
+                    const coverW = Math.min(f.w, Math.abs(before.shortW));
+                    if (coverW > 0.001) {
+                        const coverProfit = (before.shortPrice - inUnit) * coverW;
+                        const newStockW = f.w - coverW;
+                        profitDetail = `冲销 ${coverW.toFixed(2)}g × (欠货均价 ${before.shortPrice.toFixed(2)} − 本进价 ${inUnit.toFixed(2)}) = +${coverProfit.toFixed(2)}`;
+                        if (newStockW > 0.001) profitDetail += `；新增库存 ${newStockW.toFixed(2)}g 进入仓库`;
+                    } else {
+                        profitDetail = `纯入库，无利润（进入库存，等出库时结算）`;
+                    }
+                } else {
+                    const up = f.sale / f.w;
+                    unitPrice = up.toFixed(2);
+                    const beforeAvgCost = before.w > 0 ? before.cost / before.w : 0;
+                    costPrice = beforeAvgCost > 0 ? beforeAvgCost.toFixed(2) : '-';
+                    profitStr = (f.margin || 0).toFixed(2);
+                    const consumedPos = Math.max(0, Math.min(f.w, before.w));
+                    const shortPart = Math.max(0, f.w - consumedPos);
+                    const profitOnPos = consumedPos * (up - beforeAvgCost);
+                    const parts = [];
+                    if (consumedPos > 0.001) parts.push(`正库存 ${consumedPos.toFixed(2)}g × (${up.toFixed(2)} − ${beforeAvgCost.toFixed(2)}) = +${profitOnPos.toFixed(2)}`);
+                    if (shortPart > 0.001) parts.push(`超卖 ${shortPart.toFixed(2)}g（无成本，利润 0）`);
+                    if (parts.length === 0) parts.push(`无正库存可消耗，利润 0`);
+                    profitDetail = parts.join('；');
+                }
                 const amount = f.t === 'in' ? f.total : f.sale;
                 const amountStr = (amount || 0).toFixed(2);
                 const paid = (f.payPaid || 0).toFixed(2);
@@ -2147,19 +2204,51 @@
                 let payDetail = '';
                 if (f.payDetail && f.payDetail.length) payDetail = f.payDetail.map(p => p.ch + '¥' + (p.amt || 0).toFixed(2)).join(';');
                 const customer = f.t === 'in' ? f.cus : f.buyer;
-                const profit = (f.margin !== undefined && f.margin !== null) ? f.margin : 0;
-                data.push({ '#': index + 1, '创建时间': f.time || '', '最后修改': f.lastModified || '', '单号': f.no || '', '类型': type, '品类': f.cat || '', '品名': f.name || '', '变化克重': deltaStr + 'g', '库存变化': `${item.before.toFixed(2)}g → (${deltaStr}g) ${item.after.toFixed(2)}g`, '单价': f.t === 'out' && f.w > 0 ? (f.sale / f.w).toFixed(2) : (f.t === 'in' && f.w > 0 ? (f.total / f.w).toFixed(2) : ''), '金额': amountStr, '利润': profit.toFixed(2), '客户': customer || '', '电话': f.tel || '', '身份证': f.idNo || '', '付款': payDetail, '实付': paid, '欠款': remain, '备注': f.note || '' });
+                data.push({
+                    '#': index + 1, '创建时间': f.time || '', '最后修改': f.lastModified || '',
+                    '单号': f.no || '', '类型': f.t === 'in' ? '入库' : '出库',
+                    '品类': f.cat || '', '品名': f.name || '',
+                    '变化克重': deltaStr + 'g', '库存变化': stockChangeStr,
+                    '售价': unitPrice, '成本价': costPrice,
+                    '金额': amountStr, '利润': profitStr, '利润说明': profitDetail,
+                    '客户': customer || '', '电话': f.tel || '', '身份证': f.idNo || '',
+                    '付款': payDetail, '实付': paid, '欠款': remain, '备注': f.note || ''
+                });
             });
             const totalAmount = data.reduce((s, r) => s + parseFloat(r['金额'] || 0), 0);
             const totalPaid = data.reduce((s, r) => s + parseFloat(r['实付'] || 0), 0);
             const totalRemain = data.reduce((s, r) => s + parseFloat(r['欠款'] || 0), 0);
             const totalProfit = data.reduce((s, r) => s + parseFloat(r['利润'] || 0), 0);
-            data.push({ '#': '合计', '创建时间': '', '最后修改': '', '单号': '', '类型': '', '品类': '', '品名': '', '变化克重': '', '库存变化': '', '单价': '', '金额': totalAmount.toFixed(2), '利润': totalProfit.toFixed(2), '客户': '', '电话': '', '身份证': '', '付款': '', '实付': totalPaid.toFixed(2), '欠款': totalRemain.toFixed(2), '备注': '' });
-            const wb = XLSX.utils.book_new(); const ws = XLSX.utils.json_to_sheet(data);
-            ws['!cols'] = [{ wch: 6 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 25 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 16 }];
-            XLSX.utils.book_append_sheet(wb, ws, '流水');
+            data.push({ '#': '合计', '创建时间': '', '最后修改': '', '单号': '', '类型': '', '品类': '', '品名': '', '变化克重': '', '库存变化': '', '售价': '', '成本价': '', '金额': totalAmount.toFixed(2), '利润': totalProfit.toFixed(2), '利润说明': '出库利润 + 入库补货利润 全部合计', '客户': '', '电话': '', '身份证': '', '付款': '', '实付': totalPaid.toFixed(2), '欠款': totalRemain.toFixed(2), '备注': '' });
+            const summary = {};
+            currentFlowArr.forEach(f => {
+                if (f.t !== 'out') return;
+                const key = f.cat + '|' + f.name;
+                if (!summary[key]) summary[key] = { cat: f.cat, name: f.name, w: 0, sale: 0, cost: 0, profit: 0 };
+                summary[key].w += f.w || 0; summary[key].sale += f.sale || 0;
+                summary[key].cost += f.cost || 0; summary[key].profit += f.margin || 0;
+            });
+            currentFlowArr.forEach(f => {
+                if (f.t !== 'in' || !f.margin || Math.abs(f.margin) < 0.001) return;
+                const key = f.cat + '|' + f.name;
+                if (!summary[key]) summary[key] = { cat: f.cat, name: f.name, w: 0, sale: 0, cost: 0, profit: 0 };
+                summary[key].profit += f.margin;
+            });
+            const summaryData = Object.values(summary).sort((a, b) => b.profit - a.profit).map(s => ({
+                '品类': s.cat, '品名': s.name, '出库克重(g)': s.w.toFixed(2),
+                '销售额(元)': s.sale.toFixed(2), '出库成本(元)': s.cost.toFixed(2),
+                '总利润(含补货)(元)': s.profit.toFixed(2),
+                '毛利率(%)': s.sale > 0 ? (s.profit / s.sale * 100).toFixed(1) : '0.0'
+            }));
+            const wb = XLSX.utils.book_new();
+            const ws1 = XLSX.utils.json_to_sheet(data);
+            ws1['!cols'] = [{ wch: 6 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 25 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 65 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 16 }];
+            XLSX.utils.book_append_sheet(wb, ws1, '流水明细');
+            const ws2 = XLSX.utils.json_to_sheet(summaryData);
+            ws2['!cols'] = [{ wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 12 }];
+            XLSX.utils.book_append_sheet(wb, ws2, '利润汇总');
             XLSX.writeFile(wb, `交易流水_${todayStr()}.xlsx`);
-            playBeep(true); showAlertModal('提示', '流水导出成功');
+            playBeep(true); showAlertModal('提示', '流水导出成功（含利润说明 + 利润汇总两张表）');
         }
         function parseNumber(s) { if (typeof s === 'number') return s; if (typeof s !== 'string') s = String(s); const cleaned = s.replace(/[^0-9.\-]/g, ''); const num = parseFloat(cleaned); return isNaN(num) ? 0 : num; }
         function importXlsx(event) {
@@ -2217,24 +2306,89 @@
             if (!currentFlowArr || !currentFlowArr.length) { showAlertModal('提示', '当前没有流水数据可导出。'); return; }
             const sortedAsc = currentFlowArr.slice().sort((a, b) => { if (a.time !== b.time) return a.time.localeCompare(b.time); return a.id - b.id; });
             const stockState = {};
-            const flowWithDelta = sortedAsc.map(f => { const key = f.cat + '|' + f.name; const before = stockState[key] || 0; let after = before; if (f.t === 'in') after = before + f.w; else if (f.t === 'out') after = before - f.w; stockState[key] = after; return { flow: f, before: before, after: after, delta: after - before }; });
-            const displayItems = flowWithDelta.slice().sort((a, b) => { if (a.flow.time !== b.flow.time) return b.flow.time.localeCompare(a.flow.time); return b.flow.id - a.flow.id; });
-            let csv = '序号,创建时间,最后修改,单号,类型,品类,品名,变化克重,库存变化,单价,金额,利润,客户,电话,身份证,付款,实付,欠款,备注\n';
+            const replay = sortedAsc.map(f => {
+                const key = f.cat + '|' + f.name;
+                const beforeRaw = stockState[key] || { w: 0, cost: 0, shortW: 0, shortPrice: 0 };
+                const before = { w: beforeRaw.w, cost: beforeRaw.cost, shortW: beforeRaw.shortW, shortPrice: beforeRaw.shortPrice };
+                const s = { w: before.w, cost: before.cost, shortW: before.shortW, shortPrice: before.shortPrice };
+                if (f.t === 'in') {
+                    const inUnit = (f.total + (f.fee || 0)) / f.w;
+                    let inW = f.w;
+                    if (s.shortW < 0) {
+                        const cover = Math.min(inW, -s.shortW);
+                        s.shortW += cover;
+                        if (Math.abs(s.shortW) < 0.0001) s.shortW = 0;
+                        inW -= cover;
+                    }
+                    if (inW > 0) { s.w += inW; s.cost += inW * inUnit; }
+                } else {
+                    let outW = f.w;
+                    const up = f.sale / f.w;
+                    if (s.w > 0) {
+                        const consume = Math.min(outW, s.w);
+                        const ac = s.cost / s.w;
+                        s.w -= consume; s.cost -= ac * consume; outW -= consume;
+                    }
+                    if (outW > 0) {
+                        if (s.shortW === 0) { s.shortW = -outW; s.shortPrice = up; }
+                        else { const osc = s.shortW * s.shortPrice; const nsc = -outW * up; const tsw = s.shortW - outW; const tsc = osc + nsc; s.shortPrice = tsc / tsw; s.shortW = tsw; }
+                    }
+                }
+                const after = { w: s.w, cost: s.cost, shortW: s.shortW, shortPrice: s.shortPrice };
+                stockState[key] = after;
+                return { flow: f, before: before, after: after };
+            });
+            const displayItems = replay.slice().reverse();
+            let csv = '序号,创建时间,最后修改,单号,类型,品类,品名,变化克重,库存变化,售价,成本价,金额,利润,利润说明,客户,电话,身份证,付款,实付,欠款,备注\n';
             displayItems.forEach((item, idx) => {
                 const f = item.flow;
-                const deltaStr = (item.delta >= 0 ? '+' : '') + item.delta.toFixed(2);
+                const before = item.before; const after = item.after;
+                const deltaW = (f.t === 'in' ? f.w : -f.w);
+                const beforeTotalStock = before.w + before.shortW;
+                const afterTotalStock = after.w + after.shortW;
+                const deltaStr = (deltaW >= 0 ? '+' : '') + deltaW.toFixed(2);
+                const stockChangeStr = `${beforeTotalStock.toFixed(2)}g → (${deltaStr}g) ${afterTotalStock.toFixed(2)}g`;
+                let unitPrice = ''; let costPrice = ''; let profitStr = '0.00'; let profitDetail = '';
+                if (f.t === 'in') {
+                    const inUnit = (f.total + (f.fee || 0)) / f.w;
+                    unitPrice = inUnit.toFixed(2); costPrice = inUnit.toFixed(2);
+                    profitStr = (f.margin || 0).toFixed(2);
+                    const coverW = Math.min(f.w, Math.abs(before.shortW));
+                    if (coverW > 0.001) {
+                        const coverProfit = (before.shortPrice - inUnit) * coverW;
+                        const newStockW = f.w - coverW;
+                        profitDetail = `冲销 ${coverW.toFixed(2)}g × (欠货均价 ${before.shortPrice.toFixed(2)} − 本进价 ${inUnit.toFixed(2)}) = +${coverProfit.toFixed(2)}`;
+                        if (newStockW > 0.001) profitDetail += `；新增库存 ${newStockW.toFixed(2)}g 进入仓库`;
+                    } else {
+                        profitDetail = `纯入库，无利润`;
+                    }
+                } else {
+                    const up = f.sale / f.w;
+                    unitPrice = up.toFixed(2);
+                    const beforeAvgCost = before.w > 0 ? before.cost / before.w : 0;
+                    costPrice = beforeAvgCost > 0 ? beforeAvgCost.toFixed(2) : '-';
+                    profitStr = (f.margin || 0).toFixed(2);
+                    const consumedPos = Math.max(0, Math.min(f.w, before.w));
+                    const shortPart = Math.max(0, f.w - consumedPos);
+                    const profitOnPos = consumedPos * (up - beforeAvgCost);
+                    const parts = [];
+                    if (consumedPos > 0.001) parts.push(`正库存 ${consumedPos.toFixed(2)}g × (${up.toFixed(2)} − ${beforeAvgCost.toFixed(2)}) = +${profitOnPos.toFixed(2)}`);
+                    if (shortPart > 0.001) parts.push(`超卖 ${shortPart.toFixed(2)}g（无成本，利润 0）`);
+                    if (parts.length === 0) parts.push(`无正库存，利润 0`);
+                    profitDetail = parts.join('；');
+                }
                 const amount = f.t === 'in' ? f.total : f.sale;
+                const amountStr = (amount || 0).toFixed(2);
                 const customer = f.t === 'in' ? f.cus : f.buyer;
                 let payDetail = '';
                 if (f.payDetail && f.payDetail.length) payDetail = f.payDetail.map(p => p.ch + '¥' + (p.amt || 0).toFixed(2)).join(';');
-                const profit = (f.margin !== undefined && f.margin !== null) ? f.margin : 0;
-                const line = [idx + 1, f.time || '', f.lastModified || '', f.no || '', f.t === 'in' ? '入库' : '出库', f.cat || '', f.name || '', deltaStr + 'g', `${item.before.toFixed(2)}g → (${deltaStr}g) ${item.after.toFixed(2)}g`, f.t === 'out' && f.w > 0 ? (f.sale / f.w).toFixed(2) : (f.t === 'in' && f.w > 0 ? (f.total / f.w).toFixed(2) : ''), (amount || 0).toFixed(2), profit.toFixed(2), customer || '', f.tel || '', f.idNo || '', payDetail, (f.payPaid || 0).toFixed(2), (f.payRemain || 0).toFixed(2), f.note || ''].map(v => '"' + v.replace(/"/g, '""') + '"').join(',');
+                const line = [idx + 1, f.time || '', f.lastModified || '', f.no || '', f.t === 'in' ? '入库' : '出库', f.cat || '', f.name || '', deltaStr + 'g', stockChangeStr, unitPrice, costPrice, amountStr, profitStr, profitDetail, customer || '', f.tel || '', f.idNo || '', payDetail, (f.payPaid || 0).toFixed(2), (f.payRemain || 0).toFixed(2), f.note || ''].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',');
                 csv += line + '\n';
             });
             const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a'); a.href = url; a.download = `交易流水_${todayStr()}.csv`; a.click();
-            URL.revokeObjectURL(url); playBeep(true); showAlertModal('提示', 'CSV 导出完成');
+            URL.revokeObjectURL(url); playBeep(true); showAlertModal('提示', 'CSV 导出完成（含成本价、利润说明）');
         }
         async function forceSync() {
             if (editingId) { const ok = await showConfirmModal('提示', '当前正在编辑单据，同步将丢失未保存的修改。\n点击"确定"放弃修改并同步，点击"取消"继续编辑。', '确定', '取消'); if (!ok) return; clearEditingState(); }
@@ -2330,7 +2484,7 @@
             renderSourceSelects(); renderTrash(); renderInterest();
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-                logSync('🚀 系统已启动 (含补货冲销明细)', 'info');
+                logSync('🚀 系统已启动 (导出含利润说明)', 'info');
                 pullFullState().then(() => { updateSyncStatus('ok'); logSync('✅ 数据已同步', 'ok'); refreshStockAndDash(); });
             } else {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#b33c2f;">❌ 未连接</span>';
