@@ -870,7 +870,7 @@
             } catch (e) { console.error('置顶错误', e); showErrorToast('置顶失败：' + (e.message || e), ''); playBeep(false); }
         }
         
-        // ================= 增量同步与推送逻辑 =================
+        // ================= 增量推送 / 全量推送 =================
         async function pushFlowToCloud(flow) {
             if (!sb) return;
             try {
@@ -914,26 +914,17 @@
             } catch (e) { console.error('删除标记失败:', e); }
         }
 
+        // ★ 全量推送：把所有本地数据推到云端（用于「立即同步」修复数据不一致）
         async function updateSnapshot() {
             D._version = (D._version || 0) + 1;
             saveData();
             if (!sb) return;
-            const now = Date.now();
-            // 只推送最近10秒内修改的数据（增量推送）
-            const recentFlows = D.flow.filter(f => {
-                const t = new Date(f.lastModified || f.time).getTime();
-                return now - t < 10000;
-            });
-            for (const f of recentFlows) await pushFlowToCloud(f);
-            const recentCusts = D.cust.filter(c => !c.id || (c.updated_at && new Date(c.updated_at).getTime() > now - 10000));
-            for (const c of recentCusts) await pushCustToCloud(c);
-            const recentInterests = D.interest.filter(i => {
-                const t = new Date(i.createdAt || i.date).getTime();
-                return now - t < 10000;
-            });
-            for (const i of recentInterests) await pushInterestToCloud(i);
+            for (const f of D.flow) await pushFlowToCloud(f);
+            for (const c of D.cust) await pushCustToCloud(c);
+            for (const i of D.interest) await pushInterestToCloud(i);
         }
 
+        // ★ 增量拉取：只拉 lastSyncTime 之后云端变化的数据
         async function pullFullState() {
             if (!sb) return;
             try {
@@ -1922,7 +1913,7 @@
             if (!name && !tel) { playBeep(false); await showAlertModal('提示', '请至少填写姓名或电话'); return; }
             let exist = D.cust.find(c => c.name === name || (tel && c.tel === tel) || (idNo && c.idNo === idNo));
             if (exist) { if (name) exist.name = name; if (tel) exist.tel = tel; if (idNo) exist.idNo = idNo; if (note) exist.note = note; }
-            else { D.cust.push({ name, tel: tel || '', idNo: idNo || '', note: note || '' }); }
+            else { D.cust.push({ id: genId(), name, tel: tel || '', idNo: idNo || '', note: note || '' }); }
             saveData(); await updateSnapshot(); renderCust();
             document.getElementById('custName').value = ''; document.getElementById('custTel').value = '';
             document.getElementById('custId').value = ''; document.getElementById('custNote').value = '';
@@ -1971,9 +1962,9 @@
                         if (!name && !tel) return;
                         let exist = D.cust.find(c => c.name === name || (tel && c.tel === tel) || (idNo && c.idNo === idNo));
                         if (exist) { if (name) exist.name = name; if (tel) exist.tel = tel; if (idNo) exist.idNo = idNo; if (note) exist.note = note; updated++; }
-                        else { D.cust.push({ name, tel, idNo, note }); added++; }
+                        else { D.cust.push({ id: genId(), name, tel, idNo, note }); added++; }
                     });
-                    saveData(); renderCust(); playBeep(true);
+                    saveData(); renderCust(); await updateSnapshot(); playBeep(true);
                     await showAlertModal('提示', `导入完成！新增 ${added} 条，更新 ${updated} 条。`);
                 } catch (err) { playBeep(false); await showAlertModal('错误', '导入失败：' + err.message); }
             };
@@ -2077,7 +2068,7 @@
             if (!name) return;
             let exist = D.cust.find(c => c.name === name || (tel && c.tel === tel) || (idNo && c.idNo === idNo));
             if (exist) { if (name) exist.name = name; if (tel) exist.tel = tel; if (idNo) exist.idNo = idNo; }
-            else { D.cust.push({ name, tel: tel || '', idNo: idNo || '', note: '', created: todayStr() }); }
+            else { D.cust.push({ id: genId(), name, tel: tel || '', idNo: idNo || '', note: '', created: todayStr() }); }
             saveData();
         }
         async function doIn() {
@@ -2522,10 +2513,24 @@
             await showAlertModal('提示', '同步完成'); refreshStockAndDash();
         }
         async function forceSyncNow() {
-            if (editingId) { const ok = await showConfirmModal('提示', '当前正在编辑单据，立即同步将丢失未保存的修改。\n点击"确定"放弃修改并同步，点击"取消"继续编辑。', '确定', '取消'); if (!ok) return; clearEditingState(); }
-            logSync('🔄 立即同步...', 'info'); updateSyncStatus('syncing');
-            await updateSnapshot(); await pullFullState();
-            updateSyncStatus('ok'); refreshStockAndDash();
+            if (editingId) { 
+                const ok = await showConfirmModal('提示', '当前正在编辑单据，立即同步将丢失未保存的修改。\n点击"确定"放弃修改并同步，点击"取消"继续编辑。', '确定', '取消'); 
+                if (!ok) return; 
+                clearEditingState(); 
+            }
+            logSync('🔄 全量同步（先推后拉）...', 'info'); 
+            updateSyncStatus('syncing');
+            logSync('📤 正在上传本地完整数据到云端...', 'info');
+            await updateSnapshot();
+            lastSyncTime = '1970-01-01T00:00:00.000Z';
+            localStorage.setItem('last_sync_time', lastSyncTime);
+            logSync('📥 正在从云端拉取数据...', 'info');
+            await pullFullState();
+            updateSyncStatus('ok'); 
+            logSync('✅ 全量双向同步完成', 'ok');
+            refreshStockAndDash();
+            showErrorToast('✅ 数据已完全同步', 'success');
+            playBeep(true);
         }
         function loadLocal() { loadData(); refreshAll(); populateFilterSelects(); logSync('🔄 本地已刷新', 'info'); }
         async function testConn() {
