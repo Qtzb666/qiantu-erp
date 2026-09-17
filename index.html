@@ -62,7 +62,7 @@
         .modal-header h3 { font-size: 18px; }
         .modal-close { font-size: 28px; cursor: pointer; background: none; border: none; color: #888; }
         .modal-close:hover { color: #222; }
-        .flow-row { cursor: pointer; } .flow-row:hover { background: #f5f2ed; }
+        .flow-row:hover { background: #f5f2ed; }
         .text-muted { color: #999; font-size: 12px; } .text-danger { color: #b33c2f; }
         .text-success { color: #1e7e34; } .text-primary { color: #0066cc; }
         .flex { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
@@ -328,6 +328,9 @@
                     <button class="btn btn-print btn-sm" onclick="printFlow()">🖨️ 打印</button>
                     <button class="btn btn-blue btn-sm" onclick="exportXlsx()">⬇ XLSX（含利润说明）</button>
                     <label class="btn btn-green btn-sm" style="cursor:pointer;width:auto;"><input type="file" accept=".xlsx,.xls" style="display:none;" onchange="importXlsx(event)">⬆ 导入</label>
+                    <button class="btn btn-red btn-sm" onclick="batchDeleteFlows()">🗑️ 删除选中</button>
+                    <button class="btn btn-red btn-sm" onclick="clearAllFlows()" style="background:#8b0000;">⚠️ 清空所有流水</button>
+                    <span class="text-muted" id="flowSelectedInfo" style="margin-left:8px;font-weight:600;color:#0066cc;"></span>
                 </div>
                 <div class="filter-area" id="flowFilterArea">
                     <div class="field" style="flex:0 1 160px;"><label>筛选品类</label><select id="flowFilterCat" onchange="flowCurrentPage=1;flowFilterNameChange()"><option value="">全部品类</option></select></div>
@@ -340,10 +343,11 @@
                     <table>
                         <thead>
                             <tr>
+                                <th style="width:30px; text-align:center;"><input type="checkbox" id="flowSelectAll" onchange="toggleAllFlows(this.checked)" title="全选本页"></th>
                                 <th style="width:36px;">#</th><th style="width:120px;">创建时间</th><th style="width:120px;">最后修改</th><th style="width:110px;">单号</th><th style="width:54px;">类型</th><th style="width:64px;">品类</th><th style="width:90px;">品名</th><th style="width:140px;">📊 库存变化</th><th style="width:74px;">售价</th><th style="width:80px;">成本价</th><th style="width:110px;">金额</th><th style="width:74px;">客户</th><th style="width:74px;">电话</th><th style="width:94px;">付款</th><th style="width:74px;">实付</th><th style="width:74px;">欠款</th><th style="width:90px;">备注</th><th style="width:94px;">操作</th>
                             </tr>
                         </thead>
-                        <tbody id="flowBody"><tr><td colspan="18" style="text-align:center;color:#999;">暂无数据</td></tr></tbody>
+                        <tbody id="flowBody"><tr><td colspan="19" style="text-align:center;color:#999;">暂无数据</td></tr></tbody>
                     </table>
                 </div>
                 <div class="pagination-bar no-print" id="flowPagination">
@@ -464,6 +468,7 @@
                 <div class="card-title" style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; justify-content:space-between;">
                     <span>👤 客户管理</span>
                     <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                        <button class="btn btn-red btn-sm" onclick="dedupeCust()">🧹 去重客户</button>
                         <button class="btn btn-blue btn-sm" onclick="exportCustXLSX()">⬇ 导出客户</button>
                         <label class="btn-file-label" style="background:#1e7e34; padding:4px 14px; font-size:12px; border-radius:4px; font-weight:600; color:#fff; cursor:pointer;">⬆ 导入客户 <input type="file" accept=".xlsx,.xls" onchange="importCustXLSX(event)"></label>
                     </div>
@@ -476,7 +481,7 @@
                 </div>
                 <button class="btn btn-blue btn-sm" onclick="addCust()">+ 添加 / 更新</button>
                 <div id="custList" class="flex mt-8" style="gap:4px;"></div>
-                <div style="font-size:12px; color:#999; margin-top:8px;">💡 点击「✏️」编辑客户 · 点击「×」删除</div>
+                <div style="font-size:12px; color:#999; margin-top:8px;">💡 点击「✏️」编辑客户 · 点击「×」删除 · 「🧹 去重客户」按姓名+电话自动合并重复</div>
             </div>
         </div>
         <div id="interest" class="tab-panel">
@@ -594,7 +599,6 @@
         let sb = null;
         try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) { console.warn('Supabase init error', e); }
         const STORE_KEY = 'jxc_pro_v1';
-        let lastSyncTime = localStorage.getItem('last_sync_time') || '1970-01-01T00:00:00.000Z';
         let D = {
             prices: { gold: 0, silver: 0, plat: 0 },
             cats: ['黄金', '白银', '铂金', '银元', '手表', 'K金', '其他', '抵押'],
@@ -611,8 +615,8 @@
         let editingId = null, editingBackup = null;
         let selectedStockNames = [];
         let stockNameDropdownOpen = false;
+        let isInitialLoadDone = false;
 
-        // ★ 自动同步机制
         let autoPushTimer = null;
         let autoPushInProgress = false;
         function showAutoSaveHint() {
@@ -624,6 +628,7 @@
         }
         function autoPush(delay) {
             if (!sb) return;
+            if (!isInitialLoadDone) return;
             if (autoPushTimer) clearTimeout(autoPushTimer);
             autoPushTimer = setTimeout(async () => {
                 autoPushTimer = null;
@@ -640,9 +645,8 @@
                 }
             }, delay || 800);
         }
-        // 页面隐藏/关闭前强制推送
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden' && sb) {
+            if (document.visibilityState === 'hidden' && sb && isInitialLoadDone) {
                 if (autoPushTimer) { clearTimeout(autoPushTimer); autoPushTimer = null; }
                 if (!autoPushInProgress) {
                     autoPushInProgress = true;
@@ -651,7 +655,7 @@
             }
         });
         window.addEventListener('beforeunload', () => {
-            if (sb && autoPushTimer) { clearTimeout(autoPushTimer); updateSnapshot(); }
+            if (sb && autoPushTimer && isInitialLoadDone) { clearTimeout(autoPushTimer); updateSnapshot(); }
         });
 
         function showErrorToast(msg, type) {
@@ -680,7 +684,12 @@
         loadData();
         function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
         function escAttr(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
-        function genId() { return Date.now() + Math.floor(Math.random() * 10000); }
+        
+        // ★★★ 根据截图要求修改的部分 ★★★
+        let _idCounter = 0;
+        function genId() { return Date.now() * 1000 + (_idCounter++); }
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★
+
         function pad(n) { return n < 10 ? '0' + n : '' + n; }
         function todayStr() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
         function nowTime() { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
@@ -916,28 +925,11 @@
         }
         
         // ================= 同步核心逻辑 =================
-        async function pushFlowToCloud(flow) {
-            if (!sb) return;
-            try {
-                await sb.from('shop_flow').upsert([{
-                    id: flow.id, no: flow.no, t: flow.t, cat: flow.cat, name: flow.name,
-                    w: flow.w, q: flow.q || 1, total: flow.total || 0, sale: flow.sale || 0,
-                    fee: flow.fee || 0, costUnit: flow.costUnit || 0, cus: flow.cus || '', buyer: flow.buyer || '',
-                    tel: flow.tel || '', idNo: flow.idNo || '', src: flow.src || '', note: flow.note || '',
-                    rate: flow.rate || 0, mortgageDate: flow.mortgageDate || '',
-                    payDetail: flow.payDetail || [], payPaid: flow.payPaid || 0, payRemain: flow.payRemain || 0,
-                    time: flow.time, lastModified: flow.lastModified || flow.time,
-                    margin: flow.margin || 0, cost: flow.cost || 0,
-                    deleted: false, updated_at: new Date().toISOString()
-                }]);
-            } catch (e) { console.error('推送流水失败:', e); }
-        }
         async function markDeletedInCloud(table, id) {
             if (!sb) return;
             try { await sb.from(table).update({ deleted: true, updated_at: new Date().toISOString() }).eq('id', id); }
             catch (e) { console.error('删除标记失败:', e); }
         }
-        // 全量推送（分批 50 条，防止请求过大）
         async function updateSnapshot() {
             D._version = (D._version || 0) + 1;
             saveData();
@@ -990,63 +982,43 @@
                 });
             } catch (e) { logSync('⚠️ 配置推送失败: ' + e.message, 'warn'); }
         }
-        // 增量拉取
         async function pullFullState() {
             if (!sb) return;
             try {
-                logSync('🔄 正在增量拉取数据...', 'info');
+                logSync('🔄 正在从云端全量拉取数据（覆盖本地）...', 'info');
                 updateSyncStatus('syncing');
-                const { data: flows, error: flowErr } = await sb.from('shop_flow').select('*').gt('updated_at', lastSyncTime);
+                const { data: flows, error: flowErr } = await sb.from('shop_flow').select('*').eq('deleted', false);
                 if (flowErr) throw flowErr;
-                const { data: custs, error: custErr } = await sb.from('shop_cust').select('*').gt('updated_at', lastSyncTime);
+                const { data: custs, error: custErr } = await sb.from('shop_cust').select('*');
                 if (custErr) throw custErr;
-                const { data: interests, error: intErr } = await sb.from('shop_interest').select('*').gt('updated_at', lastSyncTime);
+                const { data: interests, error: intErr } = await sb.from('shop_interest').select('*').eq('deleted', false);
                 if (intErr) throw intErr;
                 const { data: stateData, error: stateErr } = await sb.from('shop_state').select('payload').eq('id', 1).single();
                 if (stateErr && stateErr.code !== 'PGRST116') throw stateErr;
+                D.flow = (flows || []).map(f => {
+                    if (typeof f.payDetail === 'string') { try { f.payDetail = JSON.parse(f.payDetail); } catch(e) { f.payDetail = []; } }
+                    return f;
+                });
+                D.cust = custs || [];
+                D.interest = interests || [];
                 if (stateData && stateData.payload) {
                     const remote = JSON.parse(stateData.payload);
                     D.prices = remote.prices || D.prices;
-                    D.cats = [...new Set([...D.cats, ...(remote.cats || [])])];
-                    D.sources = [...new Set([...D.sources, ...(remote.sources || [])])];
+                    D.cats = remote.cats || D.cats;
+                    D.sources = remote.sources || D.sources;
                     D.payChannels = remote.payChannels || D.payChannels;
                     D.stockOrder = remote.stockOrder || D.stockOrder;
                     if (remote._lastSeqId) D._lastSeqId = remote._lastSeqId;
                 }
-                let newFlowCount = 0, newCustCount = 0, newIntCount = 0;
-                (flows || []).forEach(remoteFlow => {
-                    remoteFlow.payDetail = typeof remoteFlow.payDetail === 'string' ? JSON.parse(remoteFlow.payDetail) : remoteFlow.payDetail;
-                    const localIdx = D.flow.findIndex(f => f.id === remoteFlow.id);
-                    if (remoteFlow.deleted) {
-                        if (localIdx !== -1) D.flow.splice(localIdx, 1);
-                    } else {
-                        if (localIdx !== -1) { D.flow[localIdx] = remoteFlow; } 
-                        else { D.flow.push(remoteFlow); newFlowCount++; } 
-                    }
-                });
-                (custs || []).forEach(remoteCust => {
-                    const localIdx = D.cust.findIndex(c => c.id === remoteCust.id);
-                    if (localIdx !== -1) { D.cust[localIdx] = remoteCust; }
-                    else { D.cust.push(remoteCust); newCustCount++; }
-                });
-                (interests || []).forEach(remoteInt => {
-                    const localIdx = D.interest.findIndex(i => i.id === remoteInt.id);
-                    if (remoteInt.deleted) {
-                        if (localIdx !== -1) D.interest.splice(localIdx, 1);
-                    } else {
-                        if (localIdx !== -1) { D.interest[localIdx] = remoteInt; }
-                        else { D.interest.push(remoteInt); newIntCount++; }
-                    }
-                });
-                lastSyncTime = new Date().toISOString();
-                localStorage.setItem('last_sync_time', lastSyncTime);
                 saveData(); refreshAll();
-                logSync(`✅ 增量同步完成（新增流水${newFlowCount}条，客户${newCustCount}条，利息${newIntCount}条）`, 'ok');
+                logSync(`✅ 全量拉取完成（流水${D.flow.length}条，客户${D.cust.length}条，利息${D.interest.length}条）`, 'ok');
                 updateSyncStatus('ok');
+                isInitialLoadDone = true;
                 return true;
             } catch (e) {
-                logSync('⚠️ 同步失败: ' + e.message, 'warn');
+                logSync('⚠️ 全量拉取失败: ' + e.message, 'warn');
                 updateSyncStatus('fail');
+                isInitialLoadDone = true;
                 return false;
             }
         }
@@ -1356,8 +1328,11 @@
             document.getElementById('flowJumpInput').max = totalPages; document.getElementById('flowJumpInput').value = flowCurrentPage;
             let totalInW = 0, totalOutW = 0, totalInAmount = 0, totalOutSale = 0, totalMargin = 0, totalPaid = 0, totalRemain = 0;
             displayItems.forEach(item => { const f = item.flow; if (f.t === 'in') { totalInW += f.w; totalInAmount += f.total || 0; totalMargin += f.margin || 0; totalPaid += f.payPaid || 0; totalRemain += f.payRemain || 0; } else { totalOutW += f.w; totalOutSale += f.sale || 0; totalMargin += f.margin || 0; totalPaid += f.payPaid || 0; totalRemain += f.payRemain || 0; } });
-            if (!pageItems.length) { tb.innerHTML = '<tr><td colspan="18" style="text-align:center;color:#999;">暂无数据</td></tr>'; let summary = `共 0 条`; if (keyword) summary += ` | 🔍 搜索: "${escHtml(keyword)}"`; if (flowCustomerFilter) summary += ` | 客户筛选(${flowCustomerFilterField==='tel'?'电话':'姓名'}): ${escHtml(flowCustomerFilter)}`; document.getElementById('flowFilterSummary').textContent = summary; return; }
-            const stockMap = {}; pageItems.forEach(item => { stockMap[item.flow.id] = item; });
+            if (!pageItems.length) { tb.innerHTML = '<tr><td colspan="19" style="text-align:center;color:#999;">暂无数据</td></tr>'; let summary = `共 0 条`; if (keyword) summary += ` | 🔍 搜索: "${escHtml(keyword)}"`; if (flowCustomerFilter) summary += ` | 客户筛选(${flowCustomerFilterField==='tel'?'电话':'姓名'}): ${escHtml(flowCustomerFilter)}`; document.getElementById('flowFilterSummary').textContent = summary; 
+                const selectAll = document.getElementById('flowSelectAll'); if (selectAll) selectAll.checked = false;
+                updateFlowSelectedInfo();
+                return; 
+            }
             let rows = '';
             const globalStartIndex = start;
             pageItems.forEach((item, idx) => {
@@ -1384,17 +1359,62 @@
                     if (f.w > 0 && Math.abs(marginVal) > 0.01) { const realCost = (f.sale - marginVal) / f.w; costPriceDisplay = realCost.toFixed(2); }
                     else if (f.w > 0) { costPriceDisplay = (f.sale / f.w).toFixed(2); }
                 }
-                rows += `<tr class="flow-row" onclick="editFlow(${f.id})"><td class="seq-num">${seq}</td><td style="white-space:nowrap;font-size:12px;">${escHtml(createdAt.replace('T',' ').slice(0,16))}</td><td style="white-space:nowrap;font-size:12px;" class="last-modified">${escHtml(lastMod.replace('T',' ').slice(0,16))}</td><td><b>${escHtml(f.no)}</b></td><td>${f.t==='in'?'<span style="color:#1e7e34;">⬆入库</span>':'<span style="color:#b33c2f;">⬇出库</span>'}</td><td>${escHtml(f.cat)}</td><td>${escHtml(f.name)}</td><td>${stockDisplay}</td><td>${escHtml(unitPriceDisplay)}</td><td style="color:#8b4513;font-weight:600;">${escHtml(costPriceDisplay)}</td><td>${amountDisplay}</td><td><a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(cus)}','name'); return false;" style="color:#0066cc;text-decoration:underline;">${cus}</a></td><td>${tel ? `<a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(tel)}','tel'); return false;" style="color:#0066cc;text-decoration:underline;">${tel}</a>` : '-'}</td><td style="font-size:12px;">${payTxt}</td><td>${(f.payPaid||0)>0?(f.payPaid).toFixed(2):'-'}</td><td>${remain}</td><td>${escHtml(f.note||'')}</td><td style="white-space:nowrap;"><span class="text-primary" style="cursor:pointer;font-size:12px;" onclick="event.stopPropagation();editFlow(${f.id})">修改</span><span class="text-danger" style="cursor:pointer;font-size:12px;margin-left:4px;" onclick="event.stopPropagation();confirmDeleteFlow(${f.id})">删除</span></td></tr>`;
+                rows += `<tr class="flow-row" data-flow-id="${f.id}"><td style="text-align:center;" onclick="event.stopPropagation();"><input type="checkbox" class="flow-cb" value="${f.id}" onchange="updateFlowSelectedInfo()"></td><td class="seq-num" style="cursor:pointer;" onclick="editFlow(${f.id})">${seq}</td><td style="white-space:nowrap;font-size:12px;cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(createdAt.replace('T',' ').slice(0,16))}</td><td style="white-space:nowrap;font-size:12px;cursor:pointer;" class="last-modified" onclick="editFlow(${f.id})">${escHtml(lastMod.replace('T',' ').slice(0,16))}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})"><b>${escHtml(f.no)}</b></td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${f.t==='in'?'<span style="color:#1e7e34;">⬆入库</span>':'<span style="color:#b33c2f;">⬇出库</span>'}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(f.cat)}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(f.name)}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${stockDisplay}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(unitPriceDisplay)}</td><td style="cursor:pointer;color:#8b4513;font-weight:600;" onclick="editFlow(${f.id})">${escHtml(costPriceDisplay)}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${amountDisplay}</td><td><a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(cus)}','name'); return false;" style="color:#0066cc;text-decoration:underline;">${cus}</a></td><td>${tel ? `<a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(tel)}','tel'); return false;" style="color:#0066cc;text-decoration:underline;">${tel}</a>` : '-'}</td><td style="font-size:12px;">${payTxt}</td><td>${(f.payPaid||0)>0?(f.payPaid).toFixed(2):'-'}</td><td>${remain}</td><td>${escHtml(f.note||'')}</td><td style="white-space:nowrap;"><span class="text-primary" style="cursor:pointer;font-size:12px;" onclick="event.stopPropagation();editFlow(${f.id})">修改</span><span class="text-danger" style="cursor:pointer;font-size:12px;margin-left:4px;" onclick="event.stopPropagation();confirmDeleteFlow(${f.id})">删除</span></td></tr>`;
             });
             const net = totalOutSale - totalInAmount; const remainW = totalInW - totalOutW;
             const avgCost = totalInW > 0.001 ? totalInAmount / totalInW : 0;
-            const totalRow = `<tr class="total-row"><td colspan="7" style="text-align:right;">📊 合计</td><td style="font-weight:bold;color:${remainW>=0?'#1e7e34':'#b33c2f'};">+${totalInW.toFixed(2)} / -${totalOutW.toFixed(2)}<br><span class="margin-text">剩余 ${remainW.toFixed(2)} g</span></td><td style="font-weight:bold;color:#8b4513;">${avgCost > 0 ? avgCost.toFixed(2) : '-'}</td><td>—</td><td style="font-weight:bold;color:${net>=0?'#1e7e34':'#b33c2f'};">${net>=0?'+':''}${net.toFixed(2)} 元<br><span class="margin-text">入库 ${totalInAmount.toFixed(2)} | 出库 ${totalOutSale.toFixed(2)} | 毛利 ${totalMargin.toFixed(2)}</span></td><td colspan="2">—</td><td>—</td><td style="color:#1e7e34;font-weight:700;">${totalPaid.toFixed(2)}</td><td style="color:#b33c2f;font-weight:700;font-size:14px;">💰 ${totalRemain.toFixed(2)}</td><td colspan="3"></td></tr>`;
+            const totalRow = `<tr class="total-row"><td colspan="8" style="text-align:right;">📊 合计</td><td style="font-weight:bold;color:${remainW>=0?'#1e7e34':'#b33c2f'};">+${totalInW.toFixed(2)} / -${totalOutW.toFixed(2)}<br><span class="margin-text">剩余 ${remainW.toFixed(2)} g</span></td><td style="font-weight:bold;color:#8b4513;">${avgCost > 0 ? avgCost.toFixed(2) : '-'}</td><td>—</td><td style="font-weight:bold;color:${net>=0?'#1e7e34':'#b33c2f'};">${net>=0?'+':''}${net.toFixed(2)} 元<br><span class="margin-text">入库 ${totalInAmount.toFixed(2)} | 出库 ${totalOutSale.toFixed(2)} | 毛利 ${totalMargin.toFixed(2)}</span></td><td colspan="2">—</td><td>—</td><td style="color:#1e7e34;font-weight:700;">${totalPaid.toFixed(2)}</td><td style="color:#b33c2f;font-weight:700;font-size:14px;">💰 ${totalRemain.toFixed(2)}</td><td colspan="3"></td></tr>`;
             tb.innerHTML = rows + totalRow;
             let summary = `共 ${totalItems} 条 | 入库 ${totalInW.toFixed(2)}g / ${totalInAmount.toFixed(2)}元 | 出库 ${totalOutW.toFixed(2)}g / ${totalOutSale.toFixed(2)}元 | 剩余 ${remainW.toFixed(2)}g | 净额 ${net.toFixed(2)}元`;
             if (keyword) summary += ` | 🔍 搜索: "${escHtml(keyword)}"`;
             if (flowCustomerFilter) summary += ` | 客户筛选(${flowCustomerFilterField==='tel'?'电话':'姓名'}): ${escHtml(flowCustomerFilter)}`;
             summary += ` | 第 ${flowCurrentPage}/${totalPages} 页`;
             document.getElementById('flowFilterSummary').textContent = summary;
+            const selectAll = document.getElementById('flowSelectAll'); if (selectAll) selectAll.checked = false;
+            updateFlowSelectedInfo();
+        }
+        function updateFlowSelectedInfo() {
+            const cbs = document.querySelectorAll('.flow-cb:checked');
+            const info = document.getElementById('flowSelectedInfo');
+            if (info) info.textContent = cbs.length > 0 ? `已选 ${cbs.length} 条` : '';
+        }
+        function toggleAllFlows(checked) {
+            document.querySelectorAll('.flow-cb').forEach(cb => cb.checked = checked);
+            updateFlowSelectedInfo();
+        }
+        async function batchDeleteFlows() {
+            const cbs = document.querySelectorAll('.flow-cb:checked');
+            if (cbs.length === 0) { showErrorToast('请先勾选要删除的流水', 'warning'); return; }
+            const ids = Array.from(cbs).map(cb => parseInt(cb.value));
+            const ok = await showConfirmModal('⚠️ 批量删除流水', `<p>确定要删除选中的 <b>${ids.length}</b> 条流水吗？</p><p class="text-danger">将从云端彻底删除，不可恢复！</p>`, '彻底删除', '取消');
+            if (!ok) return;
+            D.flow = D.flow.filter(f => !ids.includes(f.id));
+            saveData();
+            if (sb) {
+                for (const id of ids) {
+                    try { await sb.from('shop_flow').delete().eq('id', id); } catch (e) { console.error('云端删除失败:', e); }
+                }
+            }
+            refreshAll(); renderTrash();
+            updateFlowSelectedInfo();
+            showErrorToast(`✅ 已删除 ${ids.length} 条流水`, 'success'); playBeep(true);
+        }
+        async function clearAllFlows() {
+            if (!D.flow || D.flow.length === 0) { showErrorToast('当前没有流水', 'warning'); return; }
+            const ok = await showConfirmModal('⚠️ 清空所有流水', `<p>确定要清空所有 <b>${D.flow.length}</b> 条流水吗？</p><p class="text-danger">将从云端彻底删除，不可恢复！</p>`, '全部清空', '取消');
+            if (!ok) return;
+            const count = D.flow.length;
+            D.flow = [];
+            saveData(); refreshAll();
+            if (sb) {
+                logSync('🗑️ 正在从云端彻底删除所有流水...', 'info');
+                try {
+                    const { error } = await sb.from('shop_flow').delete().neq('id', 0);
+                    if (error) logSync('⚠️ 云端删除失败: ' + error.message, 'warn');
+                    else logSync('✅ 云端已清空所有流水', 'ok');
+                } catch (e) { logSync('⚠️ 云端删除异常: ' + e.message, 'warn'); }
+            }
+            showErrorToast(`✅ 已清空 ${count} 条流水`, 'success'); playBeep(true);
         }
         function flowGoPage(target) {
             let newPage = flowCurrentPage;
@@ -1745,7 +1765,7 @@
                         const newInterest = { id: genId(), date: date, mortgageName: mortgageName, cust: finalCust || '', amount: amount, payMethod: payMethod || '现金', note: note || '', createdAt: nowFullStr() };
                         D.interest.push(newInterest); saveData();
                         renderInterest(); renderDash(); closeModal(); playBeep(true);
-                        autoPush(300); // ★ 自动同步
+                        autoPush(300);
                         await showAlertModal('✅', '付息记录已保存，已计入累计毛利');
                     } }
             ], false);
@@ -1836,27 +1856,27 @@
         }
         async function confirmDeleteFlow(id) {
             const f = D.flow.find(x => x.id === id); if (!f) return;
-            const ok = await showConfirmModal('🗑️ 删除流水', `<p>单号：${escHtml(f.no)}<br>类型：${f.t==='in'?'入库':'出库'}<br>品名：${escHtml(f.name)}<br>克重：${f.w.toFixed(2)}g</p><p class="text-muted">将移入回收站，可随时恢复。</p>`, '移入回收站', '取消');
+            const ok = await showConfirmModal('🗑️ 删除流水', `<p>单号：${escHtml(f.no)}<br>类型：${f.t==='in'?'入库':'出库'}<br>品名：${escHtml(f.name)}<br>克重：${f.w.toFixed(2)}g</p><p class="text-danger">将从云端彻底删除，不可恢复！</p>`, '彻底删除', '取消');
             if (!ok) return;
-            moveToTrash(f, 'flow'); refreshAll();
-            await markDeletedInCloud('shop_flow', f.id);
-            autoPush(300);
-            renderTrash();
-            showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
+            D.flow = D.flow.filter(x => x.id !== id);
+            saveData(); refreshAll(); renderTrash();
+            if (sb) { try { await sb.from('shop_flow').delete().eq('id', id); } catch (e) {} }
+            showErrorToast('🗑️ 已从云端彻底删除', 'warning'); playBeep(false);
         }
         async function confirmDeleteStock(name, cat) {
             const items = D.flow.filter(f => f.cat === cat && f.name === name);
             if (!items.length) { showErrorToast('未找到相关流水', 'warning'); return; }
-            const ok = await showConfirmModal('🗑️ 删除库存', `<p>品类：${escHtml(cat)}<br>品名：${escHtml(name)}<br>相关流水：${items.length} 条</p><p class="text-muted">将移入回收站，可随时恢复。</p>`, '移入回收站', '取消');
+            const ok = await showConfirmModal('🗑️ 删除库存', `<p>品类：${escHtml(cat)}<br>品名：${escHtml(name)}<br>相关流水：${items.length} 条</p><p class="text-danger">将从云端彻底删除，不可恢复！</p>`, '彻底删除', '取消');
             if (!ok) return;
-            for (const f of items) { moveToTrash(f, 'flow'); await markDeletedInCloud('shop_flow', f.id); }
-            refreshAll(); renderTrash();
-            autoPush(300);
-            showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
+            const ids = items.map(f => f.id);
+            D.flow = D.flow.filter(f => !(f.cat === cat && f.name === name));
+            saveData(); refreshAll(); renderTrash();
+            if (sb) { for (const id of ids) { try { await sb.from('shop_flow').delete().eq('id', id); } catch (e) {} } }
+            showErrorToast('🗑️ 已从云端彻底删除', 'warning'); playBeep(false);
         }
         async function confirmDeleteCust(idx) {
             const c = D.cust[idx]; if (!c) return;
-            const ok = await showConfirmModal('🗑️ 删除客户', `<p>确定删除客户 <b>${escHtml(c.name)}</b> 吗？<br><span class="text-muted">将移入回收站。</span>`, '移入回收站', '取消');
+            const ok = await showConfirmModal('🗑️ 删除客户', `<p>确定删除客户 <b>${escHtml(c.name)}</b> 吗？</p>`, '移入回收站', '取消');
             if (!ok) return;
             const item = { ...c, _type: 'cust' };
             D.cust.splice(idx, 1); D.trash.push({ ...item, deletedAt: nowFullStr() });
@@ -1980,13 +2000,69 @@
             playBeep(true); autoPush(300);
             await showAlertModal('提示', '品名已修改');
         }
+        // ★★★ 客户去重：清空云端表 → 全量推去重结果（彻底解决旧数据无 id 的问题） ★★★
+        async function dedupeCust() {
+            if (!D.cust || D.cust.length === 0) { showErrorToast('暂无客户', 'warning'); return; }
+            const before = D.cust.length;
+            const seen = new Map();
+            D.cust.forEach(c => {
+                if (!c.name && !c.tel) return;
+                const key = ((c.name || '').trim() + '|' + (c.tel || '').trim()).toLowerCase();
+                if (seen.has(key)) {
+                    const exist = seen.get(key);
+                    if (!exist.idNo && c.idNo) exist.idNo = c.idNo;
+                    if (!exist.note && c.note) exist.note = c.note;
+                } else {
+                    seen.set(key, {
+                        id: c.id || genId(),
+                        name: c.name || '',
+                        tel: c.tel || '',
+                        idNo: c.idNo || '',
+                        note: c.note || ''
+                    });
+                }
+            });
+            const deduped = Array.from(seen.values());
+            const removed = before - deduped.length;
+            if (removed === 0) { showErrorToast('没有发现重复客户', 'warning'); return; }
+            const ok = await showConfirmModal('🧹 客户去重',
+                `<p>共发现 <b>${removed}</b> 条重复客户，是否合并？</p><p class="text-muted">去重后剩余 <b>${deduped.length}</b> 条客户。</p><p class="text-danger">云端客户表将替换为去重后的结果。</p>`,
+                '确认去重', '取消');
+            if (!ok) return;
+            if (sb) {
+                logSync('🗑️ 正在清空云端客户表...', 'info');
+                try {
+                    const { error: delErr } = await sb.from('shop_cust').delete().neq('id', 0);
+                    if (delErr) logSync('⚠️ 云端清空失败: ' + delErr.message, 'warn');
+                    else logSync('✅ 云端客户表已清空', 'ok');
+                } catch (e) { logSync('⚠️ 云端清空异常: ' + e.message, 'warn'); }
+                logSync('📤 正在推送去重后的客户（共 ' + deduped.length + ' 条）...', 'info');
+                try {
+                    const nowISO = new Date().toISOString();
+                    const rows = deduped.map(c => ({ id: c.id, name: c.name, tel: c.tel, idNo: c.idNo, note: c.note, updated_at: nowISO }));
+                    const CHUNK = 50;
+                    for (let i = 0; i < rows.length; i += CHUNK) {
+                        const chunk = rows.slice(i, i + CHUNK);
+                        const { error: insErr } = await sb.from('shop_cust').insert(chunk);
+                        if (insErr) throw insErr;
+                    }
+                    logSync('✅ 去重后的客户已全部推送', 'ok');
+                } catch (e) {
+                    logSync('⚠️ 推送失败: ' + e.message, 'warn');
+                    showErrorToast('云端推送失败：' + e.message, '');
+                }
+            }
+            D.cust = deduped;
+            saveData(); renderCust();
+            showErrorToast(`✅ 已去重 ${removed} 条客户`, 'success'); playBeep(true);
+        }
         async function addCust() {
             const name = document.getElementById('custName').value.trim();
             const tel = document.getElementById('custTel').value.trim();
             const idNo = document.getElementById('custId').value.trim();
             const note = document.getElementById('custNote').value.trim();
             if (!name && !tel) { playBeep(false); await showAlertModal('提示', '请至少填写姓名或电话'); return; }
-            let exist = D.cust.find(c => c.name === name || (tel && c.tel === tel) || (idNo && c.idNo === idNo));
+            let exist = D.cust.find(c => (name && c.name === name && (!tel || c.tel === tel)) || (tel && c.tel === tel) || (idNo && c.idNo === idNo));
             if (exist) { if (name) exist.name = name; if (tel) exist.tel = tel; if (idNo) exist.idNo = idNo; if (note) exist.note = note; }
             else { D.cust.push({ id: genId(), name, tel: tel || '', idNo: idNo || '', note: note || '' }); }
             saveData(); renderCust();
@@ -2037,7 +2113,7 @@
                         const idNo = (row['身份证'] || '').toString().trim();
                         const note = (row['备注'] || '').toString().trim();
                         if (!name && !tel) return;
-                        let exist = D.cust.find(c => c.name === name || (tel && c.tel === tel) || (idNo && c.idNo === idNo));
+                        let exist = D.cust.find(c => (name && c.name === name && (!tel || c.tel === tel)) || (tel && c.tel === tel) || (idNo && c.idNo === idNo));
                         if (exist) { if (name) exist.name = name; if (tel) exist.tel = tel; if (idNo) exist.idNo = idNo; if (note) exist.note = note; updated++; }
                         else { D.cust.push({ id: genId(), name, tel, idNo, note }); added++; }
                     });
@@ -2144,7 +2220,7 @@
         }
         function upsertCust(name, tel, idNo) {
             if (!name) return;
-            let exist = D.cust.find(c => c.name === name || (tel && c.tel === tel) || (idNo && c.idNo === idNo));
+            let exist = D.cust.find(c => (c.name === name && (!tel || c.tel === tel)) || (tel && c.tel === tel) || (idNo && c.idNo === idNo));
             if (exist) { if (name) exist.name = name; if (tel) exist.tel = tel; if (idNo) exist.idNo = idNo; }
             else { D.cust.push({ id: genId(), name, tel: tel || '', idNo: idNo || '', note: '', created: todayStr() }); }
             saveData();
@@ -2200,7 +2276,7 @@
                     flow = { id: genId(), no, t: 'in', cat, name, w: w * q, q: q, total, fee, costUnit: inUnitPrice, cus, tel, idNo, src, note, rate, mortgageDate: mDate, payDetail: payDet.detail, payPaid: paidSum, payRemain: total - paidSum, time: dateVal + 'T' + nowTime(), lastModified: now, margin: coverProfit };
                 }
                 D.flow.push(flow); refreshAll();
-                autoPush(300); // ★ 自动同步
+                autoPush(300);
                 document.getElementById('inMsg').innerHTML = `<span class="text-success">✅ 入库成功！单号 ${flow.no}</span>`;
                 clearInForm(); document.getElementById('btnCancelIn').style.display = 'none';
                 document.getElementById('btnDoIn').textContent = '✅ 确认入库';
@@ -2244,7 +2320,7 @@
                     flow = { id: genId(), no, t: 'out', cat, name, w: ow, q: oq, sale, buyer, tel, note, payDetail: payDet.detail, payPaid: paidSum, payRemain: sale - paidSum, time: dateVal + 'T' + nowTime(), lastModified: now, cost: 0, margin: 0 };
                 }
                 D.flow.push(flow); refreshAll();
-                autoPush(300); // ★ 自动同步
+                autoPush(300);
                 document.getElementById('outMsg').innerHTML = `<span class="text-success">✅ 出库成功！单号 ${flow.no}</span>`;
                 clearOutForm(); document.getElementById('btnCancelOut').style.display = 'none';
                 document.getElementById('btnDoOut').textContent = '✅ 确认出库';
@@ -2505,10 +2581,13 @@
                 try {
                     const wb = XLSX.read(e.target.result, { type: 'array' }); const ws = wb.Sheets[wb.SheetNames[0]]; const rows = XLSX.utils.sheet_to_json(ws);
                     if (!rows || !rows.length) { playBeep(false); await showAlertModal('提示', '文件为空或格式不正确'); return; }
-                    let imported = 0;
+                    let imported = 0, skipped = 0;
+                    const existingNos = new Set(D.flow.map(f => f.no));
                     for (const row of rows) {
                         const no = row['单号'] || ''; const time = row['创建时间'] || ''; let t = row['类型'] || ''; t = t.includes('入库') ? 'in' : t.includes('出库') ? 'out' : '';
                         if (!no || !t || !time) continue;
+                        if (existingNos.has(no)) { skipped++; continue; }
+                        existingNos.add(no);
                         const cat = row['品类'] || ''; const name = row['品名'] || ''; const delta = row['变化克重'] || ''; let w = 0; if (delta) w = parseNumber(delta);
                         if (!w) { const changeStr = row['库存变化'] || ''; const wMatch = changeStr.match(/\(([+-]?[\d.]+)g\)/); if (wMatch) w = parseFloat(wMatch[1]) || 0; }
                         const amount = parseNumber(row['金额'] || 0); const customer = row['客户'] || ''; const tel = row['电话'] || ''; const idNo = row['身份证'] || ''; const note = row['备注'] || '';
@@ -2518,7 +2597,9 @@
                     }
                     selectedStockNames = []; updateStockNameDisplay(); saveData(); refreshAll(); playBeep(true);
                     autoPush(300);
-                    await showAlertModal('提示', `成功导入 ${imported} 条流水记录。`);
+                    let msg = `成功导入 ${imported} 条流水记录。`;
+                    if (skipped > 0) msg += `\n已跳过 ${skipped} 条重复单号的记录。`;
+                    await showAlertModal('提示', msg);
                 } catch (err) { playBeep(false); await showAlertModal('错误', '导入失败：' + err.message); }
             };
             reader.readAsArrayBuffer(file); event.target.value = '';
@@ -2610,8 +2691,6 @@
                 updateSyncStatus('fail');
                 return;
             }
-            lastSyncTime = '1970-01-01T00:00:00.000Z';
-            localStorage.setItem('last_sync_time', lastSyncTime);
             logSync('📥 正在从云端拉取数据...', 'info');
             await pullFullState();
             updateSyncStatus('ok'); 
@@ -2672,14 +2751,14 @@
             renderSourceSelects(); renderTrash(); renderInterest();
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-                logSync('🚀 系统已启动（自动同步模式）', 'info');
+                logSync('🚀 系统已启动（全量同步模式 · 打开即拉取云端最新）', 'info');
                 pullFullState().then(() => { updateSyncStatus('ok'); logSync('✅ 数据已同步', 'ok'); refreshStockAndDash(); });
             } else {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#b33c2f;">❌ 未连接</span>';
                 logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
                 updateSyncStatus('fail');
             }
-            console.log('✅ 系统已启动（自动同步模式）');
+            console.log('✅ 系统已启动（全量同步模式）');
         });
         document.addEventListener('click', function(e) {
             const dropdown = document.getElementById('stockNameDropdown'); const box = document.getElementById('stockNameBox');
