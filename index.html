@@ -145,6 +145,21 @@
         .interest-total { font-size: 13px; color: #666; padding: 4px 12px; background: #f8f6f2; border-radius: 4px; border: 1px solid #e4ddd4; }
         .interest-total strong { color: #1e7e34; }
         .interest-name-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 12px; font-weight: 600; background: #f0ede8; color: #8b4513; }
+        .rank-1 { color: #d4a017; font-weight: 700; }
+        .rank-2 { color: #8b8b8b; font-weight: 700; }
+        .rank-3 { color: #b87333; font-weight: 700; }
+        .multi-select-box { display: flex; justify-content: space-between; align-items: center; min-height: 38px; padding: 8px 12px; border: 1px solid #d5d0c8; border-radius: 6px; background: #faf9f7; cursor: pointer; transition: border-color 0.15s; user-select: none; }
+        .multi-select-box:hover { border-color: #d4a017; }
+        .multi-select-box .arrow { font-size: 10px; color: #888; transition: transform 0.2s; }
+        .multi-select-box.open .arrow { transform: rotate(180deg); }
+        .multi-select-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid #e4ddd4; border-radius: 6px; max-height: 260px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 6px 0; }
+        .dropdown-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 14px; border-bottom: 1px solid #f0ede8; font-size: 12px; color: #888; background: #faf9f7; }
+        .dropdown-header .action-btn { color: #0066cc; cursor: pointer; font-weight: 600; }
+        .dropdown-header .action-btn:hover { text-decoration: underline; }
+        .dropdown-item { display: flex; align-items: center; padding: 8px 14px; cursor: pointer; font-size: 13px; color: #333; transition: background 0.15s; gap: 10px; }
+        .dropdown-item:hover { background: #f5f2ed; }
+        .dropdown-item input[type="checkbox"] { width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: #d4a017; flex-shrink: 0; }
+        .dropdown-item span { flex: 1; word-break: break-all; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -269,11 +284,18 @@
         </div>
         <div id="stock" class="tab-panel">
             <div class="card">
-                <div class="card-title">📦 库存明细 <span class="text-muted">（拖动 ☰ 可调整当前页顺序 · 点击「⬆置顶」移到第一位）</span></div>
+                <div class="card-title">📦 库存明细 <span class="text-muted">（拖动 ☰ 可调整当前页顺序 · 点击「⬆置顶」移到第一位 · 品名可多选）</span></div>
                 <div class="filter-area" id="stockFilterArea">
                     <div class="field" style="flex:0 1 160px;"><label>筛选品类</label><select id="stockFilterCat" onchange="stockFilterChange()"><option value="">全部品类</option></select></div>
-                    <div class="field" style="flex:0 1 160px;"><label>筛选品名</label><select id="stockFilterName" onchange="stockCurrentPage=1;renderStock()"><option value="">全部品名</option></select></div>
-                    <button class="btn btn-gray btn-sm" onclick="document.getElementById('stockFilterCat').value='';document.getElementById('stockFilterName').value='';stockFilterChange();renderStock();">清除筛选</button>
+                    <div class="field" style="flex:0 1 240px; position:relative;">
+                        <label>筛选品名（可多选）</label>
+                        <div class="multi-select-box" id="stockNameBox" onclick="toggleStockNameDropdown(event)">
+                            <span id="stockNameDisplayText" style="color:#888; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">全部品名</span>
+                            <span class="arrow">▼</span>
+                        </div>
+                        <div id="stockNameDropdown" class="multi-select-dropdown" style="display:none;" onclick="event.stopPropagation()"></div>
+                    </div>
+                    <button class="btn btn-gray btn-sm" onclick="clearStockFilters()">清除筛选</button>
                     <button class="btn btn-print btn-sm" onclick="printStock()">🖨️ 打印库存</button>
                     <button class="btn btn-blue btn-sm" onclick="exportStockXlsx()">⬇ 导出Excel</button>
                     <span class="filter-summary" id="stockFilterSummary">共 0 条</span>
@@ -350,8 +372,12 @@
                         <div class="stat-box"><div class="num" id="rOutCost">0</div><div class="lbl">总成本 (元)</div></div>
                         <div class="stat-box"><div class="num" id="rOutMarginRate">0%</div><div class="lbl">利润率</div></div>
                     </div>
-                    <div class="card-title mt-8">📈 按品类利润分析</div>
-                    <div style="overflow-x:auto;"><table><thead><tr><th>品类</th><th>出库克重</th><th>销售额</th><th>成本</th><th>利润</th><th>利润率</th></tr></thead><tbody id="reportOutCatBody"><tr><td colspan="6" style="text-align:center;color:#999;">暂无数据</td></tr></tbody></table></div>
+                    <div class="card-title mt-8">📈 利润分析 <span class="text-muted" id="reportOutGroupLabel">（按品类）</span></div>
+                    <div class="flex no-print mb-8">
+                        <button class="btn btn-gold btn-sm" id="reportOutGroupBtnCat" onclick="setReportOutGroup('cat')">按品类</button>
+                        <button class="btn btn-gray btn-sm" id="reportOutGroupBtnName" onclick="setReportOutGroup('name')">按品名</button>
+                    </div>
+                    <div style="overflow-x:auto;"><table><thead id="reportOutGroupHead"><tr><th>品类</th><th>出库克重</th><th>销售额</th><th>成本</th><th>利润</th><th>利润率</th></tr></thead><tbody id="reportOutCatBody"><tr><td colspan="6" style="text-align:center;color:#999;">暂无数据</td></tr></tbody></table></div>
                     <div class="pagination-bar no-print" id="reportOutCatPagination">
                         <div class="info" id="reportOutCatPageInfo">共 <strong>0</strong> 条，第 <strong>0</strong> / <strong>0</strong> 页</div>
                         <div class="controls" id="reportOutCatPageControls"></div>
@@ -378,22 +404,35 @@
                         <button class="btn btn-print btn-sm" onclick="printReportIn()">🖨️ 打印</button>
                         <button class="btn btn-blue btn-sm" onclick="exportReportInXlsx()">⬇ 导出Excel</button>
                     </div>
-                    <div class="row5">
+                    <div class="row3">
                         <div class="stat-box"><div class="num" id="rInW">0</div><div class="lbl">总克重 (g)</div></div>
                         <div class="stat-box"><div class="num" id="rInCost">0</div><div class="lbl">总成本 (元)</div></div>
                         <div class="stat-box"><div class="num" id="rInAvg">0</div><div class="lbl">平均单价 (元/g)</div></div>
                         <div class="stat-box"><div class="num" id="rInCount">0</div><div class="lbl">入库笔数</div></div>
                         <div class="stat-box"><div class="num" id="rInFee">0</div><div class="lbl">总工艺费 (元)</div></div>
+                        <div class="stat-box"><div class="num" id="rInCoverProfit" style="color:#1e7e34;">0</div><div class="lbl">超卖补货利润 (元)</div></div>
                     </div>
                     <div class="card-title mt-8">📊 按品类入库统计</div>
-                    <div style="overflow-x:auto;"><table><thead><tr><th>品类</th><th>入库克重</th><th>总成本</th><th>平均单价</th><th>笔数</th></tr></thead><tbody id="reportInCatBody"><tr><td colspan="5" style="text-align:center;color:#999;">暂无数据</td></tr></tbody></table></div>
+                    <div style="overflow-x:auto;"><table><thead><tr><th>品类</th><th>入库克重</th><th>总成本</th><th>平均单价</th><th>补货利润</th><th>笔数</th></tr></thead><tbody id="reportInCatBody"><tr><td colspan="6" style="text-align:center;color:#999;">暂无数据</td></tr></tbody></table></div>
                     <div class="pagination-bar no-print" id="reportInCatPagination">
                         <div class="info" id="reportInCatPageInfo">共 <strong>0</strong> 条，第 <strong>0</strong> / <strong>0</strong> 页</div>
                         <div class="controls" id="reportInCatPageControls"></div>
                         <div class="jump-box"><span>跳转</span><input type="number" id="reportInCatJumpInput" min="1" value="1" onkeydown="if(event.key==='Enter'){reportInCatJumpToPage();}"><button class="btn btn-gray btn-sm" onclick="reportInCatJumpToPage()">确定</button></div>
                     </div>
-                    <div class="card-title mt-8">👤 按客户入库统计</div>
-                    <div style="overflow-x:auto;"><table><thead><tr><th>客户</th><th>入库克重</th><th>总成本</th><th>平均单价</th><th>笔数</th></tr></thead><tbody id="reportInCustBody"><tr><td colspan="5" style="text-align:center;color:#999;">暂无数据</td></tr></tbody></table></div>
+                    <div class="card-title mt-8">📦 按品名入库统计 <span class="text-muted">（含超卖补货利润）</span></div>
+                    <div style="overflow-x:auto;"><table><thead><tr><th>品类</th><th>品名</th><th>入库克重</th><th>总成本</th><th>平均单价</th><th>补货利润</th><th>笔数</th></tr></thead><tbody id="reportInNameBody"><tr><td colspan="7" style="text-align:center;color:#999;">暂无数据</td></tr></tbody></table></div>
+                    <div class="pagination-bar no-print" id="reportInNamePagination">
+                        <div class="info" id="reportInNamePageInfo">共 <strong>0</strong> 条，第 <strong>0</strong> / <strong>0</strong> 页</div>
+                        <div class="controls" id="reportInNamePageControls"></div>
+                        <div class="jump-box"><span>跳转</span><input type="number" id="reportInNameJumpInput" min="1" value="1" onkeydown="if(event.key==='Enter'){reportInNameJumpToPage();}"><button class="btn btn-gray btn-sm" onclick="reportInNameJumpToPage()">确定</button></div>
+                    </div>
+                    <div class="card-title mt-8">👤 客户入库排行</div>
+                    <div class="flex no-print mb-8">
+                        <button class="btn btn-gray btn-sm" onclick="reportInCustSort='cost';reportInCustCurrentPage=1;renderReportIn()">💰 成本排行</button>
+                        <button class="btn btn-gray btn-sm" onclick="reportInCustSort='w';reportInCustCurrentPage=1;renderReportIn()">⚖️ 克重排行</button>
+                        <button class="btn btn-gray btn-sm" onclick="reportInCustSort='count';reportInCustCurrentPage=1;renderReportIn()">🔢 笔数排行</button>
+                    </div>
+                    <div style="overflow-x:auto;"><table><thead><tr><th>排名</th><th>客户</th><th>入库克重</th><th>总成本</th><th>平均单价</th><th>补货利润</th><th>笔数</th></tr></thead><tbody id="reportInCustBody"><tr><td colspan="7" style="text-align:center;color:#999;">暂无数据</td></tr></tbody></table></div>
                     <div class="pagination-bar no-print" id="reportInCustPagination">
                         <div class="info" id="reportInCustPageInfo">共 <strong>0</strong> 条，第 <strong>0</strong> / <strong>0</strong> 页</div>
                         <div class="controls" id="reportInCustPageControls"></div>
@@ -457,7 +496,9 @@
                 <div class="filter-area">
                     <div class="field" style="flex:0 1 160px;"><label>筛选品名</label><select id="interestFilterName" onchange="renderInterest()"><option value="">全部抵押品</option></select></div>
                     <div class="field" style="flex:0 1 160px;"><label>筛选客户</label><input id="interestFilterCust" placeholder="客户姓名" oninput="renderInterest()"></div>
-                    <button class="btn btn-gray btn-sm" onclick="document.getElementById('interestFilterName').value='';document.getElementById('interestFilterCust').value='';renderInterest();">清除筛选</button>
+                    <div class="field" style="flex:0 1 140px;"><label>付息日期从</label><input id="interestFilterDateFrom" type="date" onchange="interestCurrentPage=1;renderInterest()"></div>
+                    <div class="field" style="flex:0 1 140px;"><label>至</label><input id="interestFilterDateTo" type="date" onchange="interestCurrentPage=1;renderInterest()"></div>
+                    <button class="btn btn-gray btn-sm" onclick="clearInterestFilters()">清除筛选</button>
                     <span class="filter-summary" id="interestFilterSummary">共 0 条</span>
                 </div>
                 <div style="overflow-x:auto;max-height:450px;overflow-y:auto;">
@@ -550,6 +591,7 @@
         let sb = null;
         try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) { console.warn('Supabase init error', e); }
         const STORE_KEY = 'jxc_pro_v1';
+        let lastSyncTime = localStorage.getItem('last_sync_time') || '1970-01-01T00:00:00.000Z';
         let D = {
             prices: { gold: 0, silver: 0, plat: 0 },
             cats: ['黄金', '白银', '铂金', '银元', '手表', 'K金', '其他', '抵押'],
@@ -559,9 +601,14 @@
             trash: [], interest: [], _version: 0, _lastSeqId: 0, stockOrder: []
         };
         const FLOW_PAGE_SIZE = 20, STOCK_PAGE_SIZE = 20, REPORT_PAGE_SIZE = 15, PROFIT_PAGE_SIZE = 15, INTEREST_PAGE_SIZE = 15;
-        let flowCurrentPage = 1, stockCurrentPage = 1, reportOutCatCurrentPage = 1, reportOutCustCurrentPage = 1, reportInCatCurrentPage = 1, reportInCustCurrentPage = 1, profitCurrentPage = 1, interestCurrentPage = 1;
+        let flowCurrentPage = 1, stockCurrentPage = 1, reportOutCatCurrentPage = 1, reportOutCustCurrentPage = 1, reportInCatCurrentPage = 1, reportInCustCurrentPage = 1, reportInNameCurrentPage = 1, profitCurrentPage = 1, interestCurrentPage = 1;
         let flowFilter = 'all', flowCustomerFilter = null, flowCustomerFilterField = null, currentFlowArr = [], reportOutSort = 'sale';
+        let reportOutGroupBy = 'cat';
+        let reportInCustSort = 'cost';
         let editingId = null, editingBackup = null;
+        let selectedStockNames = [];
+        let stockNameDropdownOpen = false;
+
         function showErrorToast(msg, type) {
             const el = document.getElementById('errorToast'); if (!el) return;
             el.textContent = msg; el.className = 'error-toast ' + (type || '');
@@ -822,10 +869,137 @@
                 showErrorToast('✅ 已置顶到第一位', 'success'); playBeep(true);
             } catch (e) { console.error('置顶错误', e); showErrorToast('置顶失败：' + (e.message || e), ''); playBeep(false); }
         }
-        async function updateSnapshot() {
+        
+        // ================= 增量同步与推送逻辑 =================
+        async function pushFlowToCloud(flow) {
             if (!sb) return;
-            try { D._version = (D._version || 0) + 1; const { error } = await sb.from('shop_state').upsert({ id: 1, payload: JSON.stringify(D), updated_at: new Date().toISOString() }); if (error) throw error; logSync('📸 快照已更新 (版本 ' + D._version + ')', 'ok'); } catch (e) { logSync('⚠️ 快照更新失败: ' + e.message, 'warn'); }
+            try {
+                const { error } = await sb.from('shop_flow').upsert({
+                    id: flow.id, no: flow.no, t: flow.t, cat: flow.cat, name: flow.name,
+                    w: flow.w, q: flow.q, total: flow.total, sale: flow.sale, fee: flow.fee,
+                    costUnit: flow.costUnit, cus: flow.cus, buyer: flow.buyer, tel: flow.tel,
+                    idNo: flow.idNo, src: flow.src, note: flow.note, rate: flow.rate,
+                    mortgageDate: flow.mortgageDate, payDetail: flow.payDetail, 
+                    payPaid: flow.payPaid, payRemain: flow.payRemain, time: flow.time,
+                    lastModified: flow.lastModified, margin: flow.margin, cost: flow.cost,
+                    deleted: false, updated_at: new Date().toISOString()
+                });
+                if (error) throw error;
+            } catch (e) { console.error('推送流水失败:', e); }
         }
+        async function pushCustToCloud(cust) {
+            if (!sb) return;
+            try {
+                await sb.from('shop_cust').upsert({
+                    id: cust.id || genId(), name: cust.name, tel: cust.tel, idNo: cust.idNo, 
+                    note: cust.note, updated_at: new Date().toISOString()
+                });
+            } catch (e) { console.error('推送客户失败:', e); }
+        }
+        async function pushInterestToCloud(interest) {
+            if (!sb) return;
+            try {
+                await sb.from('shop_interest').upsert({
+                    id: interest.id, date: interest.date, mortgageName: interest.mortgageName,
+                    cust: interest.cust, amount: interest.amount, payMethod: interest.payMethod,
+                    note: interest.note, createdAt: interest.createdAt, 
+                    deleted: false, updated_at: new Date().toISOString()
+                });
+            } catch (e) { console.error('推送利息失败:', e); }
+        }
+        async function markDeletedInCloud(table, id) {
+            if (!sb) return;
+            try {
+                await sb.from(table).update({ deleted: true, updated_at: new Date().toISOString() }).eq('id', id);
+            } catch (e) { console.error('删除标记失败:', e); }
+        }
+
+        async function updateSnapshot() {
+            D._version = (D._version || 0) + 1;
+            saveData();
+            if (!sb) return;
+            const now = Date.now();
+            // 只推送最近10秒内修改的数据（增量推送）
+            const recentFlows = D.flow.filter(f => {
+                const t = new Date(f.lastModified || f.time).getTime();
+                return now - t < 10000;
+            });
+            for (const f of recentFlows) await pushFlowToCloud(f);
+            const recentCusts = D.cust.filter(c => !c.id || (c.updated_at && new Date(c.updated_at).getTime() > now - 10000));
+            for (const c of recentCusts) await pushCustToCloud(c);
+            const recentInterests = D.interest.filter(i => {
+                const t = new Date(i.createdAt || i.date).getTime();
+                return now - t < 10000;
+            });
+            for (const i of recentInterests) await pushInterestToCloud(i);
+        }
+
+        async function pullFullState() {
+            if (!sb) return;
+            try {
+                logSync('🔄 正在增量拉取数据...', 'info');
+                updateSyncStatus('syncing');
+
+                const { data: flows, error: flowErr } = await sb.from('shop_flow').select('*').gt('updated_at', lastSyncTime);
+                if (flowErr) throw flowErr;
+                const { data: custs, error: custErr } = await sb.from('shop_cust').select('*').gt('updated_at', lastSyncTime);
+                if (custErr) throw custErr;
+                const { data: interests, error: intErr } = await sb.from('shop_interest').select('*').gt('updated_at', lastSyncTime);
+                if (intErr) throw intErr;
+                const { data: stateData, error: stateErr } = await sb.from('shop_state').select('payload').eq('id', 1).single();
+                if (stateErr && stateErr.code !== 'PGRST116') throw stateErr;
+
+                if (stateData && stateData.payload) {
+                    const remote = JSON.parse(stateData.payload);
+                    D.prices = remote.prices || D.prices;
+                    D.cats = [...new Set([...D.cats, ...(remote.cats || [])])];
+                    D.sources = [...new Set([...D.sources, ...(remote.sources || [])])];
+                    D.payChannels = remote.payChannels || D.payChannels;
+                    D.stockOrder = remote.stockOrder || D.stockOrder;
+                    if (remote._lastSeqId) D._lastSeqId = remote._lastSeqId;
+                }
+
+                let newFlowCount = 0, newCustCount = 0, newIntCount = 0;
+                (flows || []).forEach(remoteFlow => {
+                    remoteFlow.payDetail = typeof remoteFlow.payDetail === 'string' ? JSON.parse(remoteFlow.payDetail) : remoteFlow.payDetail;
+                    const localIdx = D.flow.findIndex(f => f.id === remoteFlow.id);
+                    if (remoteFlow.deleted) {
+                        if (localIdx !== -1) D.flow.splice(localIdx, 1);
+                    } else {
+                        if (localIdx !== -1) { D.flow[localIdx] = remoteFlow; } 
+                        else { D.flow.push(remoteFlow); newFlowCount++; } 
+                    }
+                });
+                (custs || []).forEach(remoteCust => {
+                    const localIdx = D.cust.findIndex(c => c.id === remoteCust.id);
+                    if (localIdx !== -1) { D.cust[localIdx] = remoteCust; }
+                    else { D.cust.push(remoteCust); newCustCount++; }
+                });
+                (interests || []).forEach(remoteInt => {
+                    const localIdx = D.interest.findIndex(i => i.id === remoteInt.id);
+                    if (remoteInt.deleted) {
+                        if (localIdx !== -1) D.interest.splice(localIdx, 1);
+                    } else {
+                        if (localIdx !== -1) { D.interest[localIdx] = remoteInt; }
+                        else { D.interest.push(remoteInt); newIntCount++; }
+                    }
+                });
+
+                lastSyncTime = new Date().toISOString();
+                localStorage.setItem('last_sync_time', lastSyncTime);
+
+                saveData(); refreshAll();
+                logSync(`✅ 增量同步完成（新增流水${newFlowCount}条，客户${newCustCount}条，利息${newIntCount}条）`, 'ok');
+                updateSyncStatus('ok');
+                return true;
+            } catch (e) {
+                logSync('⚠️ 同步失败: ' + e.message, 'warn');
+                showErrorToast('同步失败：' + e.message, '');
+                updateSyncStatus('fail');
+                return false;
+            }
+        }
+
         function refreshAll() {
             rebuildStock(); recalcMargins(); saveData(); renderAll(); renderStock(); renderDash(); renderTrash(); renderInterest();
             setTimeout(() => { renderStock(); renderDash(); }, 50);
@@ -851,13 +1025,65 @@
             if (Math.abs(mar) > 0.01) { marEl.style.cursor = 'pointer'; marEl.style.color = '#0066cc'; marEl.style.textDecoration = 'underline dotted'; marEl.onclick = showProfitDetail; marEl.title = '点击查看利润明细（含利息）'; }
             else { marEl.style.cursor = 'default'; marEl.style.color = '#1a1a1a'; marEl.style.textDecoration = 'none'; marEl.onclick = null; marEl.title = ''; }
         }
+        function toggleStockNameDropdown(e) {
+            e.stopPropagation();
+            const dropdown = document.getElementById('stockNameDropdown');
+            const box = document.getElementById('stockNameBox');
+            stockNameDropdownOpen = !stockNameDropdownOpen;
+            dropdown.style.display = stockNameDropdownOpen ? 'block' : 'none';
+            box.classList.toggle('open', stockNameDropdownOpen);
+            if (stockNameDropdownOpen) renderStockNameDropdownOptions();
+        }
+        function renderStockNameDropdownOptions() {
+            const dropdown = document.getElementById('stockNameDropdown');
+            const currentCat = document.getElementById('stockFilterCat').value;
+            const allNames = new Set();
+            D.stock.forEach(s => { if (!currentCat || s.cat === currentCat) allNames.add(s.name); });
+            D.names.forEach(n => { if (!currentCat || n.cat === currentCat) allNames.add(n.name); });
+            let html = `<div class="dropdown-header"><span>${currentCat ? currentCat + ' - 品名' : '全部品名'}</span><div><span class="action-btn" onclick="selectAllStockNames(true)">全选</span><span class="action-btn" style="margin-left:12px; color:#b33c2f;" onclick="selectAllStockNames(false)">清空</span></div></div>`;
+            if (allNames.size === 0) { html += '<div style="color:#999; text-align:center; padding:16px 0; font-size:13px;">该品类下暂无品名</div>'; }
+            else {
+                Array.from(allNames).sort().forEach(name => {
+                    const checked = selectedStockNames.includes(name) ? 'checked' : '';
+                    html += `<label class="dropdown-item" onclick="event.stopPropagation()"><input type="checkbox" value="${escAttr(name)}" ${checked} onchange="onStockNameCheckboxChange(this)"> <span>${escHtml(name)}</span></label>`;
+                });
+            }
+            dropdown.innerHTML = html;
+        }
+        function onStockNameCheckboxChange(cb) {
+            if (cb.checked) { if (!selectedStockNames.includes(cb.value)) selectedStockNames.push(cb.value); }
+            else { selectedStockNames = selectedStockNames.filter(n => n !== cb.value); }
+            updateStockNameDisplay(); stockCurrentPage = 1; renderStock();
+        }
+        function selectAllStockNames(select) {
+            const dropdown = document.getElementById('stockNameDropdown');
+            const checkboxes = dropdown.querySelectorAll('input[type="checkbox"]');
+            selectedStockNames = [];
+            checkboxes.forEach(cb => { cb.checked = select; if (select) selectedStockNames.push(cb.value); });
+            updateStockNameDisplay(); stockCurrentPage = 1; renderStock();
+        }
+        function updateStockNameDisplay() {
+            const display = document.getElementById('stockNameDisplayText');
+            if (selectedStockNames.length === 0) { display.textContent = '全部品名'; display.style.color = '#888'; }
+            else if (selectedStockNames.length === 1) { display.textContent = selectedStockNames[0]; display.style.color = '#1a1a1a'; }
+            else { display.textContent = `已选 ${selectedStockNames.length} 项`; display.style.color = '#1a1a1a'; }
+        }
+        function clearStockFilters() {
+            document.getElementById('stockFilterCat').value = '';
+            selectedStockNames = [];
+            updateStockNameDisplay();
+            stockFilterChange();
+        }
+        function stockFilterChange() {
+            selectedStockNames = []; updateStockNameDisplay(); stockCurrentPage = 1; renderStock();
+            if (stockNameDropdownOpen) renderStockNameDropdownOptions();
+        }
         function renderStock() {
             const tb = document.getElementById('stockBody');
             const filterCat = document.getElementById('stockFilterCat').value;
-            const filterName = document.getElementById('stockFilterName').value;
             let filtered = D.stock;
             if (filterCat) filtered = filtered.filter(s => s.cat === filterCat);
-            if (filterName) filtered = filtered.filter(s => s.name === filterName);
+            if (selectedStockNames.length > 0) filtered = filtered.filter(s => selectedStockNames.includes(s.name));
             filtered = sortStockByOrder(filtered);
             const totalItems = filtered.length;
             const totalPages = Math.max(1, Math.ceil(totalItems / STOCK_PAGE_SIZE));
@@ -966,7 +1192,6 @@
             });
         }
 
-        // ========== 利润构成明细弹窗 ★含补货冲销细节★ ==========
         function showFlowProfitDetail(id) {
             const f = D.flow.find(x => x.id === id);
             if (!f) { showAlertModal('提示', '找不到该流水'); return; }
@@ -978,33 +1203,18 @@
             const state = { w: 0, cost: 0, shortW: 0, shortPrice: 0 };
             for (const x of sameKey) {
                 if (x.id === f.id) {
-                    beforePosW = state.w;
-                    beforeAvgCost = state.w > 0 ? state.cost / state.w : 0;
-                    beforeShortW = state.shortW;
-                    beforeShortPrice = state.shortPrice;
+                    beforePosW = state.w; beforeAvgCost = state.w > 0 ? state.cost / state.w : 0;
+                    beforeShortW = state.shortW; beforeShortPrice = state.shortPrice;
                 }
                 if (x.t === 'in') {
                     const inUnitX = (x.total + (x.fee || 0)) / x.w;
                     let inW = x.w;
-                    if (state.shortW < 0) {
-                        const cover = Math.min(inW, -state.shortW);
-                        state.shortW += cover;
-                        if (Math.abs(state.shortW) < 0.0001) state.shortW = 0;
-                        inW -= cover;
-                    }
+                    if (state.shortW < 0) { const cover = Math.min(inW, -state.shortW); state.shortW += cover; if (Math.abs(state.shortW) < 0.0001) state.shortW = 0; inW -= cover; }
                     if (inW > 0) { state.w += inW; state.cost += inW * inUnitX; }
                 } else {
-                    let outW = x.w;
-                    const up = x.sale / x.w;
-                    if (state.w > 0) {
-                        const consume = Math.min(outW, state.w);
-                        const ac = state.cost / state.w;
-                        state.w -= consume; state.cost -= ac * consume; outW -= consume;
-                    }
-                    if (outW > 0) {
-                        if (state.shortW === 0) { state.shortW = -outW; state.shortPrice = up; }
-                        else { const osc = state.shortW * state.shortPrice; const nsc = -outW * up; const tsw = state.shortW - outW; const tsc = osc + nsc; state.shortPrice = tsc / tsw; state.shortW = tsw; }
-                    }
+                    let outW = x.w; const up = x.sale / x.w;
+                    if (state.w > 0) { const consume = Math.min(outW, state.w); const ac = state.cost / state.w; state.w -= consume; state.cost -= ac * consume; outW -= consume; }
+                    if (outW > 0) { if (state.shortW === 0) { state.shortW = -outW; state.shortPrice = up; } else { const osc = state.shortW * state.shortPrice; const nsc = -outW * up; const tsw = state.shortW - outW; const tsc = osc + nsc; state.shortPrice = tsc / tsw; state.shortW = tsw; } }
                 }
                 if (x.id === f.id) { afterTotalStock = state.w + state.shortW; break; }
             }
@@ -1044,15 +1254,9 @@
                     <div class="profit-detail-row"><span class="lbl">出库前成本</span><span class="val" style="color:#8b4513;font-weight:600;">${beforeAvgCost.toFixed(2)} 元/g</span></div>
                     <div class="profit-detail-row"><span class="lbl">出库后库存</span><span class="val" style="color:${afterTotalStock < 0 ? '#b33c2f' : '#1e7e34'};">${afterTotalStock.toFixed(2)} g ${afterTotalStock < 0 ? '（超卖）' : ''}</span></div>`;
                 html += `<div class="profit-detail-section">💰 利润构成</div>`;
-                if (beforePosW > 0) {
-                    html += `<div class="profit-detail-row"><span class="lbl">✅ 正库存部分</span><span class="val">${consumedPos.toFixed(2)} g × (${unitPrice.toFixed(2)} − ${beforeAvgCost.toFixed(2)}) = <b style="color:#1e7e34;">+${profitOnPos.toFixed(2)}</b></span></div>`;
-                }
-                if (shortPart > 0) {
-                    html += `<div class="profit-detail-row"><span class="lbl">⏸️ 超卖部分</span><span class="val" style="color:#b33c2f;">${shortPart.toFixed(2)} g（无库存，利润记 0）<br><span style="color:#888;font-size:12px;">等后续补货时再结算</span></span></div>`;
-                }
-                if (beforePosW <= 0 && shortPart === 0) {
-                    html += `<div class="profit-detail-row"><span class="lbl">说明</span><span class="val" style="color:#888;">此单无正库存可消耗，利润为 0</span></div>`;
-                }
+                if (beforePosW > 0) { html += `<div class="profit-detail-row"><span class="lbl">✅ 正库存部分</span><span class="val">${consumedPos.toFixed(2)} g × (${unitPrice.toFixed(2)} − ${beforeAvgCost.toFixed(2)}) = <b style="color:#1e7e34;">+${profitOnPos.toFixed(2)}</b></span></div>`; }
+                if (shortPart > 0) { html += `<div class="profit-detail-row"><span class="lbl">⏸️ 超卖部分</span><span class="val" style="color:#b33c2f;">${shortPart.toFixed(2)} g（无库存，利润记 0）<br><span style="color:#888;font-size:12px;">等后续补货时再结算</span></span></div>`; }
+                if (beforePosW <= 0 && shortPart === 0) { html += `<div class="profit-detail-row"><span class="lbl">说明</span><span class="val" style="color:#888;">此单无正库存可消耗，利润为 0</span></div>`; }
                 html += `<div class="profit-detail-row profit-detail-total"><span class="lbl">本单利润</span><span class="val" style="color:${marginVal >= 0 ? '#1e7e34' : '#b33c2f'};font-weight:700;font-size:16px;">${marginVal >= 0 ? '+' : ''}${marginVal.toFixed(2)} 元</span></div>`;
             }
             showModal('💰 利润构成明细', html, [{ text: '关闭', class: 'btn-gray', action: closeModal }], false);
@@ -1151,6 +1355,8 @@
         }
         function flowJumpToPage() { const input = document.getElementById('flowJumpInput'); let page = parseInt(input.value); if (isNaN(page) || page < 1) page = 1; flowCurrentPage = page; renderFlow(); }
         function filterByCustomer(keyword, field) { if (!keyword) return; flowCurrentPage = 1; flowCustomerFilter = keyword; flowCustomerFilterField = field || 'name'; renderFlow(); if (!document.getElementById('flow').classList.contains('active')) switchTab('flow'); }
+        
+        function setReportOutGroup(g) { reportOutGroupBy = g; reportOutCatCurrentPage = 1; renderReportOut(); }
         function renderReportOut() {
             const dtFrom = document.getElementById('reportOutFrom').value; const dtTo = document.getElementById('reportOutTo').value;
             let outFlows = D.flow.filter(f => f.t === 'out');
@@ -1162,10 +1368,21 @@
             document.getElementById('rOutSale').textContent = totalSale.toFixed(2);
             document.getElementById('rOutCost').textContent = totalCost.toFixed(2);
             document.getElementById('rOutMarginRate').textContent = totalSale > 0 ? (totalProfit / totalSale * 100).toFixed(1) + '%' : '0%';
-            const catMap = {};
-            outFlows.forEach(f => { if (!catMap[f.cat]) catMap[f.cat] = { sale: 0, cost: 0, profit: 0, w: 0 }; catMap[f.cat].sale += f.sale || 0; catMap[f.cat].cost += f.cost || 0; catMap[f.cat].profit += f.margin || 0; catMap[f.cat].w += f.w || 0; });
-            const catKeys = Object.keys(catMap).sort((a, b) => catMap[b].profit - catMap[a].profit);
-            renderReportOutCat(catKeys, catMap);
+            const head = document.getElementById('reportOutGroupHead');
+            if (head) head.innerHTML = reportOutGroupBy === 'cat' ? '<tr><th>品类</th><th>出库克重</th><th>销售额</th><th>成本</th><th>利润</th><th>利润率</th></tr>' : '<tr><th>品类</th><th>品名</th><th>出库克重</th><th>销售额</th><th>成本</th><th>利润</th><th>利润率</th></tr>';
+            const lbl = document.getElementById('reportOutGroupLabel');
+            if (lbl) lbl.textContent = reportOutGroupBy === 'cat' ? '（按品类）' : '（按品名）';
+            const btnCat = document.getElementById('reportOutGroupBtnCat'); const btnName = document.getElementById('reportOutGroupBtnName');
+            if (btnCat) btnCat.className = 'btn btn-sm ' + (reportOutGroupBy === 'cat' ? 'btn-gold' : 'btn-gray');
+            if (btnName) btnName.className = 'btn btn-sm ' + (reportOutGroupBy === 'name' ? 'btn-gold' : 'btn-gray');
+            const groupMap = {};
+            outFlows.forEach(f => {
+                const key = reportOutGroupBy === 'cat' ? f.cat : (f.cat + '|' + f.name);
+                if (!groupMap[key]) groupMap[key] = { cat: f.cat, name: f.name, sale: 0, cost: 0, profit: 0, w: 0 };
+                groupMap[key].sale += f.sale || 0; groupMap[key].cost += f.cost || 0; groupMap[key].profit += f.margin || 0; groupMap[key].w += f.w || 0;
+            });
+            const groupKeys = Object.keys(groupMap).sort((a, b) => groupMap[b].profit - groupMap[a].profit);
+            renderReportOutCat(groupKeys, groupMap);
             const custMap = {};
             outFlows.forEach(f => { let name = f.buyer || f.cus || '匿名'; if (!name || name.trim() === '' || !isNaN(name)) name = '匿名'; if (!custMap[name]) custMap[name] = { sale: 0, profit: 0, count: 0 }; custMap[name].sale += f.sale || 0; custMap[name].profit += f.margin || 0; custMap[name].count += 1; });
             let sortedCust = Object.keys(custMap).map(k => ({ name: k, ...custMap[k] }));
@@ -1174,59 +1391,57 @@
             else sortedCust.sort((a, b) => b.count - a.count);
             renderReportOutCust(sortedCust);
         }
-        function renderReportOutCat(catKeys, catMap) {
-            const totalItems = catKeys.length; const totalPages = Math.max(1, Math.ceil(totalItems / REPORT_PAGE_SIZE));
+        function renderReportOutCat(keys, map) {
+            const totalItems = keys.length; const totalPages = Math.max(1, Math.ceil(totalItems / REPORT_PAGE_SIZE));
             if (reportOutCatCurrentPage > totalPages) reportOutCatCurrentPage = totalPages;
             if (reportOutCatCurrentPage < 1) reportOutCatCurrentPage = 1;
-            const start = (reportOutCatCurrentPage - 1) * REPORT_PAGE_SIZE;
-            const end = Math.min(start + REPORT_PAGE_SIZE, totalItems);
-            const pageKeys = catKeys.slice(start, end);
+            const start = (reportOutCatCurrentPage - 1) * REPORT_PAGE_SIZE; const end = Math.min(start + REPORT_PAGE_SIZE, totalItems);
+            const pageKeys = keys.slice(start, end);
             document.getElementById('reportOutCatPageInfo').innerHTML = `共 <strong>${totalItems}</strong> 条，第 <strong>${totalItems > 0 ? reportOutCatCurrentPage : 0}</strong> / <strong>${totalItems > 0 ? totalPages : 0}</strong> 页`;
-            const controls = document.getElementById('reportOutCatPageControls');
-            let html = '';
+            const controls = document.getElementById('reportOutCatPageControls'); let html = '';
             html += `<button class="btn btn-gray btn-sm" onclick="reportOutCatGoPage('first')" ${reportOutCatCurrentPage<=1?'disabled':''}>首页</button>`;
             html += `<button class="btn btn-gray btn-sm" onclick="reportOutCatGoPage('prev')" ${reportOutCatCurrentPage<=1?'disabled':''}>上一页</button>`;
-            const range = 2;
-            let startPage = Math.max(1, reportOutCatCurrentPage - range); let endPage = Math.min(totalPages, reportOutCatCurrentPage + range);
+            const range = 2; let startPage = Math.max(1, reportOutCatCurrentPage - range); let endPage = Math.min(totalPages, reportOutCatCurrentPage + range);
             if (startPage > 1) html += `<span class="page-num ellipsis">…</span>`;
             for (let i = startPage; i <= endPage; i++) { const activeClass = i === reportOutCatCurrentPage ? 'active' : ''; html += `<span class="page-num ${activeClass}" onclick="reportOutCatGoPage(${i})">${i}</span>`; }
             if (endPage < totalPages) html += `<span class="page-num ellipsis">…</span>`;
             html += `<button class="btn btn-gray btn-sm" onclick="reportOutCatGoPage('next')" ${reportOutCatCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
             html += `<button class="btn btn-gray btn-sm" onclick="reportOutCatGoPage('last')" ${reportOutCatCurrentPage>=totalPages?'disabled':''}>末页</button>`;
-            controls.innerHTML = html;
-            document.getElementById('reportOutCatJumpInput').max = totalPages; document.getElementById('reportOutCatJumpInput').value = reportOutCatCurrentPage;
-            const body = document.getElementById('reportOutCatBody');
-            if (!pageKeys.length) { body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">暂无数据</td></tr>'; return; }
+            controls.innerHTML = html; document.getElementById('reportOutCatJumpInput').max = totalPages; document.getElementById('reportOutCatJumpInput').value = reportOutCatCurrentPage;
+            const body = document.getElementById('reportOutCatBody'); const colSpan = reportOutGroupBy === 'cat' ? 6 : 7;
+            if (!pageKeys.length) { body.innerHTML = `<tr><td colspan="${colSpan}" style="text-align:center;color:#999;">暂无数据</td></tr>`; return; }
             let rows = '';
-            pageKeys.forEach(cat => { const d = catMap[cat]; const rate = d.sale > 0 ? (d.profit / d.sale * 100).toFixed(1) : '0.0'; rows += `<tr><td>${escHtml(cat)}</td><td>${d.w.toFixed(2)}</td><td>${d.sale.toFixed(2)}</td><td>${d.cost.toFixed(2)}</td><td style="color:${d.profit>=0?'#1e7e34':'#b33c2f'}">${d.profit.toFixed(2)}</td><td style="color:${d.profit>=0?'#1e7e34':'#b33c2f'}">${rate}%</td></tr>`; });
+            pageKeys.forEach(key => {
+                const d = map[key]; const rate = d.sale > 0 ? (d.profit / d.sale * 100).toFixed(1) : '0.0'; const profitColor = d.profit >= 0 ? '#1e7e34' : '#b33c2f';
+                if (reportOutGroupBy === 'cat') { rows += `<tr><td>${escHtml(d.cat)}</td><td>${d.w.toFixed(2)}</td><td>${d.sale.toFixed(2)}</td><td>${d.cost.toFixed(2)}</td><td style="color:${profitColor};font-weight:700;">${d.profit.toFixed(2)}</td><td style="color:${profitColor};">${rate}%</td></tr>`; }
+                else { rows += `<tr><td>${escHtml(d.cat)}</td><td>${escHtml(d.name)}</td><td>${d.w.toFixed(2)}</td><td>${d.sale.toFixed(2)}</td><td>${d.cost.toFixed(2)}</td><td style="color:${profitColor};font-weight:700;">${d.profit.toFixed(2)}</td><td style="color:${profitColor};">${rate}%</td></tr>`; }
+            });
             body.innerHTML = rows;
         }
         function renderReportOutCust(sortedCust) {
             const totalItems = sortedCust.length; const totalPages = Math.max(1, Math.ceil(totalItems / REPORT_PAGE_SIZE));
             if (reportOutCustCurrentPage > totalPages) reportOutCustCurrentPage = totalPages;
             if (reportOutCustCurrentPage < 1) reportOutCustCurrentPage = 1;
-            const start = (reportOutCustCurrentPage - 1) * REPORT_PAGE_SIZE;
-            const end = Math.min(start + REPORT_PAGE_SIZE, totalItems);
+            const start = (reportOutCustCurrentPage - 1) * REPORT_PAGE_SIZE; const end = Math.min(start + REPORT_PAGE_SIZE, totalItems);
             const pageItems = sortedCust.slice(start, end);
             document.getElementById('reportOutCustPageInfo').innerHTML = `共 <strong>${totalItems}</strong> 条，第 <strong>${totalItems > 0 ? reportOutCustCurrentPage : 0}</strong> / <strong>${totalItems > 0 ? totalPages : 0}</strong> 页`;
-            const controls = document.getElementById('reportOutCustPageControls');
-            let html = '';
+            const controls = document.getElementById('reportOutCustPageControls'); let html = '';
             html += `<button class="btn btn-gray btn-sm" onclick="reportOutCustGoPage('first')" ${reportOutCustCurrentPage<=1?'disabled':''}>首页</button>`;
             html += `<button class="btn btn-gray btn-sm" onclick="reportOutCustGoPage('prev')" ${reportOutCustCurrentPage<=1?'disabled':''}>上一页</button>`;
-            const range = 2;
-            let startPage = Math.max(1, reportOutCustCurrentPage - range); let endPage = Math.min(totalPages, reportOutCustCurrentPage + range);
+            const range = 2; let startPage = Math.max(1, reportOutCustCurrentPage - range); let endPage = Math.min(totalPages, reportOutCustCurrentPage + range);
             if (startPage > 1) html += `<span class="page-num ellipsis">…</span>`;
             for (let i = startPage; i <= endPage; i++) { const activeClass = i === reportOutCustCurrentPage ? 'active' : ''; html += `<span class="page-num ${activeClass}" onclick="reportOutCustGoPage(${i})">${i}</span>`; }
             if (endPage < totalPages) html += `<span class="page-num ellipsis">…</span>`;
             html += `<button class="btn btn-gray btn-sm" onclick="reportOutCustGoPage('next')" ${reportOutCustCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
             html += `<button class="btn btn-gray btn-sm" onclick="reportOutCustGoPage('last')" ${reportOutCustCurrentPage>=totalPages?'disabled':''}>末页</button>`;
-            controls.innerHTML = html;
-            document.getElementById('reportOutCustJumpInput').max = totalPages; document.getElementById('reportOutCustJumpInput').value = reportOutCustCurrentPage;
+            controls.innerHTML = html; document.getElementById('reportOutCustJumpInput').max = totalPages; document.getElementById('reportOutCustJumpInput').value = reportOutCustCurrentPage;
             const body = document.getElementById('reportOutCustBody');
             if (!pageItems.length) { body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无数据</td></tr>'; return; }
-            let rows = '';
-            const startIdx = start;
-            pageItems.forEach((item, idx) => { const rank = startIdx + idx + 1; rows += `<tr><td>${rank}</td><td>${escHtml(item.name)}</td><td>${item.count}</td><td>${item.sale.toFixed(2)}</td><td style="color:${item.profit>=0?'#1e7e34':'#b33c2f'}">${item.profit.toFixed(2)}</td></tr>`; });
+            let rows = ''; const startIdx = start;
+            pageItems.forEach((item, idx) => {
+                const rank = startIdx + idx + 1; const rankCls = rank === 1 ? 'rank-1' : (rank === 2 ? 'rank-2' : (rank === 3 ? 'rank-3' : ''));
+                rows += `<tr><td class="${rankCls}">${rank}</td><td>${escHtml(item.name)}</td><td>${item.count}</td><td>${item.sale.toFixed(2)}</td><td style="color:${item.profit>=0?'#1e7e34':'#b33c2f'}">${item.profit.toFixed(2)}</td></tr>`;
+            });
             body.innerHTML = rows;
         }
         function reportOutCatGoPage(target) {
@@ -1247,80 +1462,109 @@
             if (newPage < 1) newPage = 1; reportOutCustCurrentPage = newPage; renderReportOut();
         }
         function reportOutCustJumpToPage() { const input = document.getElementById('reportOutCustJumpInput'); let page = parseInt(input.value); if (isNaN(page) || page < 1) page = 1; reportOutCustCurrentPage = page; renderReportOut(); }
+        
         function renderReportIn() {
             const dtFrom = document.getElementById('reportInFrom').value; const dtTo = document.getElementById('reportInTo').value;
             let inFlows = D.flow.filter(f => f.t === 'in');
             if (dtFrom) inFlows = inFlows.filter(f => f.time.slice(0, 10) >= dtFrom);
             if (dtTo) inFlows = inFlows.filter(f => f.time.slice(0, 10) <= dtTo);
-            let totalW = 0, totalCost = 0, totalFee = 0;
-            inFlows.forEach(f => { totalW += f.w || 0; totalCost += f.total || 0; totalFee += f.fee || 0; });
+            let totalW = 0, totalCost = 0, totalFee = 0, totalCoverProfit = 0;
+            inFlows.forEach(f => { totalW += f.w || 0; totalCost += f.total || 0; totalFee += f.fee || 0; totalCoverProfit += (f.margin || 0); });
             const avgPrice = totalW > 0 ? totalCost / totalW : 0;
             document.getElementById('rInW').textContent = totalW.toFixed(2);
             document.getElementById('rInCost').textContent = totalCost.toFixed(2);
             document.getElementById('rInAvg').textContent = avgPrice.toFixed(2);
             document.getElementById('rInCount').textContent = inFlows.length;
             document.getElementById('rInFee').textContent = totalFee.toFixed(2);
+            const coverEl = document.getElementById('rInCoverProfit');
+            if (coverEl) { coverEl.textContent = totalCoverProfit.toFixed(2); coverEl.style.color = Math.abs(totalCoverProfit) > 0.001 ? '#1e7e34' : '#1a1a1a'; }
             const catMap = {};
-            inFlows.forEach(f => { if (!catMap[f.cat]) catMap[f.cat] = { w: 0, cost: 0, count: 0 }; catMap[f.cat].w += f.w || 0; catMap[f.cat].cost += f.total || 0; catMap[f.cat].count += 1; });
+            inFlows.forEach(f => { if (!catMap[f.cat]) catMap[f.cat] = { w: 0, cost: 0, count: 0, profit: 0 }; catMap[f.cat].w += f.w || 0; catMap[f.cat].cost += f.total || 0; catMap[f.cat].count += 1; catMap[f.cat].profit += (f.margin || 0); });
             const catKeys = Object.keys(catMap).sort((a, b) => catMap[b].cost - catMap[a].cost);
             renderReportInCat(catKeys, catMap);
+            const nameMap = {};
+            inFlows.forEach(f => { const key = f.cat + '|' + f.name; if (!nameMap[key]) nameMap[key] = { cat: f.cat, name: f.name, w: 0, cost: 0, count: 0, profit: 0 }; nameMap[key].w += f.w || 0; nameMap[key].cost += f.total || 0; nameMap[key].count += 1; nameMap[key].profit += (f.margin || 0); });
+            const nameKeys = Object.keys(nameMap).sort((a, b) => nameMap[b].profit - nameMap[a].profit || nameMap[b].cost - nameMap[a].cost);
+            renderReportInName(nameKeys, nameMap);
             const custMap = {};
-            inFlows.forEach(f => { let name = f.cus || '匿名'; if (!name || name.trim() === '' || !isNaN(name)) name = '匿名'; if (!custMap[name]) custMap[name] = { w: 0, cost: 0, count: 0 }; custMap[name].w += f.w || 0; custMap[name].cost += f.total || 0; custMap[name].count += 1; });
-            const custKeys = Object.keys(custMap).sort((a, b) => custMap[b].cost - custMap[a].cost);
-            renderReportInCust(custKeys, custMap);
+            inFlows.forEach(f => { let name = f.cus || '匿名'; if (!name || name.trim() === '' || !isNaN(name)) name = '匿名'; if (!custMap[name]) custMap[name] = { w: 0, cost: 0, count: 0, profit: 0 }; custMap[name].w += f.w || 0; custMap[name].cost += f.total || 0; custMap[name].count += 1; custMap[name].profit += (f.margin || 0); });
+            const sortedCust = Object.keys(custMap).map(k => ({ name: k, ...custMap[k] }));
+            if (reportInCustSort === 'w') sortedCust.sort((a, b) => b.w - a.w);
+            else if (reportInCustSort === 'count') sortedCust.sort((a, b) => b.count - a.count);
+            else sortedCust.sort((a, b) => b.cost - a.cost);
+            renderReportInCust(sortedCust);
         }
         function renderReportInCat(catKeys, catMap) {
             const totalItems = catKeys.length; const totalPages = Math.max(1, Math.ceil(totalItems / REPORT_PAGE_SIZE));
             if (reportInCatCurrentPage > totalPages) reportInCatCurrentPage = totalPages;
             if (reportInCatCurrentPage < 1) reportInCatCurrentPage = 1;
-            const start = (reportInCatCurrentPage - 1) * REPORT_PAGE_SIZE;
-            const end = Math.min(start + REPORT_PAGE_SIZE, totalItems);
+            const start = (reportInCatCurrentPage - 1) * REPORT_PAGE_SIZE; const end = Math.min(start + REPORT_PAGE_SIZE, totalItems);
             const pageKeys = catKeys.slice(start, end);
             document.getElementById('reportInCatPageInfo').innerHTML = `共 <strong>${totalItems}</strong> 条，第 <strong>${totalItems > 0 ? reportInCatCurrentPage : 0}</strong> / <strong>${totalItems > 0 ? totalPages : 0}</strong> 页`;
-            const controls = document.getElementById('reportInCatPageControls');
-            let html = '';
+            const controls = document.getElementById('reportInCatPageControls'); let html = '';
             html += `<button class="btn btn-gray btn-sm" onclick="reportInCatGoPage('first')" ${reportInCatCurrentPage<=1?'disabled':''}>首页</button>`;
             html += `<button class="btn btn-gray btn-sm" onclick="reportInCatGoPage('prev')" ${reportInCatCurrentPage<=1?'disabled':''}>上一页</button>`;
-            const range = 2;
-            let startPage = Math.max(1, reportInCatCurrentPage - range); let endPage = Math.min(totalPages, reportInCatCurrentPage + range);
+            const range = 2; let startPage = Math.max(1, reportInCatCurrentPage - range); let endPage = Math.min(totalPages, reportInCatCurrentPage + range);
             if (startPage > 1) html += `<span class="page-num ellipsis">…</span>`;
             for (let i = startPage; i <= endPage; i++) { const activeClass = i === reportInCatCurrentPage ? 'active' : ''; html += `<span class="page-num ${activeClass}" onclick="reportInCatGoPage(${i})">${i}</span>`; }
             if (endPage < totalPages) html += `<span class="page-num ellipsis">…</span>`;
             html += `<button class="btn btn-gray btn-sm" onclick="reportInCatGoPage('next')" ${reportInCatCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
             html += `<button class="btn btn-gray btn-sm" onclick="reportInCatGoPage('last')" ${reportInCatCurrentPage>=totalPages?'disabled':''}>末页</button>`;
-            controls.innerHTML = html;
-            document.getElementById('reportInCatJumpInput').max = totalPages; document.getElementById('reportInCatJumpInput').value = reportInCatCurrentPage;
+            controls.innerHTML = html; document.getElementById('reportInCatJumpInput').max = totalPages; document.getElementById('reportInCatJumpInput').value = reportInCatCurrentPage;
             const body = document.getElementById('reportInCatBody');
-            if (!pageKeys.length) { body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无数据</td></tr>'; return; }
+            if (!pageKeys.length) { body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;">暂无数据</td></tr>'; return; }
             let rows = '';
-            pageKeys.forEach(cat => { const d = catMap[cat]; const avg = d.w > 0 ? d.cost / d.w : 0; rows += `<tr><td>${escHtml(cat)}</td><td>${d.w.toFixed(2)}</td><td>${d.cost.toFixed(2)}</td><td>${avg.toFixed(2)}</td><td>${d.count}</td></tr>`; });
+            pageKeys.forEach(cat => { const d = catMap[cat]; const avg = d.w > 0 ? d.cost / d.w : 0; const profitColor = d.profit > 0.001 ? '#1e7e34' : '#999'; rows += `<tr><td>${escHtml(cat)}</td><td>${d.w.toFixed(2)}</td><td>${d.cost.toFixed(2)}</td><td>${avg.toFixed(2)}</td><td style="color:${profitColor};font-weight:${d.profit>0.001?'700':'400'};">${d.profit.toFixed(2)}</td><td>${d.count}</td></tr>`; });
             body.innerHTML = rows;
         }
-        function renderReportInCust(custKeys, custMap) {
-            const totalItems = custKeys.length; const totalPages = Math.max(1, Math.ceil(totalItems / REPORT_PAGE_SIZE));
+        function renderReportInName(keys, map) {
+            const totalItems = keys.length; const totalPages = Math.max(1, Math.ceil(totalItems / REPORT_PAGE_SIZE));
+            if (reportInNameCurrentPage > totalPages) reportInNameCurrentPage = totalPages;
+            if (reportInNameCurrentPage < 1) reportInNameCurrentPage = 1;
+            const start = (reportInNameCurrentPage - 1) * REPORT_PAGE_SIZE; const end = Math.min(start + REPORT_PAGE_SIZE, totalItems);
+            const pageKeys = keys.slice(start, end);
+            document.getElementById('reportInNamePageInfo').innerHTML = `共 <strong>${totalItems}</strong> 条，第 <strong>${totalItems > 0 ? reportInNameCurrentPage : 0}</strong> / <strong>${totalItems > 0 ? totalPages : 0}</strong> 页`;
+            const controls = document.getElementById('reportInNamePageControls'); let html = '';
+            html += `<button class="btn btn-gray btn-sm" onclick="reportInNameGoPage('first')" ${reportInNameCurrentPage<=1?'disabled':''}>首页</button>`;
+            html += `<button class="btn btn-gray btn-sm" onclick="reportInNameGoPage('prev')" ${reportInNameCurrentPage<=1?'disabled':''}>上一页</button>`;
+            const range = 2; let startPage = Math.max(1, reportInNameCurrentPage - range); let endPage = Math.min(totalPages, reportInNameCurrentPage + range);
+            if (startPage > 1) html += `<span class="page-num ellipsis">…</span>`;
+            for (let i = startPage; i <= endPage; i++) { const activeClass = i === reportInNameCurrentPage ? 'active' : ''; html += `<span class="page-num ${activeClass}" onclick="reportInNameGoPage(${i})">${i}</span>`; }
+            if (endPage < totalPages) html += `<span class="page-num ellipsis">…</span>`;
+            html += `<button class="btn btn-gray btn-sm" onclick="reportInNameGoPage('next')" ${reportInNameCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
+            html += `<button class="btn btn-gray btn-sm" onclick="reportInNameGoPage('last')" ${reportInNameCurrentPage>=totalPages?'disabled':''}>末页</button>`;
+            controls.innerHTML = html; document.getElementById('reportInNameJumpInput').max = totalPages; document.getElementById('reportInNameJumpInput').value = reportInNameCurrentPage;
+            const body = document.getElementById('reportInNameBody');
+            if (!pageKeys.length) { body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;">暂无数据</td></tr>'; return; }
+            let rows = '';
+            pageKeys.forEach(key => { const d = map[key]; const avg = d.w > 0 ? d.cost / d.w : 0; const profitColor = d.profit > 0.001 ? '#1e7e34' : '#999'; rows += `<tr><td>${escHtml(d.cat)}</td><td>${escHtml(d.name)}</td><td>${d.w.toFixed(2)}</td><td>${d.cost.toFixed(2)}</td><td>${avg.toFixed(2)}</td><td style="color:${profitColor};font-weight:${d.profit>0.001?'700':'400'};">${d.profit.toFixed(2)}</td><td>${d.count}</td></tr>`; });
+            body.innerHTML = rows;
+        }
+        function renderReportInCust(sortedCust) {
+            const totalItems = sortedCust.length; const totalPages = Math.max(1, Math.ceil(totalItems / REPORT_PAGE_SIZE));
             if (reportInCustCurrentPage > totalPages) reportInCustCurrentPage = totalPages;
             if (reportInCustCurrentPage < 1) reportInCustCurrentPage = 1;
-            const start = (reportInCustCurrentPage - 1) * REPORT_PAGE_SIZE;
-            const end = Math.min(start + REPORT_PAGE_SIZE, totalItems);
-            const pageKeys = custKeys.slice(start, end);
+            const start = (reportInCustCurrentPage - 1) * REPORT_PAGE_SIZE; const end = Math.min(start + REPORT_PAGE_SIZE, totalItems);
+            const pageItems = sortedCust.slice(start, end);
             document.getElementById('reportInCustPageInfo').innerHTML = `共 <strong>${totalItems}</strong> 条，第 <strong>${totalItems > 0 ? reportInCustCurrentPage : 0}</strong> / <strong>${totalItems > 0 ? totalPages : 0}</strong> 页`;
-            const controls = document.getElementById('reportInCustPageControls');
-            let html = '';
+            const controls = document.getElementById('reportInCustPageControls'); let html = '';
             html += `<button class="btn btn-gray btn-sm" onclick="reportInCustGoPage('first')" ${reportInCustCurrentPage<=1?'disabled':''}>首页</button>`;
             html += `<button class="btn btn-gray btn-sm" onclick="reportInCustGoPage('prev')" ${reportInCustCurrentPage<=1?'disabled':''}>上一页</button>`;
-            const range = 2;
-            let startPage = Math.max(1, reportInCustCurrentPage - range); let endPage = Math.min(totalPages, reportInCustCurrentPage + range);
+            const range = 2; let startPage = Math.max(1, reportInCustCurrentPage - range); let endPage = Math.min(totalPages, reportInCustCurrentPage + range);
             if (startPage > 1) html += `<span class="page-num ellipsis">…</span>`;
             for (let i = startPage; i <= endPage; i++) { const activeClass = i === reportInCustCurrentPage ? 'active' : ''; html += `<span class="page-num ${activeClass}" onclick="reportInCustGoPage(${i})">${i}</span>`; }
             if (endPage < totalPages) html += `<span class="page-num ellipsis">…</span>`;
             html += `<button class="btn btn-gray btn-sm" onclick="reportInCustGoPage('next')" ${reportInCustCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
             html += `<button class="btn btn-gray btn-sm" onclick="reportInCustGoPage('last')" ${reportInCustCurrentPage>=totalPages?'disabled':''}>末页</button>`;
-            controls.innerHTML = html;
-            document.getElementById('reportInCustJumpInput').max = totalPages; document.getElementById('reportInCustJumpInput').value = reportInCustCurrentPage;
+            controls.innerHTML = html; document.getElementById('reportInCustJumpInput').max = totalPages; document.getElementById('reportInCustJumpInput').value = reportInCustCurrentPage;
             const body = document.getElementById('reportInCustBody');
-            if (!pageKeys.length) { body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无数据</td></tr>'; return; }
+            if (!pageItems.length) { body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;">暂无数据</td></tr>'; return; }
             let rows = '';
-            pageKeys.forEach(name => { const d = custMap[name]; const avg = d.w > 0 ? d.cost / d.w : 0; rows += `<tr><td>${escHtml(name)}</td><td>${d.w.toFixed(2)}</td><td>${d.cost.toFixed(2)}</td><td>${avg.toFixed(2)}</td><td>${d.count}</td></tr>`; });
+            pageItems.forEach((item, idx) => {
+                const rank = start + idx + 1; const rankCls = rank === 1 ? 'rank-1' : (rank === 2 ? 'rank-2' : (rank === 3 ? 'rank-3' : ''));
+                const avg = item.w > 0 ? item.cost / item.w : 0; const profitColor = item.profit > 0.001 ? '#1e7e34' : '#999';
+                rows += `<tr><td class="${rankCls}">${rank}</td><td>${escHtml(item.name)}</td><td>${item.w.toFixed(2)}</td><td>${item.cost.toFixed(2)}</td><td>${avg.toFixed(2)}</td><td style="color:${profitColor};font-weight:${item.profit>0.001?'700':'400'};">${item.profit.toFixed(2)}</td><td>${item.count}</td></tr>`;
+            });
             body.innerHTML = rows;
         }
         function reportInCatGoPage(target) {
@@ -1332,6 +1576,15 @@
             if (newPage < 1) newPage = 1; reportInCatCurrentPage = newPage; renderReportIn();
         }
         function reportInCatJumpToPage() { const input = document.getElementById('reportInCatJumpInput'); let page = parseInt(input.value); if (isNaN(page) || page < 1) page = 1; reportInCatCurrentPage = page; renderReportIn(); }
+        function reportInNameGoPage(target) {
+            let newPage = reportInNameCurrentPage;
+            if (target === 'first') newPage = 1; else if (target === 'prev') newPage = reportInNameCurrentPage - 1;
+            else if (target === 'next') newPage = reportInNameCurrentPage + 1;
+            else if (target === 'last') { reportInNameCurrentPage = 99999; renderReportIn(); return; }
+            else if (typeof target === 'number') newPage = target;
+            if (newPage < 1) newPage = 1; reportInNameCurrentPage = newPage; renderReportIn();
+        }
+        function reportInNameJumpToPage() { const input = document.getElementById('reportInNameJumpInput'); let page = parseInt(input.value); if (isNaN(page) || page < 1) page = 1; reportInNameCurrentPage = page; renderReportIn(); }
         function reportInCustGoPage(target) {
             let newPage = reportInCustCurrentPage;
             if (target === 'first') newPage = 1; else if (target === 'prev') newPage = reportInCustCurrentPage - 1;
@@ -1348,10 +1601,23 @@
             D.interest.forEach(i => { if (i.mortgageName) names.add(i.mortgageName); });
             return [...names].sort();
         }
+        function clearInterestFilters() {
+            document.getElementById('interestFilterName').value = '';
+            document.getElementById('interestFilterCust').value = '';
+            document.getElementById('interestFilterDateFrom').value = '';
+            document.getElementById('interestFilterDateTo').value = '';
+            interestCurrentPage = 1; renderInterest();
+        }
+        function filterInterestByCustomer(cust) {
+            if (!cust || cust === '-') return;
+            document.getElementById('interestFilterCust').value = cust; interestCurrentPage = 1; renderInterest();
+        }
         function renderInterest() {
             const tb = document.getElementById('interestBody');
             const filterName = document.getElementById('interestFilterName').value;
             const filterCust = document.getElementById('interestFilterCust').value.trim();
+            const dtFrom = document.getElementById('interestFilterDateFrom').value;
+            const dtTo = document.getElementById('interestFilterDateTo').value;
             const nameSel = document.getElementById('interestFilterName');
             const curName = nameSel.value;
             const mortgageNames = getMortgageNames();
@@ -1361,9 +1627,10 @@
             let items = D.interest.slice().sort((a, b) => { if (a.date !== b.date) return b.date.localeCompare(a.date); return b.id - a.id; });
             if (filterName) items = items.filter(i => i.mortgageName === filterName);
             if (filterCust) { const kw = filterCust.toLowerCase(); items = items.filter(i => (i.cust || '').toLowerCase().includes(kw)); }
+            if (dtFrom) items = items.filter(i => i.date && i.date >= dtFrom);
+            if (dtTo) items = items.filter(i => i.date && i.date <= dtTo);
             const totalInterest = items.reduce((s, i) => s + (i.amount || 0), 0);
-            const thisMonth = new Date();
-            const monthStart = thisMonth.getFullYear() + '-' + String(thisMonth.getMonth() + 1).padStart(2, '0') + '-01';
+            const thisMonth = new Date(); const monthStart = thisMonth.getFullYear() + '-' + String(thisMonth.getMonth() + 1).padStart(2, '0') + '-01';
             const monthInterest = items.filter(i => i.date && i.date >= monthStart).reduce((s, i) => s + (i.amount || 0), 0);
             const mortgageCount = new Set(items.map(i => i.mortgageName)).size;
             document.getElementById('interestTotal').textContent = totalInterest.toFixed(2);
@@ -1373,34 +1640,27 @@
             const totalItems = items.length; const totalPages = Math.max(1, Math.ceil(totalItems / INTEREST_PAGE_SIZE));
             if (interestCurrentPage > totalPages) interestCurrentPage = totalPages;
             if (interestCurrentPage < 1) interestCurrentPage = 1;
-            const start = (interestCurrentPage - 1) * INTEREST_PAGE_SIZE;
-            const end = Math.min(start + INTEREST_PAGE_SIZE, totalItems);
+            const start = (interestCurrentPage - 1) * INTEREST_PAGE_SIZE; const end = Math.min(start + INTEREST_PAGE_SIZE, totalItems);
             const pageItems = items.slice(start, end);
             document.getElementById('interestPageInfo').innerHTML = `共 <strong>${totalItems}</strong> 条，第 <strong>${totalItems > 0 ? interestCurrentPage : 0}</strong> / <strong>${totalItems > 0 ? totalPages : 0}</strong> 页`;
-            const controls = document.getElementById('interestPageControls');
-            let html = '';
+            const controls = document.getElementById('interestPageControls'); let html = '';
             html += `<button class="btn btn-gray btn-sm" onclick="interestGoPage('first')" ${interestCurrentPage<=1?'disabled':''}>首页</button>`;
             html += `<button class="btn btn-gray btn-sm" onclick="interestGoPage('prev')" ${interestCurrentPage<=1?'disabled':''}>上一页</button>`;
-            const range = 2;
-            let startPage = Math.max(1, interestCurrentPage - range); let endPage = Math.min(totalPages, interestCurrentPage + range);
+            const range = 2; let startPage = Math.max(1, interestCurrentPage - range); let endPage = Math.min(totalPages, interestCurrentPage + range);
             if (startPage > 1) html += `<span class="page-num ellipsis">…</span>`;
             for (let i = startPage; i <= endPage; i++) { const activeClass = i === interestCurrentPage ? 'active' : ''; html += `<span class="page-num ${activeClass}" onclick="interestGoPage(${i})">${i}</span>`; }
             if (endPage < totalPages) html += `<span class="page-num ellipsis">…</span>`;
             html += `<button class="btn btn-gray btn-sm" onclick="interestGoPage('next')" ${interestCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
             html += `<button class="btn btn-gray btn-sm" onclick="interestGoPage('last')" ${interestCurrentPage>=totalPages?'disabled':''}>末页</button>`;
-            controls.innerHTML = html;
-            document.getElementById('interestJumpInput').max = totalPages; document.getElementById('interestJumpInput').value = interestCurrentPage;
+            controls.innerHTML = html; document.getElementById('interestJumpInput').max = totalPages; document.getElementById('interestJumpInput').value = interestCurrentPage;
             if (!pageItems.length) { tb.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#999;">暂无付息记录</td></tr>'; document.getElementById('interestFilterSummary').textContent = `共 0 条`; return; }
-            let rows = '';
-            const globalStart = start;
+            let rows = ''; const globalStart = start;
             pageItems.forEach((item, idx) => {
-                const seq = globalStart + idx + 1;
-                const dateStr = item.date || '';
-                const cust = item.cust || '-';
+                const seq = globalStart + idx + 1; const dateStr = item.date || ''; const cust = item.cust || '-';
+                const custDisplay = cust !== '-' ? `<span style="color:#0066cc;cursor:pointer;text-decoration:underline;" onclick="filterInterestByCustomer('${escAttr(cust)}')">${escHtml(cust)}</span>` : '-';
                 const mortgageFlow = D.flow.find(f => f.cat === '抵押' && f.name === item.mortgageName && f.t === 'in');
-                const principal = mortgageFlow ? mortgageFlow.total || 0 : 0;
-                const rate = mortgageFlow ? (mortgageFlow.rate || '') : '';
-                rows += `<tr><td>${seq}</td><td style="font-size:12px;">${escHtml(dateStr)}</td><td><span class="interest-name-tag">${escHtml(item.mortgageName)}</span></td><td>${escHtml(cust)}</td><td>${principal.toFixed(2)}</td><td>${rate ? rate + '%' : '-'}</td><td style="color:#1e7e34;font-weight:700;">${(item.amount || 0).toFixed(2)}</td><td>${escHtml(item.payMethod || '-')}</td><td style="font-size:12px;">${escHtml(item.note || '')}</td><td style="white-space:nowrap;"><span class="text-danger" style="cursor:pointer;font-size:12px;" onclick="confirmDeleteInterest(${item.id})">删除</span></td></tr>`;
+                const principal = mortgageFlow ? mortgageFlow.total || 0 : 0; const rate = mortgageFlow ? (mortgageFlow.rate || '') : '';
+                rows += `<tr><td>${seq}</td><td style="font-size:12px;">${escHtml(dateStr)}</td><td><span class="interest-name-tag">${escHtml(item.mortgageName)}</span></td><td>${custDisplay}</td><td>${principal.toFixed(2)}</td><td>${rate ? rate + '%' : '-'}</td><td style="color:#1e7e34;font-weight:700;">${(item.amount || 0).toFixed(2)}</td><td>${escHtml(item.payMethod || '-')}</td><td style="font-size:12px;">${escHtml(item.note || '')}</td><td style="white-space:nowrap;"><span class="text-danger" style="cursor:pointer;font-size:12px;" onclick="confirmDeleteInterest(${item.id})">删除</span></td></tr>`;
             });
             tb.innerHTML = rows;
             document.getElementById('interestFilterSummary').textContent = `共 ${totalItems} 条 | 总利息 ${totalInterest.toFixed(2)} 元 | 第 ${interestCurrentPage}/${totalPages} 页`;
@@ -1432,7 +1692,7 @@
                         let finalCust = cust;
                         if (!finalCust) { const flow = D.flow.find(f => f.cat === '抵押' && f.name === mortgageName && f.t === 'in'); if (flow && flow.cus) finalCust = flow.cus; }
                         const newInterest = { id: genId(), date: date, mortgageName: mortgageName, cust: finalCust || '', amount: amount, payMethod: payMethod || '现金', note: note || '', createdAt: nowFullStr() };
-                        D.interest.push(newInterest); saveData(); await updateSnapshot();
+                        D.interest.push(newInterest); saveData(); await pushInterestToCloud(newInterest);
                         renderInterest(); renderDash(); closeModal(); playBeep(true);
                         await showAlertModal('✅', '付息记录已保存，已计入累计毛利');
                     } }
@@ -1450,7 +1710,7 @@
             showModal('🗑️ 删除付息记录', `<p>确定删除这笔付息记录吗？<br>抵押品：${escHtml(item.mortgageName)}<br>金额：${(item.amount||0).toFixed(2)} 元</p>`, [
                 { text: '取消', class: 'btn-gray', action: closeModal },
                 { text: '确认删除', class: 'btn-red', action: async () => {
-                        D.interest = D.interest.filter(i => i.id !== id); saveData(); await updateSnapshot();
+                        D.interest = D.interest.filter(i => i.id !== id); saveData(); await markDeletedInCloud('shop_interest', id);
                         renderInterest(); renderDash(); closeModal(); playBeep(false);
                         await showAlertModal('提示', '付息记录已删除');
                     } }
@@ -1474,9 +1734,7 @@
                 .sort((a, b) => (b.item.deletedAt || '').localeCompare(a.item.deletedAt || ''));
             let html = '';
             items.forEach((entry, idx) => {
-                const item = entry.item;
-                const origIdx = entry.origIdx;
-                const isFlow = !!item.t;
+                const item = entry.item; const origIdx = entry.origIdx; const isFlow = !!item.t;
                 const label = isFlow ? (item.t === 'in' ? '入库' : '出库') : '其他';
                 const badgeClass = isFlow ? (item.t === 'in' ? 'in' : 'out') : '';
                 const info = isFlow ? `${item.no || '无单号'} · ${item.cat || ''} ${item.name || ''} · ${item.w || 0}g · ${item.total || item.sale || 0}元` : (item.name || '未命名');
@@ -1499,11 +1757,11 @@
             const item = D.trash[index]; if (!item) return;
             const ok = await showConfirmModal('确认恢复', `确定要恢复这条记录吗？<br><span class="text-muted">${escHtml(JSON.stringify(item).slice(0, 100))}</span>`, '恢复', '取消');
             if (!ok) return;
-            if (item.t) { const restoreItem = { ...item }; delete restoreItem.deletedAt; delete restoreItem._type; D.flow.push(restoreItem); }
-            else if (item._type === 'cust' || (item.name && item.tel)) D.cust.push({ name: item.name, tel: item.tel || '', idNo: item.idNo || '', note: item.note || '' });
+            if (item.t) { const restoreItem = { ...item }; delete restoreItem.deletedAt; delete restoreItem._type; D.flow.push(restoreItem); await pushFlowToCloud(restoreItem); }
+            else if (item._type === 'cust' || (item.name && item.tel)) { D.cust.push({ name: item.name, tel: item.tel || '', idNo: item.idNo || '', note: item.note || '' }); }
             else if (item._type === 'cat') { if (!D.cats.includes(item)) D.cats.push(item); }
             else if (item._type === 'name') { if (!D.names.some(n => n.cat === item.cat && n.name === item.name)) D.names.push({ cat: item.cat, name: item.name }); }
-            else { const restoreItem = { ...item }; delete restoreItem.deletedAt; delete restoreItem._type; D.flow.push(restoreItem); }
+            else { const restoreItem = { ...item }; delete restoreItem.deletedAt; delete restoreItem._type; D.flow.push(restoreItem); await pushFlowToCloud(restoreItem); }
             D.trash.splice(index, 1); saveData(); await updateSnapshot(); refreshAll(); renderTrash();
             showErrorToast('✅ 已恢复', 'success'); playBeep(true);
         }
@@ -1525,7 +1783,7 @@
             const f = D.flow.find(x => x.id === id); if (!f) return;
             const ok = await showConfirmModal('🗑️ 删除流水', `<p>单号：${escHtml(f.no)}<br>类型：${f.t==='in'?'入库':'出库'}<br>品名：${escHtml(f.name)}<br>克重：${f.w.toFixed(2)}g</p><p class="text-muted">将移入回收站，可随时恢复。</p>`, '移入回收站', '取消');
             if (!ok) return;
-            moveToTrash(f, 'flow'); refreshAll(); await updateSnapshot(); renderTrash();
+            moveToTrash(f, 'flow'); refreshAll(); await markDeletedInCloud('shop_flow', f.id); renderTrash();
             showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
         }
         async function confirmDeleteStock(name, cat) {
@@ -1533,7 +1791,8 @@
             if (!items.length) { showErrorToast('未找到相关流水', 'warning'); return; }
             const ok = await showConfirmModal('🗑️ 删除库存', `<p>品类：${escHtml(cat)}<br>品名：${escHtml(name)}<br>相关流水：${items.length} 条</p><p class="text-muted">将移入回收站，可随时恢复。</p>`, '移入回收站', '取消');
             if (!ok) return;
-            items.forEach(f => moveToTrash(f, 'flow')); refreshAll(); await updateSnapshot(); renderTrash();
+            for (const f of items) { moveToTrash(f, 'flow'); await markDeletedInCloud('shop_flow', f.id); }
+            refreshAll(); renderTrash();
             showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
         }
         async function confirmDeleteCust(idx) {
@@ -1632,17 +1891,6 @@
             names.forEach(name => { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; sel.appendChild(opt); });
             if ([...names].includes(cur)) sel.value = cur;
             renderFlow();
-        }
-        function stockFilterChange() {
-            const cat = document.getElementById('stockFilterCat').value;
-            const sel = document.getElementById('stockFilterName');
-            const cur = sel.value; sel.innerHTML = '<option value="">全部品名</option>';
-            const names = new Set();
-            D.names.filter(n => n.cat === cat || !cat).forEach(n => names.add(n.name));
-            D.stock.forEach(s => { if (!cat || s.cat === cat) names.add(s.name); });
-            names.forEach(name => { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; sel.appendChild(opt); });
-            if ([...names].includes(cur)) sel.value = cur;
-            renderStock();
         }
         async function addCat() {
             const n = document.getElementById('newCat').value.trim();
@@ -1883,10 +2131,11 @@
                     flow = { id: genId(), no, t: 'in', cat, name, w: w * q, q: q, total, fee, costUnit: inUnitPrice, cus, tel, idNo, src, note, rate, mortgageDate: mDate, payDetail: payDet.detail, payPaid: paidSum, payRemain: total - paidSum, time: dateVal + 'T' + nowTime(), lastModified: now, margin: coverProfit };
                 }
                 D.flow.push(flow); refreshAll();
+                await pushFlowToCloud(flow);
                 document.getElementById('inMsg').innerHTML = `<span class="text-success">✅ 入库成功！单号 ${flow.no}</span>`;
                 clearInForm(); document.getElementById('btnCancelIn').style.display = 'none';
                 document.getElementById('btnDoIn').textContent = '✅ 确认入库';
-                clearEditingState(); playBeep(true); await updateSnapshot(); refreshStockAndDash();
+                clearEditingState(); playBeep(true); refreshStockAndDash();
             } catch (e) { console.error('doIn error', e); showErrorToast('入库失败：' + e.message, ''); await showAlertModal('错误', '操作失败：' + e.message); playBeep(false); }
         }
         async function doOut() {
@@ -1926,10 +2175,11 @@
                     flow = { id: genId(), no, t: 'out', cat, name, w: ow, q: oq, sale, buyer, tel, note, payDetail: payDet.detail, payPaid: paidSum, payRemain: sale - paidSum, time: dateVal + 'T' + nowTime(), lastModified: now, cost: 0, margin: 0 };
                 }
                 D.flow.push(flow); refreshAll();
+                await pushFlowToCloud(flow);
                 document.getElementById('outMsg').innerHTML = `<span class="text-success">✅ 出库成功！单号 ${flow.no}</span>`;
                 clearOutForm(); document.getElementById('btnCancelOut').style.display = 'none';
                 document.getElementById('btnDoOut').textContent = '✅ 确认出库';
-                outLoadNames(); clearEditingState(); playBeep(true); await updateSnapshot(); refreshStockAndDash();
+                outLoadNames(); clearEditingState(); playBeep(true); refreshStockAndDash();
             } catch (e) { console.error('doOut error', e); showErrorToast('出库失败：' + e.message, ''); await showAlertModal('错误', '操作失败：' + e.message); playBeep(false); }
         }
         function clearInForm() {
@@ -2097,9 +2347,7 @@
             const catMap = {};
             outFlows.forEach(f => { if (!catMap[f.cat]) catMap[f.cat] = { sale: 0, cost: 0, profit: 0, w: 0 }; catMap[f.cat].sale += f.sale || 0; catMap[f.cat].cost += f.cost || 0; catMap[f.cat].profit += f.margin || 0; catMap[f.cat].w += f.w || 0; });
             const data = Object.keys(catMap).map(cat => ({ '品类': cat, '出库克重(g)': catMap[cat].w, '销售额(元)': catMap[cat].sale, '成本(元)': catMap[cat].cost, '利润(元)': catMap[cat].profit, '利润率(%)': catMap[cat].sale > 0 ? (catMap[cat].profit / catMap[cat].sale * 100).toFixed(1) : '0.0' }));
-            const totalSale = data.reduce((s, d) => s + d['销售额(元)'], 0);
-            const totalCost = data.reduce((s, d) => s + d['成本(元)'], 0);
-            const totalProfit = data.reduce((s, d) => s + d['利润(元)'], 0);
+            const totalSale = data.reduce((s, d) => s + d['销售额(元)'], 0); const totalCost = data.reduce((s, d) => s + d['成本(元)'], 0); const totalProfit = data.reduce((s, d) => s + d['利润(元)'], 0);
             data.push({ '品类': '合计', '出库克重(g)': data.reduce((s, d) => s + d['出库克重(g)'], 0), '销售额(元)': totalSale, '成本(元)': totalCost, '利润(元)': totalProfit, '利润率(%)': totalSale > 0 ? (totalProfit / totalSale * 100).toFixed(1) : '0.0' });
             const wb = XLSX.utils.book_new(); const ws = XLSX.utils.json_to_sheet(data);
             XLSX.utils.book_append_sheet(wb, ws, '出库利润报表');
@@ -2114,8 +2362,7 @@
             const catMap = {};
             inFlows.forEach(f => { if (!catMap[f.cat]) catMap[f.cat] = { w: 0, cost: 0, count: 0 }; catMap[f.cat].w += f.w || 0; catMap[f.cat].cost += f.total || 0; catMap[f.cat].count += 1; });
             const data = Object.keys(catMap).map(cat => ({ '品类': cat, '入库克重(g)': catMap[cat].w, '总成本(元)': catMap[cat].cost, '平均单价(元/g)': catMap[cat].w > 0 ? (catMap[cat].cost / catMap[cat].w).toFixed(2) : '0.00', '笔数': catMap[cat].count }));
-            const totalW = data.reduce((s, d) => s + d['入库克重(g)'], 0);
-            const totalCost = data.reduce((s, d) => s + d['总成本(元)'], 0);
+            const totalW = data.reduce((s, d) => s + d['入库克重(g)'], 0); const totalCost = data.reduce((s, d) => s + d['总成本(元)'], 0);
             data.push({ '品类': '合计', '入库克重(g)': totalW, '总成本(元)': totalCost, '平均单价(元/g)': totalW > 0 ? (totalCost / totalW).toFixed(2) : '0.00', '笔数': data.reduce((s, d) => s + d['笔数'], 0) });
             const wb = XLSX.utils.book_new(); const ws = XLSX.utils.json_to_sheet(data);
             XLSX.utils.book_append_sheet(wb, ws, '入库成本报表');
@@ -2132,27 +2379,13 @@
                 const before = { w: beforeRaw.w, cost: beforeRaw.cost, shortW: beforeRaw.shortW, shortPrice: beforeRaw.shortPrice };
                 const s = { w: before.w, cost: before.cost, shortW: before.shortW, shortPrice: before.shortPrice };
                 if (f.t === 'in') {
-                    const inUnit = (f.total + (f.fee || 0)) / f.w;
-                    let inW = f.w;
-                    if (s.shortW < 0) {
-                        const cover = Math.min(inW, -s.shortW);
-                        s.shortW += cover;
-                        if (Math.abs(s.shortW) < 0.0001) s.shortW = 0;
-                        inW -= cover;
-                    }
+                    const inUnit = (f.total + (f.fee || 0)) / f.w; let inW = f.w;
+                    if (s.shortW < 0) { const cover = Math.min(inW, -s.shortW); s.shortW += cover; if (Math.abs(s.shortW) < 0.0001) s.shortW = 0; inW -= cover; }
                     if (inW > 0) { s.w += inW; s.cost += inW * inUnit; }
                 } else {
-                    let outW = f.w;
-                    const up = f.sale / f.w;
-                    if (s.w > 0) {
-                        const consume = Math.min(outW, s.w);
-                        const ac = s.cost / s.w;
-                        s.w -= consume; s.cost -= ac * consume; outW -= consume;
-                    }
-                    if (outW > 0) {
-                        if (s.shortW === 0) { s.shortW = -outW; s.shortPrice = up; }
-                        else { const osc = s.shortW * s.shortPrice; const nsc = -outW * up; const tsw = s.shortW - outW; const tsc = osc + nsc; s.shortPrice = tsc / tsw; s.shortW = tsw; }
-                    }
+                    let outW = f.w; const up = f.sale / f.w;
+                    if (s.w > 0) { const consume = Math.min(outW, s.w); const ac = s.cost / s.w; s.w -= consume; s.cost -= ac * consume; outW -= consume; }
+                    if (outW > 0) { if (s.shortW === 0) { s.shortW = -outW; s.shortPrice = up; } else { const osc = s.shortW * s.shortPrice; const nsc = -outW * up; const tsw = s.shortW - outW; const tsc = osc + nsc; s.shortPrice = tsc / tsw; s.shortW = tsw; } }
                 }
                 const after = { w: s.w, cost: s.cost, shortW: s.shortW, shortPrice: s.shortPrice };
                 stockState[key] = after;
@@ -2161,91 +2394,35 @@
             const displayItems = replay.slice().reverse();
             const data = [];
             displayItems.forEach((item, index) => {
-                const f = item.flow;
-                const before = item.before; const after = item.after;
-                const deltaW = (f.t === 'in' ? f.w : -f.w);
-                const beforeTotalStock = before.w + before.shortW;
-                const afterTotalStock = after.w + after.shortW;
-                const deltaStr = (deltaW >= 0 ? '+' : '') + deltaW.toFixed(2);
-                const stockChangeStr = `${beforeTotalStock.toFixed(2)}g → (${deltaStr}g) ${afterTotalStock.toFixed(2)}g`;
+                const f = item.flow; const before = item.before; const after = item.after;
+                const deltaW = (f.t === 'in' ? f.w : -f.w); const beforeTotalStock = before.w + before.shortW; const afterTotalStock = after.w + after.shortW;
+                const deltaStr = (deltaW >= 0 ? '+' : '') + deltaW.toFixed(2); const stockChangeStr = `${beforeTotalStock.toFixed(2)}g → (${deltaStr}g) ${afterTotalStock.toFixed(2)}g`;
                 let unitPrice = ''; let costPrice = ''; let profitStr = '0.00'; let profitDetail = '';
                 if (f.t === 'in') {
-                    const inUnit = (f.total + (f.fee || 0)) / f.w;
-                    unitPrice = inUnit.toFixed(2); costPrice = inUnit.toFixed(2);
-                    profitStr = (f.margin || 0).toFixed(2);
+                    const inUnit = (f.total + (f.fee || 0)) / f.w; unitPrice = inUnit.toFixed(2); costPrice = inUnit.toFixed(2); profitStr = (f.margin || 0).toFixed(2);
                     const coverW = Math.min(f.w, Math.abs(before.shortW));
-                    if (coverW > 0.001) {
-                        const coverProfit = (before.shortPrice - inUnit) * coverW;
-                        const newStockW = f.w - coverW;
-                        profitDetail = `冲销 ${coverW.toFixed(2)}g × (欠货均价 ${before.shortPrice.toFixed(2)} − 本进价 ${inUnit.toFixed(2)}) = +${coverProfit.toFixed(2)}`;
-                        if (newStockW > 0.001) profitDetail += `；新增库存 ${newStockW.toFixed(2)}g 进入仓库`;
-                    } else {
-                        profitDetail = `纯入库，无利润（进入库存，等出库时结算）`;
-                    }
+                    if (coverW > 0.001) { const coverProfit = (before.shortPrice - inUnit) * coverW; const newStockW = f.w - coverW; profitDetail = `冲销 ${coverW.toFixed(2)}g × (欠货均价 ${before.shortPrice.toFixed(2)} − 本进价 ${inUnit.toFixed(2)}) = +${coverProfit.toFixed(2)}`; if (newStockW > 0.001) profitDetail += `；新增库存 ${newStockW.toFixed(2)}g 进入仓库`; }
+                    else { profitDetail = `纯入库，无利润（进入库存，等出库时结算）`; }
                 } else {
-                    const up = f.sale / f.w;
-                    unitPrice = up.toFixed(2);
-                    const beforeAvgCost = before.w > 0 ? before.cost / before.w : 0;
-                    costPrice = beforeAvgCost > 0 ? beforeAvgCost.toFixed(2) : '-';
-                    profitStr = (f.margin || 0).toFixed(2);
-                    const consumedPos = Math.max(0, Math.min(f.w, before.w));
-                    const shortPart = Math.max(0, f.w - consumedPos);
-                    const profitOnPos = consumedPos * (up - beforeAvgCost);
-                    const parts = [];
-                    if (consumedPos > 0.001) parts.push(`正库存 ${consumedPos.toFixed(2)}g × (${up.toFixed(2)} − ${beforeAvgCost.toFixed(2)}) = +${profitOnPos.toFixed(2)}`);
-                    if (shortPart > 0.001) parts.push(`超卖 ${shortPart.toFixed(2)}g（无成本，利润 0）`);
-                    if (parts.length === 0) parts.push(`无正库存可消耗，利润 0`);
-                    profitDetail = parts.join('；');
+                    const up = f.sale / f.w; unitPrice = up.toFixed(2); const beforeAvgCost = before.w > 0 ? before.cost / before.w : 0; costPrice = beforeAvgCost > 0 ? beforeAvgCost.toFixed(2) : '-'; profitStr = (f.margin || 0).toFixed(2);
+                    const consumedPos = Math.max(0, Math.min(f.w, before.w)); const shortPart = Math.max(0, f.w - consumedPos); const profitOnPos = consumedPos * (up - beforeAvgCost);
+                    const parts = []; if (consumedPos > 0.001) parts.push(`正库存 ${consumedPos.toFixed(2)}g × (${up.toFixed(2)} − ${beforeAvgCost.toFixed(2)}) = +${profitOnPos.toFixed(2)}`); if (shortPart > 0.001) parts.push(`超卖 ${shortPart.toFixed(2)}g（无成本，利润 0）`); if (parts.length === 0) parts.push(`无正库存可消耗，利润 0`); profitDetail = parts.join('；');
                 }
-                const amount = f.t === 'in' ? f.total : f.sale;
-                const amountStr = (amount || 0).toFixed(2);
-                const paid = (f.payPaid || 0).toFixed(2);
-                const remain = (f.payRemain || 0).toFixed(2);
-                let payDetail = '';
-                if (f.payDetail && f.payDetail.length) payDetail = f.payDetail.map(p => p.ch + '¥' + (p.amt || 0).toFixed(2)).join(';');
+                const amount = f.t === 'in' ? f.total : f.sale; const amountStr = (amount || 0).toFixed(2); const paid = (f.payPaid || 0).toFixed(2); const remain = (f.payRemain || 0).toFixed(2);
+                let payDetail = ''; if (f.payDetail && f.payDetail.length) payDetail = f.payDetail.map(p => p.ch + '¥' + (p.amt || 0).toFixed(2)).join(';');
                 const customer = f.t === 'in' ? f.cus : f.buyer;
-                data.push({
-                    '#': index + 1, '创建时间': f.time || '', '最后修改': f.lastModified || '',
-                    '单号': f.no || '', '类型': f.t === 'in' ? '入库' : '出库',
-                    '品类': f.cat || '', '品名': f.name || '',
-                    '变化克重': deltaStr + 'g', '库存变化': stockChangeStr,
-                    '售价': unitPrice, '成本价': costPrice,
-                    '金额': amountStr, '利润': profitStr, '利润说明': profitDetail,
-                    '客户': customer || '', '电话': f.tel || '', '身份证': f.idNo || '',
-                    '付款': payDetail, '实付': paid, '欠款': remain, '备注': f.note || ''
-                });
+                data.push({ '#': index + 1, '创建时间': f.time || '', '最后修改': f.lastModified || '', '单号': f.no || '', '类型': f.t === 'in' ? '入库' : '出库', '品类': f.cat || '', '品名': f.name || '', '变化克重': deltaStr + 'g', '库存变化': stockChangeStr, '售价': unitPrice, '成本价': costPrice, '金额': amountStr, '利润': profitStr, '利润说明': profitDetail, '客户': customer || '', '电话': f.tel || '', '身份证': f.idNo || '', '付款': payDetail, '实付': paid, '欠款': remain, '备注': f.note || '' });
             });
-            const totalAmount = data.reduce((s, r) => s + parseFloat(r['金额'] || 0), 0);
-            const totalPaid = data.reduce((s, r) => s + parseFloat(r['实付'] || 0), 0);
-            const totalRemain = data.reduce((s, r) => s + parseFloat(r['欠款'] || 0), 0);
-            const totalProfit = data.reduce((s, r) => s + parseFloat(r['利润'] || 0), 0);
+            const totalAmount = data.reduce((s, r) => s + parseFloat(r['金额'] || 0), 0); const totalPaid = data.reduce((s, r) => s + parseFloat(r['实付'] || 0), 0); const totalRemain = data.reduce((s, r) => s + parseFloat(r['欠款'] || 0), 0); const totalProfit = data.reduce((s, r) => s + parseFloat(r['利润'] || 0), 0);
             data.push({ '#': '合计', '创建时间': '', '最后修改': '', '单号': '', '类型': '', '品类': '', '品名': '', '变化克重': '', '库存变化': '', '售价': '', '成本价': '', '金额': totalAmount.toFixed(2), '利润': totalProfit.toFixed(2), '利润说明': '出库利润 + 入库补货利润 全部合计', '客户': '', '电话': '', '身份证': '', '付款': '', '实付': totalPaid.toFixed(2), '欠款': totalRemain.toFixed(2), '备注': '' });
             const summary = {};
-            currentFlowArr.forEach(f => {
-                if (f.t !== 'out') return;
-                const key = f.cat + '|' + f.name;
-                if (!summary[key]) summary[key] = { cat: f.cat, name: f.name, w: 0, sale: 0, cost: 0, profit: 0 };
-                summary[key].w += f.w || 0; summary[key].sale += f.sale || 0;
-                summary[key].cost += f.cost || 0; summary[key].profit += f.margin || 0;
-            });
-            currentFlowArr.forEach(f => {
-                if (f.t !== 'in' || !f.margin || Math.abs(f.margin) < 0.001) return;
-                const key = f.cat + '|' + f.name;
-                if (!summary[key]) summary[key] = { cat: f.cat, name: f.name, w: 0, sale: 0, cost: 0, profit: 0 };
-                summary[key].profit += f.margin;
-            });
-            const summaryData = Object.values(summary).sort((a, b) => b.profit - a.profit).map(s => ({
-                '品类': s.cat, '品名': s.name, '出库克重(g)': s.w.toFixed(2),
-                '销售额(元)': s.sale.toFixed(2), '出库成本(元)': s.cost.toFixed(2),
-                '总利润(含补货)(元)': s.profit.toFixed(2),
-                '毛利率(%)': s.sale > 0 ? (s.profit / s.sale * 100).toFixed(1) : '0.0'
-            }));
+            currentFlowArr.forEach(f => { if (f.t !== 'out') return; const key = f.cat + '|' + f.name; if (!summary[key]) summary[key] = { cat: f.cat, name: f.name, w: 0, sale: 0, cost: 0, profit: 0 }; summary[key].w += f.w || 0; summary[key].sale += f.sale || 0; summary[key].cost += f.cost || 0; summary[key].profit += f.margin || 0; });
+            currentFlowArr.forEach(f => { if (f.t !== 'in' || !f.margin || Math.abs(f.margin) < 0.001) return; const key = f.cat + '|' + f.name; if (!summary[key]) summary[key] = { cat: f.cat, name: f.name, w: 0, sale: 0, cost: 0, profit: 0 }; summary[key].profit += f.margin; });
+            const summaryData = Object.values(summary).sort((a, b) => b.profit - a.profit).map(s => ({ '品类': s.cat, '品名': s.name, '出库克重(g)': s.w.toFixed(2), '销售额(元)': s.sale.toFixed(2), '出库成本(元)': s.cost.toFixed(2), '总利润(含补货)(元)': s.profit.toFixed(2), '毛利率(%)': s.sale > 0 ? (s.profit / s.sale * 100).toFixed(1) : '0.0' }));
             const wb = XLSX.utils.book_new();
-            const ws1 = XLSX.utils.json_to_sheet(data);
-            ws1['!cols'] = [{ wch: 6 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 25 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 65 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 16 }];
+            const ws1 = XLSX.utils.json_to_sheet(data); ws1['!cols'] = [{ wch: 6 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 25 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 65 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 16 }];
             XLSX.utils.book_append_sheet(wb, ws1, '流水明细');
-            const ws2 = XLSX.utils.json_to_sheet(summaryData);
-            ws2['!cols'] = [{ wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 12 }];
+            const ws2 = XLSX.utils.json_to_sheet(summaryData); ws2['!cols'] = [{ wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 12 }];
             XLSX.utils.book_append_sheet(wb, ws2, '利润汇总');
             XLSX.writeFile(wb, `交易流水_${todayStr()}.xlsx`);
             playBeep(true); showAlertModal('提示', '流水导出成功（含利润说明 + 利润汇总两张表）');
@@ -2256,38 +2433,28 @@
             const reader = new FileReader();
             reader.onload = async function(e) {
                 try {
-                    const wb = XLSX.read(e.target.result, { type: 'array' });
-                    const ws = wb.Sheets[wb.SheetNames[0]];
-                    const rows = XLSX.utils.sheet_to_json(ws);
+                    const wb = XLSX.read(e.target.result, { type: 'array' }); const ws = wb.Sheets[wb.SheetNames[0]]; const rows = XLSX.utils.sheet_to_json(ws);
                     if (!rows || !rows.length) { playBeep(false); await showAlertModal('提示', '文件为空或格式不正确'); return; }
                     let imported = 0;
                     for (const row of rows) {
-                        const no = row['单号'] || ''; const time = row['创建时间'] || '';
-                        let t = row['类型'] || ''; t = t.includes('入库') ? 'in' : t.includes('出库') ? 'out' : '';
+                        const no = row['单号'] || ''; const time = row['创建时间'] || ''; let t = row['类型'] || ''; t = t.includes('入库') ? 'in' : t.includes('出库') ? 'out' : '';
                         if (!no || !t || !time) continue;
-                        const cat = row['品类'] || ''; const name = row['品名'] || '';
-                        const delta = row['变化克重'] || '';
-                        let w = 0; if (delta) w = parseNumber(delta);
+                        const cat = row['品类'] || ''; const name = row['品名'] || ''; const delta = row['变化克重'] || ''; let w = 0; if (delta) w = parseNumber(delta);
                         if (!w) { const changeStr = row['库存变化'] || ''; const wMatch = changeStr.match(/\(([+-]?[\d.]+)g\)/); if (wMatch) w = parseFloat(wMatch[1]) || 0; }
-                        const amount = parseNumber(row['金额'] || 0);
-                        const customer = row['客户'] || ''; const tel = row['电话'] || ''; const idNo = row['身份证'] || ''; const note = row['备注'] || '';
-                        const payDetail = row['付款'] ? [{ ch: '导入', amt: parseNumber(row['实付']) || 0 }] : [];
-                        const paid = parseNumber(row['实付']) || 0; const remain = parseNumber(row['欠款']) || 0;
+                        const amount = parseNumber(row['金额'] || 0); const customer = row['客户'] || ''; const tel = row['电话'] || ''; const idNo = row['身份证'] || ''; const note = row['备注'] || '';
+                        const payDetail = row['付款'] ? [{ ch: '导入', amt: parseNumber(row['实付']) || 0 }] : []; const paid = parseNumber(row['实付']) || 0; const remain = parseNumber(row['欠款']) || 0;
                         const flow = { id: genId(), no: no, t: t, cat: cat, name: name, w: Math.abs(w), q: 1, total: t === 'in' ? amount : 0, sale: t === 'out' ? amount : 0, cus: t === 'in' ? customer : '', buyer: t === 'out' ? customer : '', tel: tel, idNo: idNo, note: note, time: time, lastModified: nowFullStr(), payDetail: payDetail, payPaid: paid, payRemain: remain, cost: 0, margin: 0, fee: 0, src: '导入' };
-                        D.flow.push(flow); imported++;
+                        D.flow.push(flow); imported++; await pushFlowToCloud(flow);
                     }
-                    saveData(); refreshAll(); await updateSnapshot(); playBeep(true);
+                    selectedStockNames = []; updateStockNameDisplay(); saveData(); refreshAll(); playBeep(true);
                     await showAlertModal('提示', `成功导入 ${imported} 条流水记录。`);
                 } catch (err) { playBeep(false); await showAlertModal('错误', '导入失败：' + err.message); }
             };
             reader.readAsArrayBuffer(file); event.target.value = '';
         }
         function downBak() {
-            const json = JSON.stringify(D, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `ERP备份_${todayStr()}.json`; a.click();
-            URL.revokeObjectURL(url); playBeep(true); showAlertModal('提示', 'JSON 备份下载完成');
+            const json = JSON.stringify(D, null, 2); const blob = new Blob([json], { type: 'application/json' }); const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `ERP备份_${todayStr()}.json`; a.click(); URL.revokeObjectURL(url); playBeep(true); showAlertModal('提示', 'JSON 备份下载完成');
         }
         async function restoreBak(event) {
             const file = event.target.files[0]; if (!file) return;
@@ -2296,7 +2463,7 @@
                 try {
                     const data = JSON.parse(e.target.result);
                     Object.keys(data).forEach(key => { if (key in D) D[key] = data[key]; });
-                    saveData(); refreshAll(); await updateSnapshot(); playBeep(true);
+                    selectedStockNames = []; updateStockNameDisplay(); saveData(); refreshAll(); playBeep(true);
                     await showAlertModal('提示', '备份恢复成功！');
                 } catch (err) { playBeep(false); await showAlertModal('错误', '恢复失败：' + err.message); }
             };
@@ -2307,88 +2474,45 @@
             const sortedAsc = currentFlowArr.slice().sort((a, b) => { if (a.time !== b.time) return a.time.localeCompare(b.time); return a.id - b.id; });
             const stockState = {};
             const replay = sortedAsc.map(f => {
-                const key = f.cat + '|' + f.name;
-                const beforeRaw = stockState[key] || { w: 0, cost: 0, shortW: 0, shortPrice: 0 };
+                const key = f.cat + '|' + f.name; const beforeRaw = stockState[key] || { w: 0, cost: 0, shortW: 0, shortPrice: 0 };
                 const before = { w: beforeRaw.w, cost: beforeRaw.cost, shortW: beforeRaw.shortW, shortPrice: beforeRaw.shortPrice };
                 const s = { w: before.w, cost: before.cost, shortW: before.shortW, shortPrice: before.shortPrice };
                 if (f.t === 'in') {
-                    const inUnit = (f.total + (f.fee || 0)) / f.w;
-                    let inW = f.w;
-                    if (s.shortW < 0) {
-                        const cover = Math.min(inW, -s.shortW);
-                        s.shortW += cover;
-                        if (Math.abs(s.shortW) < 0.0001) s.shortW = 0;
-                        inW -= cover;
-                    }
+                    const inUnit = (f.total + (f.fee || 0)) / f.w; let inW = f.w;
+                    if (s.shortW < 0) { const cover = Math.min(inW, -s.shortW); s.shortW += cover; if (Math.abs(s.shortW) < 0.0001) s.shortW = 0; inW -= cover; }
                     if (inW > 0) { s.w += inW; s.cost += inW * inUnit; }
                 } else {
-                    let outW = f.w;
-                    const up = f.sale / f.w;
-                    if (s.w > 0) {
-                        const consume = Math.min(outW, s.w);
-                        const ac = s.cost / s.w;
-                        s.w -= consume; s.cost -= ac * consume; outW -= consume;
-                    }
-                    if (outW > 0) {
-                        if (s.shortW === 0) { s.shortW = -outW; s.shortPrice = up; }
-                        else { const osc = s.shortW * s.shortPrice; const nsc = -outW * up; const tsw = s.shortW - outW; const tsc = osc + nsc; s.shortPrice = tsc / tsw; s.shortW = tsw; }
-                    }
+                    let outW = f.w; const up = f.sale / f.w;
+                    if (s.w > 0) { const consume = Math.min(outW, s.w); const ac = s.cost / s.w; s.w -= consume; s.cost -= ac * consume; outW -= consume; }
+                    if (outW > 0) { if (s.shortW === 0) { s.shortW = -outW; s.shortPrice = up; } else { const osc = s.shortW * s.shortPrice; const nsc = -outW * up; const tsw = s.shortW - outW; const tsc = osc + nsc; s.shortPrice = tsc / tsw; s.shortW = tsw; } }
                 }
                 const after = { w: s.w, cost: s.cost, shortW: s.shortW, shortPrice: s.shortPrice };
-                stockState[key] = after;
-                return { flow: f, before: before, after: after };
+                stockState[key] = after; return { flow: f, before: before, after: after };
             });
             const displayItems = replay.slice().reverse();
             let csv = '序号,创建时间,最后修改,单号,类型,品类,品名,变化克重,库存变化,售价,成本价,金额,利润,利润说明,客户,电话,身份证,付款,实付,欠款,备注\n';
             displayItems.forEach((item, idx) => {
-                const f = item.flow;
-                const before = item.before; const after = item.after;
-                const deltaW = (f.t === 'in' ? f.w : -f.w);
-                const beforeTotalStock = before.w + before.shortW;
-                const afterTotalStock = after.w + after.shortW;
-                const deltaStr = (deltaW >= 0 ? '+' : '') + deltaW.toFixed(2);
-                const stockChangeStr = `${beforeTotalStock.toFixed(2)}g → (${deltaStr}g) ${afterTotalStock.toFixed(2)}g`;
+                const f = item.flow; const before = item.before; const after = item.after;
+                const deltaW = (f.t === 'in' ? f.w : -f.w); const beforeTotalStock = before.w + before.shortW; const afterTotalStock = after.w + after.shortW;
+                const deltaStr = (deltaW >= 0 ? '+' : '') + deltaW.toFixed(2); const stockChangeStr = `${beforeTotalStock.toFixed(2)}g → (${deltaStr}g) ${afterTotalStock.toFixed(2)}g`;
                 let unitPrice = ''; let costPrice = ''; let profitStr = '0.00'; let profitDetail = '';
                 if (f.t === 'in') {
-                    const inUnit = (f.total + (f.fee || 0)) / f.w;
-                    unitPrice = inUnit.toFixed(2); costPrice = inUnit.toFixed(2);
-                    profitStr = (f.margin || 0).toFixed(2);
+                    const inUnit = (f.total + (f.fee || 0)) / f.w; unitPrice = inUnit.toFixed(2); costPrice = inUnit.toFixed(2); profitStr = (f.margin || 0).toFixed(2);
                     const coverW = Math.min(f.w, Math.abs(before.shortW));
-                    if (coverW > 0.001) {
-                        const coverProfit = (before.shortPrice - inUnit) * coverW;
-                        const newStockW = f.w - coverW;
-                        profitDetail = `冲销 ${coverW.toFixed(2)}g × (欠货均价 ${before.shortPrice.toFixed(2)} − 本进价 ${inUnit.toFixed(2)}) = +${coverProfit.toFixed(2)}`;
-                        if (newStockW > 0.001) profitDetail += `；新增库存 ${newStockW.toFixed(2)}g 进入仓库`;
-                    } else {
-                        profitDetail = `纯入库，无利润`;
-                    }
+                    if (coverW > 0.001) { const coverProfit = (before.shortPrice - inUnit) * coverW; const newStockW = f.w - coverW; profitDetail = `冲销 ${coverW.toFixed(2)}g × (欠货均价 ${before.shortPrice.toFixed(2)} − 本进价 ${inUnit.toFixed(2)}) = +${coverProfit.toFixed(2)}`; if (newStockW > 0.001) profitDetail += `；新增库存 ${newStockW.toFixed(2)}g 进入仓库`; }
+                    else { profitDetail = `纯入库，无利润`; }
                 } else {
-                    const up = f.sale / f.w;
-                    unitPrice = up.toFixed(2);
-                    const beforeAvgCost = before.w > 0 ? before.cost / before.w : 0;
-                    costPrice = beforeAvgCost > 0 ? beforeAvgCost.toFixed(2) : '-';
-                    profitStr = (f.margin || 0).toFixed(2);
-                    const consumedPos = Math.max(0, Math.min(f.w, before.w));
-                    const shortPart = Math.max(0, f.w - consumedPos);
-                    const profitOnPos = consumedPos * (up - beforeAvgCost);
-                    const parts = [];
-                    if (consumedPos > 0.001) parts.push(`正库存 ${consumedPos.toFixed(2)}g × (${up.toFixed(2)} − ${beforeAvgCost.toFixed(2)}) = +${profitOnPos.toFixed(2)}`);
-                    if (shortPart > 0.001) parts.push(`超卖 ${shortPart.toFixed(2)}g（无成本，利润 0）`);
-                    if (parts.length === 0) parts.push(`无正库存，利润 0`);
-                    profitDetail = parts.join('；');
+                    const up = f.sale / f.w; unitPrice = up.toFixed(2); const beforeAvgCost = before.w > 0 ? before.cost / before.w : 0; costPrice = beforeAvgCost > 0 ? beforeAvgCost.toFixed(2) : '-'; profitStr = (f.margin || 0).toFixed(2);
+                    const consumedPos = Math.max(0, Math.min(f.w, before.w)); const shortPart = Math.max(0, f.w - consumedPos); const profitOnPos = consumedPos * (up - beforeAvgCost);
+                    const parts = []; if (consumedPos > 0.001) parts.push(`正库存 ${consumedPos.toFixed(2)}g × (${up.toFixed(2)} − ${beforeAvgCost.toFixed(2)}) = +${profitOnPos.toFixed(2)}`); if (shortPart > 0.001) parts.push(`超卖 ${shortPart.toFixed(2)}g（无成本，利润 0）`); if (parts.length === 0) parts.push(`无正库存，利润 0`); profitDetail = parts.join('；');
                 }
-                const amount = f.t === 'in' ? f.total : f.sale;
-                const amountStr = (amount || 0).toFixed(2);
-                const customer = f.t === 'in' ? f.cus : f.buyer;
-                let payDetail = '';
-                if (f.payDetail && f.payDetail.length) payDetail = f.payDetail.map(p => p.ch + '¥' + (p.amt || 0).toFixed(2)).join(';');
+                const amount = f.t === 'in' ? f.total : f.sale; const amountStr = (amount || 0).toFixed(2); const customer = f.t === 'in' ? f.cus : f.buyer;
+                let payDetail = ''; if (f.payDetail && f.payDetail.length) payDetail = f.payDetail.map(p => p.ch + '¥' + (p.amt || 0).toFixed(2)).join(';');
                 const line = [idx + 1, f.time || '', f.lastModified || '', f.no || '', f.t === 'in' ? '入库' : '出库', f.cat || '', f.name || '', deltaStr + 'g', stockChangeStr, unitPrice, costPrice, amountStr, profitStr, profitDetail, customer || '', f.tel || '', f.idNo || '', payDetail, (f.payPaid || 0).toFixed(2), (f.payRemain || 0).toFixed(2), f.note || ''].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',');
                 csv += line + '\n';
             });
-            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = `交易流水_${todayStr()}.csv`; a.click();
-            URL.revokeObjectURL(url); playBeep(true); showAlertModal('提示', 'CSV 导出完成（含成本价、利润说明）');
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = `交易流水_${todayStr()}.csv`; a.click(); URL.revokeObjectURL(url); playBeep(true); showAlertModal('提示', 'CSV 导出完成（含成本价、利润说明）');
         }
         async function forceSync() {
             if (editingId) { const ok = await showConfirmModal('提示', '当前正在编辑单据，同步将丢失未保存的修改。\n点击"确定"放弃修改并同步，点击"取消"继续编辑。', '确定', '取消'); if (!ok) return; clearEditingState(); }
@@ -2403,30 +2527,6 @@
             await updateSnapshot(); await pullFullState();
             updateSyncStatus('ok'); refreshStockAndDash();
         }
-        async function pullFullState() {
-            if (!sb) return;
-            try {
-                const { data, error } = await sb.from('shop_state').select('payload').eq('id', 1).single();
-                if (error) throw error;
-                if (data && data.payload) {
-                    const remote = JSON.parse(data.payload);
-                    const oldCats = D.cats; const oldSources = D.sources;
-                    D.prices = remote.prices || { gold: 0, silver: 0, plat: 0 };
-                    D.flow = remote.flow || []; D.cust = remote.cust || []; D.names = remote.names || [];
-                    D.cats = [...new Set([...oldCats, ...(remote.cats || [])])];
-                    D.sources = [...new Set([...oldSources, ...(remote.sources || [])])];
-                    D.payChannels = remote.payChannels || ['微信', '支付宝', '工商银行', '建设银行', '农业银行', '农商银行', '招商银行', '浦发银行', '兴业银行', '中国银行', '交通银行', '现金'];
-                    D._version = remote._version || 0;
-                    if (remote._lastSeqId) D._lastSeqId = remote._lastSeqId;
-                    if (remote.stockOrder) D.stockOrder = remote.stockOrder;
-                    if (remote.trash) D.trash = remote.trash;
-                    if (remote.interest) D.interest = remote.interest;
-                    saveData(); refreshAll();
-                    logSync('✅ 全量数据已加载 (版本 ' + D._version + ')', 'ok'); updateSyncStatus('ok');
-                    return true;
-                }
-            } catch (e) { logSync('⚠️ 全量拉取失败: ' + e.message, 'warn'); showErrorToast('同步失败：' + e.message, ''); return false; }
-        }
         function loadLocal() { loadData(); refreshAll(); populateFilterSelects(); logSync('🔄 本地已刷新', 'info'); }
         async function testConn() {
             if (!sb) { showErrorToast('Supabase 未初始化', ''); return; }
@@ -2436,8 +2536,7 @@
         function refreshStockAndDash() { renderStock(); renderDash(); }
         async function switchTab(name) {
             if (editingId) {
-                const isInEditing = document.getElementById('in').classList.contains('active');
-                const isOutEditing = document.getElementById('out').classList.contains('active');
+                const isInEditing = document.getElementById('in').classList.contains('active'); const isOutEditing = document.getElementById('out').classList.contains('active');
                 if ((isInEditing && name !== 'in') || (isOutEditing && name !== 'out')) {
                     const ok = await showConfirmModal('提示', '当前正在编辑单据，离开将丢失修改。\n点击"确定"放弃修改并切换，点击"取消"继续编辑。', '确定', '取消');
                     if (!ok) return; clearEditingState();
@@ -2467,31 +2566,31 @@
             document.getElementById('reportOutPanel').classList.toggle('active', type === 'out');
             document.getElementById('reportInPanel').classList.toggle('active', type === 'in');
             if (type === 'out') { reportOutCatCurrentPage = 1; reportOutCustCurrentPage = 1; renderReportOut(); }
-            else { reportInCatCurrentPage = 1; reportInCustCurrentPage = 1; renderReportIn(); }
+            else { reportInCatCurrentPage = 1; reportInNameCurrentPage = 1; reportInCustCurrentPage = 1; renderReportIn(); }
         }
         window.addEventListener('beforeunload', function(e) { if (editingId) { e.preventDefault(); e.returnValue = '您有未保存的修改，确定要离开吗？'; return e.returnValue; } });
         document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('inDate').value = todayStr();
-            document.getElementById('outDate').value = todayStr();
-            document.getElementById('goldP').value = D.prices.gold || '';
-            document.getElementById('silverP').value = D.prices.silver || '';
-            document.getElementById('platP').value = D.prices.plat || '';
-            document.getElementById('inW').addEventListener('input', calcInUnit);
-            document.getElementById('inTotal').addEventListener('input', calcInUnit);
+            document.getElementById('inDate').value = todayStr(); document.getElementById('outDate').value = todayStr();
+            document.getElementById('goldP').value = D.prices.gold || ''; document.getElementById('silverP').value = D.prices.silver || ''; document.getElementById('platP').value = D.prices.plat || '';
+            document.getElementById('inW').addEventListener('input', calcInUnit); document.getElementById('inTotal').addEventListener('input', calcInUnit);
             const outWEl = document.getElementById('outW'); if (outWEl) outWEl.addEventListener('blur', checkOutStock);
             refreshAll(); populateFilterSelects(); renderCatSelects();
             inLoadNames(); outLoadNames(); renderPayRows('in'); renderPayRows('out');
             renderSourceSelects(); renderTrash(); renderInterest();
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-                logSync('🚀 系统已启动 (导出含利润说明)', 'info');
+                logSync('🚀 系统已启动 (增量同步模式)', 'info');
                 pullFullState().then(() => { updateSyncStatus('ok'); logSync('✅ 数据已同步', 'ok'); refreshStockAndDash(); });
             } else {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#b33c2f;">❌ 未连接</span>';
                 logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
                 updateSyncStatus('fail');
             }
-            console.log('✅ 系统已启动');
+            console.log('✅ 系统已启动（增量同步模式）');
+        });
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('stockNameDropdown'); const box = document.getElementById('stockNameBox');
+            if (dropdown && box && !box.contains(e.target) && !dropdown.contains(e.target)) { dropdown.style.display = 'none'; box.classList.remove('open'); stockNameDropdownOpen = false; }
         });
         function subscribeRealtime() {}
         function startAutoSync() {}
