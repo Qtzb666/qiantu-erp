@@ -160,6 +160,8 @@
         .dropdown-item:hover { background: #f5f2ed; }
         .dropdown-item input[type="checkbox"] { width: 16px; height: 16px; margin: 0; cursor: pointer; accent-color: #d4a017; flex-shrink: 0; }
         .dropdown-item span { flex: 1; word-break: break-all; line-height: 1.4; }
+        .auto-save-hint { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(30,126,52,0.95); color: #fff; padding: 8px 20px; border-radius: 20px; font-size: 13px; z-index: 9998; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+        .auto-save-hint.show { opacity: 1; }
     </style>
 </head>
 <body>
@@ -568,6 +570,7 @@
         </div>
     </div>
     <div id="errorToast" class="error-toast"></div>
+    <div id="autoSaveHint" class="auto-save-hint">✅ 已自动同步</div>
 
     <script>
         function editTitle(id) {
@@ -608,6 +611,48 @@
         let editingId = null, editingBackup = null;
         let selectedStockNames = [];
         let stockNameDropdownOpen = false;
+
+        // ★ 自动同步机制
+        let autoPushTimer = null;
+        let autoPushInProgress = false;
+        function showAutoSaveHint() {
+            const hint = document.getElementById('autoSaveHint');
+            if (!hint) return;
+            hint.classList.add('show');
+            clearTimeout(hint._hideTimer);
+            hint._hideTimer = setTimeout(() => { hint.classList.remove('show'); }, 1800);
+        }
+        function autoPush(delay) {
+            if (!sb) return;
+            if (autoPushTimer) clearTimeout(autoPushTimer);
+            autoPushTimer = setTimeout(async () => {
+                autoPushTimer = null;
+                if (autoPushInProgress) return;
+                autoPushInProgress = true;
+                try {
+                    await updateSnapshot();
+                    logSync('✅ 自动同步完成（流水' + D.flow.length + '/客户' + D.cust.length + '/利息' + D.interest.length + '）', 'ok');
+                    showAutoSaveHint();
+                } catch (e) {
+                    logSync('⚠️ 自动同步失败: ' + e.message, 'warn');
+                } finally {
+                    autoPushInProgress = false;
+                }
+            }, delay || 800);
+        }
+        // 页面隐藏/关闭前强制推送
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden' && sb) {
+                if (autoPushTimer) { clearTimeout(autoPushTimer); autoPushTimer = null; }
+                if (!autoPushInProgress) {
+                    autoPushInProgress = true;
+                    updateSnapshot().finally(() => { autoPushInProgress = false; });
+                }
+            }
+        });
+        window.addEventListener('beforeunload', () => {
+            if (sb && autoPushTimer) { clearTimeout(autoPushTimer); updateSnapshot(); }
+        });
 
         function showErrorToast(msg, type) {
             const el = document.getElementById('errorToast'); if (!el) return;
@@ -870,13 +915,11 @@
             } catch (e) { console.error('置顶错误', e); showErrorToast('置顶失败：' + (e.message || e), ''); playBeep(false); }
         }
         
-        // ================= 同步核心逻辑（批量分块推送） =================
-
-        // 单条推送（录入/修改单条时用，快速）
+        // ================= 同步核心逻辑 =================
         async function pushFlowToCloud(flow) {
             if (!sb) return;
             try {
-                const { error } = await sb.from('shop_flow').upsert([{
+                await sb.from('shop_flow').upsert([{
                     id: flow.id, no: flow.no, t: flow.t, cat: flow.cat, name: flow.name,
                     w: flow.w, q: flow.q || 1, total: flow.total || 0, sale: flow.sale || 0,
                     fee: flow.fee || 0, costUnit: flow.costUnit || 0, cus: flow.cus || '', buyer: flow.buyer || '',
@@ -887,45 +930,19 @@
                     margin: flow.margin || 0, cost: flow.cost || 0,
                     deleted: false, updated_at: new Date().toISOString()
                 }]);
-                if (error) throw error;
             } catch (e) { console.error('推送流水失败:', e); }
-        }
-        async function pushCustToCloud(cust) {
-            if (!sb) return;
-            try {
-                await sb.from('shop_cust').upsert([{
-                    id: cust.id || genId(), name: cust.name || '', tel: cust.tel || '',
-                    idNo: cust.idNo || '', note: cust.note || '',
-                    updated_at: new Date().toISOString()
-                }]);
-            } catch (e) { console.error('推送客户失败:', e); }
-        }
-        async function pushInterestToCloud(interest) {
-            if (!sb) return;
-            try {
-                await sb.from('shop_interest').upsert([{
-                    id: interest.id, date: interest.date || '', mortgageName: interest.mortgageName || '',
-                    cust: interest.cust || '', amount: interest.amount || 0, payMethod: interest.payMethod || '',
-                    note: interest.note || '', createdAt: interest.createdAt || '',
-                    deleted: false, updated_at: new Date().toISOString()
-                }]);
-            } catch (e) { console.error('推送利息失败:', e); }
         }
         async function markDeletedInCloud(table, id) {
             if (!sb) return;
-            try {
-                await sb.from(table).update({ deleted: true, updated_at: new Date().toISOString() }).eq('id', id);
-            } catch (e) { console.error('删除标记失败:', e); }
+            try { await sb.from(table).update({ deleted: true, updated_at: new Date().toISOString() }).eq('id', id); }
+            catch (e) { console.error('删除标记失败:', e); }
         }
-
-        // ★ 全量推送：批量分块，一次推 50 条
+        // 全量推送（分批 50 条，防止请求过大）
         async function updateSnapshot() {
             D._version = (D._version || 0) + 1;
             saveData();
             if (!sb) return;
             const nowISO = new Date().toISOString();
-            
-            // 批量推送流水（分块 50 条）
             const CHUNK = 50;
             for (let i = 0; i < D.flow.length; i += CHUNK) {
                 const chunk = D.flow.slice(i, i + CHUNK);
@@ -943,9 +960,6 @@
                 const { error } = await sb.from('shop_flow').upsert(rows);
                 if (error) { logSync('⚠️ 流水推送失败: ' + error.message, 'warn'); throw error; }
             }
-            logSync(`✅ 流水推送完成（共 ${D.flow.length} 条）`, 'ok');
-
-            // 批量推送客户
             if (D.cust.length > 0) {
                 const rows = D.cust.map(c => ({
                     id: c.id || genId(), name: c.name || '', tel: c.tel || '',
@@ -953,10 +967,7 @@
                 }));
                 const { error } = await sb.from('shop_cust').upsert(rows);
                 if (error) logSync('⚠️ 客户推送失败: ' + error.message, 'warn');
-                else logSync(`✅ 客户推送完成（共 ${D.cust.length} 条）`, 'ok');
             }
-
-            // 批量推送利息
             if (D.interest.length > 0) {
                 const rows = D.interest.map(it => ({
                     id: it.id, date: it.date || '', mortgageName: it.mortgageName || '',
@@ -966,10 +977,7 @@
                 }));
                 const { error } = await sb.from('shop_interest').upsert(rows);
                 if (error) logSync('⚠️ 利息推送失败: ' + error.message, 'warn');
-                else logSync(`✅ 利息推送完成（共 ${D.interest.length} 条）`, 'ok');
             }
-
-            // 配置数据推到 shop_state
             try {
                 await sb.from('shop_state').upsert({
                     id: 1,
@@ -980,17 +988,14 @@
                     }),
                     updated_at: nowISO
                 });
-                logSync('✅ 配置数据推送完成', 'ok');
             } catch (e) { logSync('⚠️ 配置推送失败: ' + e.message, 'warn'); }
         }
-
-        // 增量拉取：只拉 lastSyncTime 之后云端变化的数据
+        // 增量拉取
         async function pullFullState() {
             if (!sb) return;
             try {
                 logSync('🔄 正在增量拉取数据...', 'info');
                 updateSyncStatus('syncing');
-
                 const { data: flows, error: flowErr } = await sb.from('shop_flow').select('*').gt('updated_at', lastSyncTime);
                 if (flowErr) throw flowErr;
                 const { data: custs, error: custErr } = await sb.from('shop_cust').select('*').gt('updated_at', lastSyncTime);
@@ -999,7 +1004,6 @@
                 if (intErr) throw intErr;
                 const { data: stateData, error: stateErr } = await sb.from('shop_state').select('payload').eq('id', 1).single();
                 if (stateErr && stateErr.code !== 'PGRST116') throw stateErr;
-
                 if (stateData && stateData.payload) {
                     const remote = JSON.parse(stateData.payload);
                     D.prices = remote.prices || D.prices;
@@ -1009,7 +1013,6 @@
                     D.stockOrder = remote.stockOrder || D.stockOrder;
                     if (remote._lastSeqId) D._lastSeqId = remote._lastSeqId;
                 }
-
                 let newFlowCount = 0, newCustCount = 0, newIntCount = 0;
                 (flows || []).forEach(remoteFlow => {
                     remoteFlow.payDetail = typeof remoteFlow.payDetail === 'string' ? JSON.parse(remoteFlow.payDetail) : remoteFlow.payDetail;
@@ -1035,17 +1038,14 @@
                         else { D.interest.push(remoteInt); newIntCount++; }
                     }
                 });
-
                 lastSyncTime = new Date().toISOString();
                 localStorage.setItem('last_sync_time', lastSyncTime);
-
                 saveData(); refreshAll();
                 logSync(`✅ 增量同步完成（新增流水${newFlowCount}条，客户${newCustCount}条，利息${newIntCount}条）`, 'ok');
                 updateSyncStatus('ok');
                 return true;
             } catch (e) {
                 logSync('⚠️ 同步失败: ' + e.message, 'warn');
-                showErrorToast('同步失败：' + e.message, '');
                 updateSyncStatus('fail');
                 return false;
             }
@@ -1230,14 +1230,14 @@
             const val = input.value.trim();
             if (!val) { playBeep(false); showAlertModal('提示', '请输入渠道名称'); return; }
             if (D.payChannels.includes(val)) { playBeep(false); showAlertModal('提示', '该渠道已存在'); return; }
-            D.payChannels.push(val); saveData(); updateSnapshot();
+            D.payChannels.push(val); saveData(); autoPush(300);
             document.querySelectorAll('.payCh').forEach(sel => { const cur = sel.value; sel.innerHTML = payOpts(); if ([...sel.options].some(o => o.value === cur)) sel.value = cur; });
             managePayChannels(); playBeep(true); showAlertModal('✅', '渠道已添加');
         }
         function removePayChannel(ch) {
             if (D.payChannels.length <= 1) { playBeep(false); showAlertModal('提示', '至少保留一个渠道'); return; }
             showConfirmModal('确认删除', `确定要删除渠道 <b>${escHtml(ch)}</b> 吗？<br><span class="text-muted">已有流水中的付款记录不受影响</span>`, '确定删除', '取消').then(ok => {
-                if (!ok) return; D.payChannels = D.payChannels.filter(c => c !== ch); saveData(); updateSnapshot();
+                if (!ok) return; D.payChannels = D.payChannels.filter(c => c !== ch); saveData(); autoPush(300);
                 document.querySelectorAll('.payCh').forEach(sel => { const cur = sel.value; sel.innerHTML = payOpts(); if ([...sel.options].some(o => o.value === cur)) sel.value = cur; });
                 managePayChannels(); playBeep(false); showAlertModal('提示', '渠道已删除');
             });
@@ -1743,8 +1743,9 @@
                         let finalCust = cust;
                         if (!finalCust) { const flow = D.flow.find(f => f.cat === '抵押' && f.name === mortgageName && f.t === 'in'); if (flow && flow.cus) finalCust = flow.cus; }
                         const newInterest = { id: genId(), date: date, mortgageName: mortgageName, cust: finalCust || '', amount: amount, payMethod: payMethod || '现金', note: note || '', createdAt: nowFullStr() };
-                        D.interest.push(newInterest); saveData(); await pushInterestToCloud(newInterest);
+                        D.interest.push(newInterest); saveData();
                         renderInterest(); renderDash(); closeModal(); playBeep(true);
+                        autoPush(300); // ★ 自动同步
                         await showAlertModal('✅', '付息记录已保存，已计入累计毛利');
                     } }
             ], false);
@@ -1761,8 +1762,10 @@
             showModal('🗑️ 删除付息记录', `<p>确定删除这笔付息记录吗？<br>抵押品：${escHtml(item.mortgageName)}<br>金额：${(item.amount||0).toFixed(2)} 元</p>`, [
                 { text: '取消', class: 'btn-gray', action: closeModal },
                 { text: '确认删除', class: 'btn-red', action: async () => {
-                        D.interest = D.interest.filter(i => i.id !== id); saveData(); await markDeletedInCloud('shop_interest', id);
+                        D.interest = D.interest.filter(i => i.id !== id); saveData();
                         renderInterest(); renderDash(); closeModal(); playBeep(false);
+                        await markDeletedInCloud('shop_interest', id);
+                        autoPush(300);
                         await showAlertModal('提示', '付息记录已删除');
                     } }
             ]);
@@ -1808,33 +1811,37 @@
             const item = D.trash[index]; if (!item) return;
             const ok = await showConfirmModal('确认恢复', `确定要恢复这条记录吗？<br><span class="text-muted">${escHtml(JSON.stringify(item).slice(0, 100))}</span>`, '恢复', '取消');
             if (!ok) return;
-            if (item.t) { const restoreItem = { ...item }; delete restoreItem.deletedAt; delete restoreItem._type; D.flow.push(restoreItem); await pushFlowToCloud(restoreItem); }
+            if (item.t) { const restoreItem = { ...item }; delete restoreItem.deletedAt; delete restoreItem._type; D.flow.push(restoreItem); }
             else if (item._type === 'cust' || (item.name && item.tel)) { D.cust.push({ id: genId(), name: item.name, tel: item.tel || '', idNo: item.idNo || '', note: item.note || '' }); }
             else if (item._type === 'cat') { if (!D.cats.includes(item)) D.cats.push(item); }
             else if (item._type === 'name') { if (!D.names.some(n => n.cat === item.cat && n.name === item.name)) D.names.push({ cat: item.cat, name: item.name }); }
-            else { const restoreItem = { ...item }; delete restoreItem.deletedAt; delete restoreItem._type; D.flow.push(restoreItem); await pushFlowToCloud(restoreItem); }
-            D.trash.splice(index, 1); saveData(); await updateSnapshot(); refreshAll(); renderTrash();
+            else { const restoreItem = { ...item }; delete restoreItem.deletedAt; delete restoreItem._type; D.flow.push(restoreItem); }
+            D.trash.splice(index, 1); saveData(); refreshAll(); renderTrash();
+            autoPush(300);
             showErrorToast('✅ 已恢复', 'success'); playBeep(true);
         }
         async function permanentDelete(index) {
             const item = D.trash[index]; if (!item) return;
             const ok = await showConfirmModal('⚠️ 永久删除', `确定要永久删除这条记录吗？<br><span class="text-danger">此操作不可撤销！</span>`, '永久删除', '取消');
             if (!ok) return;
-            D.trash.splice(index, 1); saveData(); await updateSnapshot(); renderTrash();
+            D.trash.splice(index, 1); saveData(); renderTrash();
             showErrorToast('🗑️ 已永久删除', ''); playBeep(false);
         }
         async function emptyTrash() {
             if (!D.trash || !D.trash.length) { showErrorToast('回收站已空', 'warning'); return; }
             const ok = await showConfirmModal('⚠️ 清空回收站', `确定要清空回收站吗？<br><span class="text-danger">所有 ${D.trash.length} 条记录将被永久删除，不可撤销！</span>`, '清空', '取消');
             if (!ok) return;
-            D.trash = []; saveData(); await updateSnapshot(); renderTrash();
+            D.trash = []; saveData(); renderTrash();
             showErrorToast('🗑️ 回收站已清空', ''); playBeep(false);
         }
         async function confirmDeleteFlow(id) {
             const f = D.flow.find(x => x.id === id); if (!f) return;
             const ok = await showConfirmModal('🗑️ 删除流水', `<p>单号：${escHtml(f.no)}<br>类型：${f.t==='in'?'入库':'出库'}<br>品名：${escHtml(f.name)}<br>克重：${f.w.toFixed(2)}g</p><p class="text-muted">将移入回收站，可随时恢复。</p>`, '移入回收站', '取消');
             if (!ok) return;
-            moveToTrash(f, 'flow'); refreshAll(); await markDeletedInCloud('shop_flow', f.id); renderTrash();
+            moveToTrash(f, 'flow'); refreshAll();
+            await markDeletedInCloud('shop_flow', f.id);
+            autoPush(300);
+            renderTrash();
             showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
         }
         async function confirmDeleteStock(name, cat) {
@@ -1844,6 +1851,7 @@
             if (!ok) return;
             for (const f of items) { moveToTrash(f, 'flow'); await markDeletedInCloud('shop_flow', f.id); }
             refreshAll(); renderTrash();
+            autoPush(300);
             showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
         }
         async function confirmDeleteCust(idx) {
@@ -1852,7 +1860,8 @@
             if (!ok) return;
             const item = { ...c, _type: 'cust' };
             D.cust.splice(idx, 1); D.trash.push({ ...item, deletedAt: nowFullStr() });
-            saveData(); await updateSnapshot(); renderCust(); renderTrash();
+            saveData(); renderCust(); renderTrash();
+            autoPush(300);
             showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
         }
         async function removeCat(c) {
@@ -1860,7 +1869,8 @@
             if (!ok) return;
             const item = { _type: 'cat', name: c };
             D.cats = D.cats.filter(x => x !== c); D.trash.push({ ...item, deletedAt: nowFullStr() });
-            saveData(); await updateSnapshot(); renderCats(); renderCatSelects(); populateFilterSelects(); renderTrash();
+            saveData(); renderCats(); renderCatSelects(); populateFilterSelects(); renderTrash();
+            autoPush(300);
             showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
         }
         function confirmDeleteName(cat, idx) {
@@ -1870,8 +1880,9 @@
                 { text: '移入回收站', class: 'btn-red', action: async () => {
                         const item = { _type: 'name', cat: cat, name: target.name };
                         D.names = D.names.filter(n => !(n.cat === cat && n.name === target.name));
-                        D.trash.push({ ...item, deletedAt: nowFullStr() }); saveData(); await updateSnapshot();
+                        D.trash.push({ ...item, deletedAt: nowFullStr() }); saveData();
                         renderNames(); populateFilterSelects(); renderTrash(); closeModal();
+                        autoPush(300);
                         showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
                     } }
             ]);
@@ -1891,8 +1902,9 @@
             const newSrc = prompt('请输入新的来源名称：'); if (newSrc === null || newSrc.trim() === '') return;
             const val = newSrc.trim();
             if (D.sources.includes(val)) { playBeep(false); await showAlertModal('提示', '该来源已存在，无需重复添加。'); return; }
-            D.sources.push(val); saveData(); await updateSnapshot(); renderSourceSelects();
-            document.getElementById('inSrc').value = val; playBeep(true); await showAlertModal('提示', '来源已添加');
+            D.sources.push(val); saveData(); renderSourceSelects();
+            document.getElementById('inSrc').value = val; playBeep(true); autoPush(300);
+            await showAlertModal('提示', '来源已添加');
         }
         function renderNames() {
             const cat = document.getElementById('nmCat').value;
@@ -1947,23 +1959,26 @@
             const n = document.getElementById('newCat').value.trim();
             if (!n) { playBeep(false); await showAlertModal('提示', '请输入品类名称'); return; }
             if (D.cats.includes(n)) { playBeep(false); await showAlertModal('提示', '该品类已存在'); return; }
-            D.cats.push(n); saveData(); await updateSnapshot(); renderCats(); renderCatSelects(); populateFilterSelects();
-            document.getElementById('newCat').value = ''; playBeep(true); await showAlertModal('✅', '品类已添加');
+            D.cats.push(n); saveData(); renderCats(); renderCatSelects(); populateFilterSelects();
+            document.getElementById('newCat').value = ''; playBeep(true); autoPush(300);
+            await showAlertModal('✅', '品类已添加');
         }
         async function addName() {
             const cat = document.getElementById('nmCat').value;
             const n = document.getElementById('newName').value.trim();
             if (!n) { playBeep(false); await showAlertModal('提示', '请输入品名'); return; }
             if (D.names.some(x => x.cat === cat && x.name === n)) { playBeep(false); await showAlertModal('提示', '该品类下品名已存在'); return; }
-            D.names.push({ cat: cat, name: n }); saveData(); await updateSnapshot(); renderNames(); populateFilterSelects();
-            document.getElementById('newName').value = ''; playBeep(true); await showAlertModal('✅', '品名已添加');
+            D.names.push({ cat: cat, name: n }); saveData(); renderNames(); populateFilterSelects();
+            document.getElementById('newName').value = ''; playBeep(true); autoPush(300);
+            await showAlertModal('✅', '品名已添加');
         }
         async function renameName(cat, idx) {
             const arr = D.names.filter(n => n.cat === cat); const target = arr[idx]; if (!target) return;
             const newName = document.getElementById('nmEdit_' + idx).value.trim();
             if (!newName) { playBeep(false); await showAlertModal('提示', '品名不能为空'); return; }
-            target.name = newName; saveData(); await updateSnapshot(); renderNames(); populateFilterSelects();
-            playBeep(true); await showAlertModal('提示', '品名已修改');
+            target.name = newName; saveData(); renderNames(); populateFilterSelects();
+            playBeep(true); autoPush(300);
+            await showAlertModal('提示', '品名已修改');
         }
         async function addCust() {
             const name = document.getElementById('custName').value.trim();
@@ -1974,10 +1989,11 @@
             let exist = D.cust.find(c => c.name === name || (tel && c.tel === tel) || (idNo && c.idNo === idNo));
             if (exist) { if (name) exist.name = name; if (tel) exist.tel = tel; if (idNo) exist.idNo = idNo; if (note) exist.note = note; }
             else { D.cust.push({ id: genId(), name, tel: tel || '', idNo: idNo || '', note: note || '' }); }
-            saveData(); await updateSnapshot(); renderCust();
+            saveData(); renderCust();
             document.getElementById('custName').value = ''; document.getElementById('custTel').value = '';
             document.getElementById('custId').value = ''; document.getElementById('custNote').value = '';
-            playBeep(true); await showAlertModal('提示', '客户已保存');
+            playBeep(true); autoPush(300);
+            await showAlertModal('提示', '客户已保存');
         }
         function editCust(idx) {
             const c = D.cust[idx]; if (!c) return;
@@ -1991,7 +2007,8 @@
                         const note = document.getElementById('editCustNote').value.trim();
                         if (!name && !tel) { playBeep(false); await showAlertModal('提示', '请至少填写姓名或电话'); return; }
                         c.name = name; c.tel = tel; c.idNo = idNo; c.note = note;
-                        saveData(); await updateSnapshot(); renderCust(); closeModal(); playBeep(true);
+                        saveData(); renderCust(); closeModal(); playBeep(true);
+                        autoPush(300);
                         await showAlertModal('提示', '客户已更新');
                     } }
             ]);
@@ -2024,7 +2041,8 @@
                         if (exist) { if (name) exist.name = name; if (tel) exist.tel = tel; if (idNo) exist.idNo = idNo; if (note) exist.note = note; updated++; }
                         else { D.cust.push({ id: genId(), name, tel, idNo, note }); added++; }
                     });
-                    saveData(); renderCust(); await updateSnapshot(); playBeep(true);
+                    saveData(); renderCust(); autoPush(300);
+                    playBeep(true);
                     await showAlertModal('提示', `导入完成！新增 ${added} 条，更新 ${updated} 条。`);
                 } catch (err) { playBeep(false); await showAlertModal('错误', '导入失败：' + err.message); }
             };
@@ -2182,7 +2200,7 @@
                     flow = { id: genId(), no, t: 'in', cat, name, w: w * q, q: q, total, fee, costUnit: inUnitPrice, cus, tel, idNo, src, note, rate, mortgageDate: mDate, payDetail: payDet.detail, payPaid: paidSum, payRemain: total - paidSum, time: dateVal + 'T' + nowTime(), lastModified: now, margin: coverProfit };
                 }
                 D.flow.push(flow); refreshAll();
-                await pushFlowToCloud(flow);
+                autoPush(300); // ★ 自动同步
                 document.getElementById('inMsg').innerHTML = `<span class="text-success">✅ 入库成功！单号 ${flow.no}</span>`;
                 clearInForm(); document.getElementById('btnCancelIn').style.display = 'none';
                 document.getElementById('btnDoIn').textContent = '✅ 确认入库';
@@ -2226,7 +2244,7 @@
                     flow = { id: genId(), no, t: 'out', cat, name, w: ow, q: oq, sale, buyer, tel, note, payDetail: payDet.detail, payPaid: paidSum, payRemain: sale - paidSum, time: dateVal + 'T' + nowTime(), lastModified: now, cost: 0, margin: 0 };
                 }
                 D.flow.push(flow); refreshAll();
-                await pushFlowToCloud(flow);
+                autoPush(300); // ★ 自动同步
                 document.getElementById('outMsg').innerHTML = `<span class="text-success">✅ 出库成功！单号 ${flow.no}</span>`;
                 clearOutForm(); document.getElementById('btnCancelOut').style.display = 'none';
                 document.getElementById('btnDoOut').textContent = '✅ 确认出库';
@@ -2324,7 +2342,8 @@
             const silver = parseFloat(document.getElementById('silverP').value) || 0;
             const plat = parseFloat(document.getElementById('platP').value) || 0;
             D.prices.gold = gold; D.prices.silver = silver; D.prices.plat = plat;
-            saveData(); await updateSnapshot(); renderDash(); renderStock(); playBeep(true);
+            saveData(); renderDash(); renderStock(); playBeep(true);
+            autoPush(300);
             await showAlertModal('✅ 金价已更新', `黄金 ${gold} 元/g，白银 ${silver} 元/g，铂金 ${plat} 元/g\n\n库存货值和浮动盈亏已重新计算。`);
         }
         function printIn() {
@@ -2495,9 +2514,10 @@
                         const amount = parseNumber(row['金额'] || 0); const customer = row['客户'] || ''; const tel = row['电话'] || ''; const idNo = row['身份证'] || ''; const note = row['备注'] || '';
                         const payDetail = row['付款'] ? [{ ch: '导入', amt: parseNumber(row['实付']) || 0 }] : []; const paid = parseNumber(row['实付']) || 0; const remain = parseNumber(row['欠款']) || 0;
                         const flow = { id: genId(), no: no, t: t, cat: cat, name: name, w: Math.abs(w), q: 1, total: t === 'in' ? amount : 0, sale: t === 'out' ? amount : 0, cus: t === 'in' ? customer : '', buyer: t === 'out' ? customer : '', tel: tel, idNo: idNo, note: note, time: time, lastModified: nowFullStr(), payDetail: payDetail, payPaid: paid, payRemain: remain, cost: 0, margin: 0, fee: 0, src: '导入' };
-                        D.flow.push(flow); imported++; await pushFlowToCloud(flow);
+                        D.flow.push(flow); imported++;
                     }
                     selectedStockNames = []; updateStockNameDisplay(); saveData(); refreshAll(); playBeep(true);
+                    autoPush(300);
                     await showAlertModal('提示', `成功导入 ${imported} 条流水记录。`);
                 } catch (err) { playBeep(false); await showAlertModal('错误', '导入失败：' + err.message); }
             };
@@ -2652,14 +2672,14 @@
             renderSourceSelects(); renderTrash(); renderInterest();
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-                logSync('🚀 系统已启动 (批量分块同步模式)', 'info');
+                logSync('🚀 系统已启动（自动同步模式）', 'info');
                 pullFullState().then(() => { updateSyncStatus('ok'); logSync('✅ 数据已同步', 'ok'); refreshStockAndDash(); });
             } else {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#b33c2f;">❌ 未连接</span>';
                 logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
                 updateSyncStatus('fail');
             }
-            console.log('✅ 系统已启动（批量分块同步模式）');
+            console.log('✅ 系统已启动（自动同步模式）');
         });
         document.addEventListener('click', function(e) {
             const dropdown = document.getElementById('stockNameDropdown'); const box = document.getElementById('stockNameBox');
