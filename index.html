@@ -870,41 +870,45 @@
             } catch (e) { console.error('置顶错误', e); showErrorToast('置顶失败：' + (e.message || e), ''); playBeep(false); }
         }
         
-        // ================= 增量推送 / 全量推送 =================
+        // ================= 同步核心逻辑（批量分块推送） =================
+
+        // 单条推送（录入/修改单条时用，快速）
         async function pushFlowToCloud(flow) {
             if (!sb) return;
             try {
-                const { error } = await sb.from('shop_flow').upsert({
+                const { error } = await sb.from('shop_flow').upsert([{
                     id: flow.id, no: flow.no, t: flow.t, cat: flow.cat, name: flow.name,
-                    w: flow.w, q: flow.q, total: flow.total, sale: flow.sale, fee: flow.fee,
-                    costUnit: flow.costUnit, cus: flow.cus, buyer: flow.buyer, tel: flow.tel,
-                    idNo: flow.idNo, src: flow.src, note: flow.note, rate: flow.rate,
-                    mortgageDate: flow.mortgageDate, payDetail: flow.payDetail, 
-                    payPaid: flow.payPaid, payRemain: flow.payRemain, time: flow.time,
-                    lastModified: flow.lastModified, margin: flow.margin, cost: flow.cost,
+                    w: flow.w, q: flow.q || 1, total: flow.total || 0, sale: flow.sale || 0,
+                    fee: flow.fee || 0, costUnit: flow.costUnit || 0, cus: flow.cus || '', buyer: flow.buyer || '',
+                    tel: flow.tel || '', idNo: flow.idNo || '', src: flow.src || '', note: flow.note || '',
+                    rate: flow.rate || 0, mortgageDate: flow.mortgageDate || '',
+                    payDetail: flow.payDetail || [], payPaid: flow.payPaid || 0, payRemain: flow.payRemain || 0,
+                    time: flow.time, lastModified: flow.lastModified || flow.time,
+                    margin: flow.margin || 0, cost: flow.cost || 0,
                     deleted: false, updated_at: new Date().toISOString()
-                });
+                }]);
                 if (error) throw error;
             } catch (e) { console.error('推送流水失败:', e); }
         }
         async function pushCustToCloud(cust) {
             if (!sb) return;
             try {
-                await sb.from('shop_cust').upsert({
-                    id: cust.id || genId(), name: cust.name, tel: cust.tel, idNo: cust.idNo, 
-                    note: cust.note, updated_at: new Date().toISOString()
-                });
+                await sb.from('shop_cust').upsert([{
+                    id: cust.id || genId(), name: cust.name || '', tel: cust.tel || '',
+                    idNo: cust.idNo || '', note: cust.note || '',
+                    updated_at: new Date().toISOString()
+                }]);
             } catch (e) { console.error('推送客户失败:', e); }
         }
         async function pushInterestToCloud(interest) {
             if (!sb) return;
             try {
-                await sb.from('shop_interest').upsert({
-                    id: interest.id, date: interest.date, mortgageName: interest.mortgageName,
-                    cust: interest.cust, amount: interest.amount, payMethod: interest.payMethod,
-                    note: interest.note, createdAt: interest.createdAt, 
+                await sb.from('shop_interest').upsert([{
+                    id: interest.id, date: interest.date || '', mortgageName: interest.mortgageName || '',
+                    cust: interest.cust || '', amount: interest.amount || 0, payMethod: interest.payMethod || '',
+                    note: interest.note || '', createdAt: interest.createdAt || '',
                     deleted: false, updated_at: new Date().toISOString()
-                });
+                }]);
             } catch (e) { console.error('推送利息失败:', e); }
         }
         async function markDeletedInCloud(table, id) {
@@ -914,17 +918,73 @@
             } catch (e) { console.error('删除标记失败:', e); }
         }
 
-        // ★ 全量推送：把所有本地数据推到云端（用于「立即同步」修复数据不一致）
+        // ★ 全量推送：批量分块，一次推 50 条
         async function updateSnapshot() {
             D._version = (D._version || 0) + 1;
             saveData();
             if (!sb) return;
-            for (const f of D.flow) await pushFlowToCloud(f);
-            for (const c of D.cust) await pushCustToCloud(c);
-            for (const i of D.interest) await pushInterestToCloud(i);
+            const nowISO = new Date().toISOString();
+            
+            // 批量推送流水（分块 50 条）
+            const CHUNK = 50;
+            for (let i = 0; i < D.flow.length; i += CHUNK) {
+                const chunk = D.flow.slice(i, i + CHUNK);
+                const rows = chunk.map(f => ({
+                    id: f.id, no: f.no, t: f.t, cat: f.cat, name: f.name,
+                    w: f.w, q: f.q || 1, total: f.total || 0, sale: f.sale || 0,
+                    fee: f.fee || 0, costUnit: f.costUnit || 0, cus: f.cus || '', buyer: f.buyer || '',
+                    tel: f.tel || '', idNo: f.idNo || '', src: f.src || '', note: f.note || '',
+                    rate: f.rate || 0, mortgageDate: f.mortgageDate || '',
+                    payDetail: f.payDetail || [], payPaid: f.payPaid || 0, payRemain: f.payRemain || 0,
+                    time: f.time, lastModified: f.lastModified || f.time,
+                    margin: f.margin || 0, cost: f.cost || 0,
+                    deleted: false, updated_at: nowISO
+                }));
+                const { error } = await sb.from('shop_flow').upsert(rows);
+                if (error) { logSync('⚠️ 流水推送失败: ' + error.message, 'warn'); throw error; }
+            }
+            logSync(`✅ 流水推送完成（共 ${D.flow.length} 条）`, 'ok');
+
+            // 批量推送客户
+            if (D.cust.length > 0) {
+                const rows = D.cust.map(c => ({
+                    id: c.id || genId(), name: c.name || '', tel: c.tel || '',
+                    idNo: c.idNo || '', note: c.note || '', updated_at: nowISO
+                }));
+                const { error } = await sb.from('shop_cust').upsert(rows);
+                if (error) logSync('⚠️ 客户推送失败: ' + error.message, 'warn');
+                else logSync(`✅ 客户推送完成（共 ${D.cust.length} 条）`, 'ok');
+            }
+
+            // 批量推送利息
+            if (D.interest.length > 0) {
+                const rows = D.interest.map(it => ({
+                    id: it.id, date: it.date || '', mortgageName: it.mortgageName || '',
+                    cust: it.cust || '', amount: it.amount || 0, payMethod: it.payMethod || '',
+                    note: it.note || '', createdAt: it.createdAt || '',
+                    deleted: false, updated_at: nowISO
+                }));
+                const { error } = await sb.from('shop_interest').upsert(rows);
+                if (error) logSync('⚠️ 利息推送失败: ' + error.message, 'warn');
+                else logSync(`✅ 利息推送完成（共 ${D.interest.length} 条）`, 'ok');
+            }
+
+            // 配置数据推到 shop_state
+            try {
+                await sb.from('shop_state').upsert({
+                    id: 1,
+                    payload: JSON.stringify({
+                        prices: D.prices, cats: D.cats, sources: D.sources,
+                        payChannels: D.payChannels, stockOrder: D.stockOrder,
+                        _lastSeqId: D._lastSeqId, _version: D._version
+                    }),
+                    updated_at: nowISO
+                });
+                logSync('✅ 配置数据推送完成', 'ok');
+            } catch (e) { logSync('⚠️ 配置推送失败: ' + e.message, 'warn'); }
         }
 
-        // ★ 增量拉取：只拉 lastSyncTime 之后云端变化的数据
+        // 增量拉取：只拉 lastSyncTime 之后云端变化的数据
         async function pullFullState() {
             if (!sb) return;
             try {
@@ -1749,7 +1809,7 @@
             const ok = await showConfirmModal('确认恢复', `确定要恢复这条记录吗？<br><span class="text-muted">${escHtml(JSON.stringify(item).slice(0, 100))}</span>`, '恢复', '取消');
             if (!ok) return;
             if (item.t) { const restoreItem = { ...item }; delete restoreItem.deletedAt; delete restoreItem._type; D.flow.push(restoreItem); await pushFlowToCloud(restoreItem); }
-            else if (item._type === 'cust' || (item.name && item.tel)) { D.cust.push({ name: item.name, tel: item.tel || '', idNo: item.idNo || '', note: item.note || '' }); }
+            else if (item._type === 'cust' || (item.name && item.tel)) { D.cust.push({ id: genId(), name: item.name, tel: item.tel || '', idNo: item.idNo || '', note: item.note || '' }); }
             else if (item._type === 'cat') { if (!D.cats.includes(item)) D.cats.push(item); }
             else if (item._type === 'name') { if (!D.names.some(n => n.cat === item.cat && n.name === item.name)) D.names.push({ cat: item.cat, name: item.name }); }
             else { const restoreItem = { ...item }; delete restoreItem.deletedAt; delete restoreItem._type; D.flow.push(restoreItem); await pushFlowToCloud(restoreItem); }
@@ -2521,7 +2581,15 @@
             logSync('🔄 全量同步（先推后拉）...', 'info'); 
             updateSyncStatus('syncing');
             logSync('📤 正在上传本地完整数据到云端...', 'info');
-            await updateSnapshot();
+            try {
+                await updateSnapshot();
+                logSync('✅ 本地数据已全部推送到云端', 'ok');
+            } catch (e) {
+                logSync('❌ 推送失败：' + e.message, 'fail');
+                showErrorToast('推送失败：' + e.message, '');
+                updateSyncStatus('fail');
+                return;
+            }
             lastSyncTime = '1970-01-01T00:00:00.000Z';
             localStorage.setItem('last_sync_time', lastSyncTime);
             logSync('📥 正在从云端拉取数据...', 'info');
@@ -2584,14 +2652,14 @@
             renderSourceSelects(); renderTrash(); renderInterest();
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
-                logSync('🚀 系统已启动 (增量同步模式)', 'info');
+                logSync('🚀 系统已启动 (批量分块同步模式)', 'info');
                 pullFullState().then(() => { updateSyncStatus('ok'); logSync('✅ 数据已同步', 'ok'); refreshStockAndDash(); });
             } else {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#b33c2f;">❌ 未连接</span>';
                 logSync('⚠️ Supabase 未初始化，请检查网络', 'warn');
                 updateSyncStatus('fail');
             }
-            console.log('✅ 系统已启动（增量同步模式）');
+            console.log('✅ 系统已启动（批量分块同步模式）');
         });
         document.addEventListener('click', function(e) {
             const dropdown = document.getElementById('stockNameDropdown'); const box = document.getElementById('stockNameBox');
