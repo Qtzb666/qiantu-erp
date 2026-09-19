@@ -205,7 +205,7 @@
                 <div class="stat-box"><div class="num" id="sVal">0</div><div class="lbl">库存货值 (总成本)</div></div>
                 <div class="stat-box"><div class="num" id="sPro">0</div><div class="lbl">浮动盈亏 (元)</div></div>
                 <div class="stat-box"><div class="num" id="sSale">0</div><div class="lbl">累计销售额</div></div>
-                <div class="stat-box"><div class="num" id="sMar" class="num clickable" onclick="showProfitDetail()" title="点击查看利润明细">0</div><div class="lbl">累计毛利（含利息）</div></div>
+                <div class="stat-box"><div class="num" id="sMar" class="num clickable" onclick="showProfitDetail()" title="点击查看历史月度利润">0</div><div class="lbl">本月毛利（含利息）</div></div>
             </div>
             <div class="row2 mt-8">
                 <button class="btn btn-gold" onclick="switchTab('in')">📥 录入库</button>
@@ -480,8 +480,18 @@
                     <div class="field"><label>备注</label><input id="custNote" placeholder="选填"></div>
                 </div>
                 <button class="btn btn-blue btn-sm" onclick="addCust()">+ 添加 / 更新</button>
+                <div class="filter-area mt-8" style="margin-top:12px;">
+                    <div class="field" style="flex:0 1 280px;"><label>🔍 搜索客户</label><input id="custSearchInput" type="text" placeholder="姓名 / 电话 / 身份证 / 备注" oninput="custCurrentPage=1;renderCust()"></div>
+                    <button class="btn btn-gray btn-sm" onclick="document.getElementById('custSearchInput').value='';custCurrentPage=1;renderCust()">清除搜索</button>
+                    <span class="filter-summary" id="custFilterSummary">共 0 条</span>
+                </div>
                 <div id="custList" class="flex mt-8" style="gap:4px;"></div>
-                <div style="font-size:12px; color:#999; margin-top:8px;">💡 点击「✏️」编辑客户 · 点击「×」删除 · 「🧹 去重客户」按姓名+电话自动合并重复</div>
+                <div class="pagination-bar no-print" id="custPagination">
+                    <div class="info" id="custPageInfo">共 <strong>0</strong> 条，第 <strong>0</strong> / <strong>0</strong> 页</div>
+                    <div class="controls" id="custPageControls"></div>
+                    <div class="jump-box"><span>跳转</span><input type="number" id="custJumpInput" min="1" value="1" onkeydown="if(event.key==='Enter'){custJumpToPage();}"><button class="btn btn-gray btn-sm" onclick="custJumpToPage()">确定</button></div>
+                </div>
+                <div style="font-size:12px; color:#999; margin-top:8px;">💡 点击「✏️」编辑客户 · 点击「×」删除 · 「🧹 去重客户」按姓名+电话自动合并重复 · 出入库时会自动补全/更新客户信息</div>
             </div>
         </div>
         <div id="interest" class="tab-panel">
@@ -607,8 +617,8 @@
             payChannels: ['微信', '支付宝', '工商银行', '建设银行', '农业银行', '农商银行', '招商银行', '浦发银行', '兴业银行', '中国银行', '交通银行', '现金'],
             trash: [], interest: [], _version: 0, _lastSeqId: 0, stockOrder: []
         };
-        const FLOW_PAGE_SIZE = 20, STOCK_PAGE_SIZE = 20, REPORT_PAGE_SIZE = 15, PROFIT_PAGE_SIZE = 15, INTEREST_PAGE_SIZE = 15;
-        let flowCurrentPage = 1, stockCurrentPage = 1, reportOutCatCurrentPage = 1, reportOutCustCurrentPage = 1, reportInCatCurrentPage = 1, reportInCustCurrentPage = 1, reportInNameCurrentPage = 1, profitCurrentPage = 1, interestCurrentPage = 1;
+        const FLOW_PAGE_SIZE = 20, STOCK_PAGE_SIZE = 20, REPORT_PAGE_SIZE = 15, PROFIT_PAGE_SIZE = 15, INTEREST_PAGE_SIZE = 15, CUST_PAGE_SIZE = 20;
+        let flowCurrentPage = 1, stockCurrentPage = 1, reportOutCatCurrentPage = 1, reportOutCustCurrentPage = 1, reportInCatCurrentPage = 1, reportInCustCurrentPage = 1, reportInNameCurrentPage = 1, profitCurrentPage = 1, interestCurrentPage = 1, custCurrentPage = 1;
         let flowFilter = 'all', flowCustomerFilter = null, flowCustomerFilterField = null, currentFlowArr = [], reportOutSort = 'sale';
         let reportOutGroupBy = 'cat';
         let reportInCustSort = 'cost';
@@ -684,12 +694,8 @@
         loadData();
         function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
         function escAttr(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
-        
-        // ★★★ 根据截图要求修改的部分 ★★★
         let _idCounter = 0;
         function genId() { return Date.now() * 1000 + (_idCounter++); }
-        // ★★★★★★★★★★★★★★★★★★★★★★★★★
-
         function pad(n) { return n < 10 ? '0' + n : '' + n; }
         function todayStr() { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
         function nowTime() { const d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
@@ -776,57 +782,168 @@
             }
             inLoadNames();
         }
-        function showProfitDetail() {
-            const profitFlows = D.flow.filter(f => f.margin !== undefined && f.margin !== null && Math.abs(f.margin) > 0.001)
-                .sort((a, b) => { if (a.time !== b.time) return b.time.localeCompare(a.time); return b.id - a.id; });
-            const profitWithInterest = profitFlows.concat(
-                D.interest.map(i => ({ id: 'interest_' + i.id, no: '利息收入', time: i.date || '', cat: '利息', name: i.mortgageName || '', w: 0, margin: i.amount || 0, buyer: i.cust || '', cus: i.cust || '' }))
-            ).sort((a, b) => { if (a.time !== b.time) return b.time.localeCompare(a.time); return 0; });
-            if (profitWithInterest.length === 0) { showAlertModal('📊 利润明细', '暂无利润记录'); return; }
-            const totalItems = profitWithInterest.length;
-            const totalPages = Math.max(1, Math.ceil(totalItems / PROFIT_PAGE_SIZE));
-            if (profitCurrentPage > totalPages) profitCurrentPage = totalPages;
-            if (profitCurrentPage < 1) profitCurrentPage = 1;
-            const start = (profitCurrentPage - 1) * PROFIT_PAGE_SIZE;
-            const end = Math.min(start + PROFIT_PAGE_SIZE, totalItems);
-            const pageItems = profitWithInterest.slice(start, end);
-            let html = `<div style="margin-bottom:10px;font-size:13px;color:#666;">共 <strong>${totalItems}</strong> 笔利润（含利息收入），合计 <strong style="color:#1e7e34;">${profitWithInterest.reduce((s,f) => s + f.margin, 0).toFixed(2)}</strong> 元</div>
-                <div style="overflow-x:auto;max-height:350px;overflow-y:auto;"><table><thead><tr><th>#</th><th>单号</th><th>日期</th><th>品类</th><th>品名</th><th>克重</th><th>利润</th><th>客户</th></tr></thead><tbody>`;
-            const globalStart = start;
-            pageItems.forEach((f, idx) => {
-                const seq = globalStart + idx + 1;
-                const dateStr = f.time ? f.time.replace('T', ' ').slice(0, 16) : f.time || '';
-                const profitColor = f.margin >= 0 ? '#1e7e34' : '#b33c2f';
-                const customer = f.buyer || f.cus || '-';
-                const isInterest = String(f.id).startsWith('interest_');
-                const weightDisplay = isInterest ? '-' : (f.w || 0).toFixed(2);
-                const noDisplay = isInterest ? '💰 利息' : escHtml(f.no);
-                html += `<tr><td>${seq}</td><td><b>${noDisplay}</b></td><td style="font-size:12px;">${escHtml(dateStr)}</td><td>${isInterest ? '💰利息' : escHtml(f.cat)}</td><td>${escHtml(f.name)}</td><td>${weightDisplay}</td><td style="color:${profitColor};font-weight:700;">${f.margin.toFixed(2)}</td><td>${escHtml(customer)}</td></tr>`;
+
+        // ========== 累计毛利：月度汇总 → 点击月份下钻明细 ==========
+        let profitMonthPage = 1;
+        let profitMonthCurrentMonth = null;
+        let profitMonthItems = [];
+
+        function buildMonthProfitItems(monthStr) {
+            const items = [];
+            D.flow.forEach(f => {
+                if ((f.time || '').slice(0, 7) !== monthStr) return;
+                if (f.margin === undefined || f.margin === null || Math.abs(f.margin) < 0.001) return;
+                items.push({
+                    id: f.id, no: f.no, t: f.t, time: f.time, cat: f.cat, name: f.name,
+                    w: f.w, margin: f.margin, customer: f.buyer || f.cus || '-'
+                });
             });
-            html += `</tbody></table></div>
-                <div class="pagination-bar" style="border-top:none;padding-top:8px;margin-top:4px;">
-                    <div class="info">第 ${totalItems > 0 ? profitCurrentPage : 0} / ${totalItems > 0 ? totalPages : 0} 页</div>
-                    <div class="controls">
-                        <button class="btn btn-gray btn-sm" onclick="profitGoPage(1)" ${profitCurrentPage<=1?'disabled':''}>首页</button>
-                        <button class="btn btn-gray btn-sm" onclick="profitGoPage(${profitCurrentPage-1})" ${profitCurrentPage<=1?'disabled':''}>上一页</button>
-                        <span style="padding:4px 8px;background:#f0ede8;border-radius:4px;font-weight:600;">${profitCurrentPage}</span>
-                        <button class="btn btn-gray btn-sm" onclick="profitGoPage(${profitCurrentPage+1})" ${profitCurrentPage>=totalPages?'disabled':''}>下一页</button>
-                        <button class="btn btn-gray btn-sm" onclick="profitGoPage(${totalPages})" ${profitCurrentPage>=totalPages?'disabled':''}>末页</button>
-                    </div>
-                    <div class="jump-box"><span>跳转</span><input type="number" id="profitJumpInput" min="1" max="${totalPages}" value="${profitCurrentPage}" style="width:48px;padding:3px 4px;border:1px solid #d5d0c8;border-radius:4px;text-align:center;font-size:13px;"><button class="btn btn-gray btn-sm" onclick="profitJumpToPage()">确定</button></div>
-                </div>`;
-            showModal('📊 累计毛利明细（含利息）', html, [{ text: '关闭', class: 'btn-gray', action: closeModal }], true);
+            D.interest.forEach(i => {
+                if ((i.date || '').slice(0, 7) !== monthStr) return;
+                if (!i.amount || Math.abs(i.amount) < 0.001) return;
+                items.push({
+                    id: 'interest_' + i.id, no: '利息收入', t: 'interest', time: i.date,
+                    cat: '利息', name: i.mortgageName || '', w: 0,
+                    margin: i.amount, customer: i.cust || '-'
+                });
+            });
+            items.sort((a, b) => { if (a.time !== b.time) return b.time.localeCompare(a.time); return 0; });
+            return items;
         }
-        function profitGoPage(page) {
-            const totalItems = D.flow.filter(f => f.margin !== undefined && Math.abs(f.margin) > 0.001).length + D.interest.length;
+
+        function showProfitDetail() {
+            const monthly = {};
+            D.flow.forEach(f => {
+                const m = (f.time || '').slice(0, 7);
+                if (!m || m.length < 7) return;
+                if (!monthly[m]) monthly[m] = { out: 0, in: 0, interest: 0 };
+                if (f.t === 'out') monthly[m].out += f.margin || 0;
+                else if (f.t === 'in') monthly[m].in += f.margin || 0;
+            });
+            D.interest.forEach(i => {
+                const m = (i.date || '').slice(0, 7);
+                if (!m || m.length < 7) return;
+                if (!monthly[m]) monthly[m] = { out: 0, in: 0, interest: 0 };
+                monthly[m].interest += i.amount || 0;
+            });
+            const months = Object.keys(monthly).sort().reverse();
+            if (months.length === 0) { showAlertModal('📊 利润明细', '暂无利润记录'); return; }
+            const grandTotal = months.reduce((s, m) => s + monthly[m].out + monthly[m].in + monthly[m].interest, 0);
+            const curMonthStr = new Date().getFullYear() + '-' + pad(new Date().getMonth() + 1);
+
+            let html = `<div style="margin-bottom:6px;font-size:13px;color:#666;">共 <strong>${months.length}</strong> 个月 · 累计毛利 <strong style="color:#1e7e34;">${grandTotal.toFixed(2)}</strong> 元</div>`;
+            html += `<div style="font-size:12px;color:#888;margin-bottom:8px;">💡 点击任意月份行可查看该月明细</div>`;
+            html += `<div style="overflow-x:auto;max-height:420px;overflow-y:auto;"><table><thead><tr><th>月份</th><th>出库利润</th><th>补货利润</th><th>利息收入</th><th>当月合计</th></tr></thead><tbody>`;
+
+            months.forEach(m => {
+                const d = monthly[m];
+                const total = d.out + d.in + d.interest;
+                const c = total >= 0 ? '#1e7e34' : '#b33c2f';
+                const isCur = m === curMonthStr;
+                const bg = isCur ? '#fffbe8' : '#ffffff';
+                const tag = isCur ? ' <span style="font-size:11px;color:#d4a017;">（本月）</span>' : '';
+                html += `<tr style="background:${bg};cursor:pointer;transition:0.15s;" ` +
+                        `onclick="showMonthProfitDetail('${m}')" ` +
+                        `onmouseover="this.style.background='#f5f2ed'" ` +
+                        `onmouseout="this.style.background='${bg}'">` +
+                        `<td><b>${m}</b>${tag} <span style="color:#0066cc;font-size:11px;">→ 明细</span></td>` +
+                        `<td style="color:#1e7e34;">${d.out.toFixed(2)}</td>` +
+                        `<td style="color:#1e7e34;">${d.in.toFixed(2)}</td>` +
+                        `<td style="color:#1e7e34;">${d.interest.toFixed(2)}</td>` +
+                        `<td style="font-weight:700;color:${c};">${total.toFixed(2)}</td></tr>`;
+            });
+            html += `</tbody></table></div>`;
+            html += `<div style="margin-top:14px;padding-top:10px;border-top:2px solid #d4a017;font-size:15px;font-weight:700;text-align:right;">累计毛利：<span style="color:#1e7e34;">${grandTotal.toFixed(2)} 元</span></div>`;
+
+            showModal('📊 历史月度利润', html, [{ text: '关闭', class: 'btn-gray', action: closeModal }], true);
+        }
+
+        function showMonthProfitDetail(monthStr) {
+            if (monthStr) {
+                profitMonthCurrentMonth = monthStr;
+                profitMonthPage = 1;
+                profitMonthItems = buildMonthProfitItems(monthStr);
+            }
+            const m = profitMonthCurrentMonth;
+            if (!m) { showProfitDetail(); return; }
+
+            const items = profitMonthItems;
+            const totalItems = items.length;
             const totalPages = Math.max(1, Math.ceil(totalItems / PROFIT_PAGE_SIZE));
-            if (page < 1) page = 1; if (page > totalPages) page = totalPages;
-            profitCurrentPage = page; showProfitDetail();
+            if (profitMonthPage > totalPages) profitMonthPage = totalPages;
+            if (profitMonthPage < 1) profitMonthPage = 1;
+            const start = (profitMonthPage - 1) * PROFIT_PAGE_SIZE;
+            const end = Math.min(start + PROFIT_PAGE_SIZE, totalItems);
+            const pageItems = items.slice(start, end);
+            const monthTotal = items.reduce((s, f) => s + f.margin, 0);
+
+            let html = `<div style="margin-bottom:10px;font-size:13px;color:#666;">月份：<strong style="color:#d4a017;">${m}</strong> · 共 <strong>${totalItems}</strong> 笔 · 合计 <strong style="color:${monthTotal >= 0 ? '#1e7e34' : '#b33c2f'};">${monthTotal.toFixed(2)}</strong> 元</div>`;
+            html += `<div style="overflow-x:auto;max-height:380px;overflow-y:auto;"><table><thead><tr><th>#</th><th>单号</th><th>日期</th><th>品类</th><th>品名</th><th>克重</th><th>利润</th><th>客户</th></tr></thead><tbody>`;
+
+            if (!pageItems.length) {
+                html += `<tr><td colspan="8" style="text-align:center;color:#999;">该月无利润记录</td></tr>`;
+            } else {
+                pageItems.forEach((f, idx) => {
+                    const seq = start + idx + 1;
+                    const dateStr = f.time ? String(f.time).replace('T', ' ').slice(0, 16) : '';
+                    const profitColor = f.margin >= 0 ? '#1e7e34' : '#b33c2f';
+                    const isInterest = String(f.id).startsWith('interest_');
+                    const weightDisplay = isInterest ? '-' : (f.w || 0).toFixed(2);
+                    const noDisplay = isInterest ? '💰 利息' : escHtml(f.no);
+                    let typeTag = '';
+                    if (f.t === 'in') typeTag = ' <span style="font-size:10px;color:#1e7e34;">入库</span>';
+                    else if (f.t === 'out') typeTag = ' <span style="font-size:10px;color:#b33c2f;">出库</span>';
+                    html += `<tr><td>${seq}</td>` +
+                            `<td><b>${noDisplay}</b>${typeTag}</td>` +
+                            `<td style="font-size:12px;">${escHtml(dateStr)}</td>` +
+                            `<td>${isInterest ? '💰利息' : escHtml(f.cat)}</td>` +
+                            `<td>${escHtml(f.name)}</td>` +
+                            `<td>${weightDisplay}</td>` +
+                            `<td style="color:${profitColor};font-weight:700;">${f.margin.toFixed(2)}</td>` +
+                            `<td>${escHtml(f.customer)}</td></tr>`;
+                });
+            }
+            html += `</tbody></table></div>`;
+
+            html += `<div class="pagination-bar" style="border-top:none;padding-top:8px;margin-top:4px;">
+                <div class="info">第 ${totalItems > 0 ? profitMonthPage : 0} / ${totalItems > 0 ? totalPages : 0} 页</div>
+                <div class="controls">
+                    <button class="btn btn-gray btn-sm" onclick="profitMonthGoPage(1)" ${profitMonthPage<=1?'disabled':''}>首页</button>
+                    <button class="btn btn-gray btn-sm" onclick="profitMonthGoPage(${profitMonthPage-1})" ${profitMonthPage<=1?'disabled':''}>上一页</button>
+                    <span style="padding:4px 8px;background:#f0ede8;border-radius:4px;font-weight:600;">${profitMonthPage}</span>
+                    <button class="btn btn-gray btn-sm" onclick="profitMonthGoPage(${profitMonthPage+1})" ${profitMonthPage>=totalPages?'disabled':''}>下一页</button>
+                    <button class="btn btn-gray btn-sm" onclick="profitMonthGoPage(${totalPages})" ${profitMonthPage>=totalPages?'disabled':''}>末页</button>
+                </div>
+                <div class="jump-box"><span>跳转</span><input type="number" id="profitMonthJumpInput" min="1" max="${totalPages}" value="${profitMonthPage}" style="width:48px;padding:3px 4px;border:1px solid #d5d0c8;border-radius:4px;text-align:center;font-size:13px;"><button class="btn btn-gray btn-sm" onclick="profitMonthJumpToPage()">确定</button></div>
+            </div>`;
+
+            showModal(`📊 ${m} 利润明细`, html, [
+                { text: '← 返回月度汇总', class: 'btn-gray', action: showProfitDetail },
+                { text: '关闭', class: 'btn-blue', action: closeModal }
+            ], true);
         }
-        function profitJumpToPage() {
-            const input = document.getElementById('profitJumpInput'); if (!input) return;
-            let page = parseInt(input.value); if (isNaN(page) || page < 1) page = 1; profitGoPage(page);
+
+        function profitMonthGoPage(page) {
+            if (!profitMonthCurrentMonth) return;
+            const totalPages = Math.max(1, Math.ceil(profitMonthItems.length / PROFIT_PAGE_SIZE));
+            if (page < 1) page = 1;
+            if (page > totalPages) page = totalPages;
+            profitMonthPage = page;
+            showMonthProfitDetail();
         }
+
+        function profitMonthJumpToPage() {
+            const input = document.getElementById('profitMonthJumpInput');
+            if (!input) return;
+            let page = parseInt(input.value);
+            if (isNaN(page) || page < 1) page = 1;
+            profitMonthGoPage(page);
+        }
+
+        function profitGoPage(page) { showProfitDetail(); }
+        function profitJumpToPage() { showProfitDetail(); }
+        // ========== 累计毛利结束 ==========
+
         function checkOutStock() {
             const cat = document.getElementById('outCat').value;
             const name = document.getElementById('outName').value;
@@ -923,7 +1040,7 @@
                 showErrorToast('✅ 已置顶到第一位', 'success'); playBeep(true);
             } catch (e) { console.error('置顶错误', e); showErrorToast('置顶失败：' + (e.message || e), ''); playBeep(false); }
         }
-        
+
         // ================= 同步核心逻辑 =================
         async function markDeletedInCloud(table, id) {
             if (!sb) return;
@@ -976,6 +1093,7 @@
                     payload: JSON.stringify({
                         prices: D.prices, cats: D.cats, sources: D.sources,
                         payChannels: D.payChannels, stockOrder: D.stockOrder,
+                        names: D.names,
                         _lastSeqId: D._lastSeqId, _version: D._version
                     }),
                     updated_at: nowISO
@@ -1009,9 +1127,15 @@
                     D.payChannels = remote.payChannels || D.payChannels;
                     D.stockOrder = remote.stockOrder || D.stockOrder;
                     if (remote._lastSeqId) D._lastSeqId = remote._lastSeqId;
+                    // ★ 优先用云端 names，如果云端有的话
+                    if (Array.isArray(remote.names) && remote.names.length > 0) {
+                        D.names = remote.names;
+                    }
                 }
+                // ★ 关键修复：从流水自动补全 D.names，杜绝品名丢失
+                rebuildNamesFromFlow();
                 saveData(); refreshAll();
-                logSync(`✅ 全量拉取完成（流水${D.flow.length}条，客户${D.cust.length}条，利息${D.interest.length}条）`, 'ok');
+                logSync(`✅ 全量拉取完成（流水${D.flow.length}条，客户${D.cust.length}条，利息${D.interest.length}条，品名${D.names.length}条）`, 'ok');
                 updateSyncStatus('ok');
                 isInitialLoadDone = true;
                 return true;
@@ -1022,10 +1146,30 @@
                 return false;
             }
         }
+        // ★ 从流水+库存补全品名表（不会删除已有，只是补充缺失）
+        function rebuildNamesFromFlow() {
+            if (!Array.isArray(D.names)) D.names = [];
+            const exist = new Set(D.names.map(n => (n.cat || '') + '|' + (n.name || '')));
+            D.flow.forEach(f => {
+                if (!f.cat || !f.name) return;
+                const key = f.cat + '|' + f.name;
+                if (!exist.has(key)) {
+                    D.names.push({ cat: f.cat, name: f.name });
+                    exist.add(key);
+                }
+            });
+            (D.stock || []).forEach(s => {
+                if (!s.cat || !s.name) return;
+                const key = s.cat + '|' + s.name;
+                if (!exist.has(key)) {
+                    D.names.push({ cat: s.cat, name: s.name });
+                    exist.add(key);
+                }
+            });
+        }
 
         function refreshAll() {
-            rebuildStock(); recalcMargins(); saveData(); renderAll(); renderStock(); renderDash(); renderTrash(); renderInterest();
-            setTimeout(() => { renderStock(); renderDash(); }, 50);
+            rebuildStock(); recalcMargins(); saveData(); renderAll();
         }
         function renderAll() {
             renderDash(); renderStock(); renderFlow(); renderReportOut(); renderReportIn(); renderCats(); renderNames(); renderCust();
@@ -1034,19 +1178,40 @@
             if (document.getElementById('in').classList.contains('active')) { inLoadNames(); renderPayRows('in'); toggleMortgageFields(); }
         }
         function renderDash() {
-            let marketVal = 0, totalCost = 0, sale = 0, mar = 0;
+            let marketVal = 0, totalCost = 0, sale = 0;
             D.stock.forEach(s => { const mp = s.cat === '黄金' ? D.prices.gold : (s.cat === '白银' ? D.prices.silver : (s.cat === '铂金' ? D.prices.plat : 0)); if (mp > 0) marketVal += s.w * mp; totalCost += s.totalCost || (s.w * s.cost); });
-            D.flow.forEach(f => { if (f.t === 'out') { sale += f.sale; mar += f.margin || 0; } });
-            D.flow.forEach(f => { if (f.t === 'in' && f.margin && Math.abs(f.margin) > 0.01) mar += f.margin; });
-            const interestTotal = D.interest.reduce((s, i) => s + (i.amount || 0), 0);
-            mar += interestTotal;
+            D.flow.forEach(f => { if (f.t === 'out') sale += f.sale || 0; });
+            const now = new Date();
+            const curMonthStart = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-01';
+            let monthMar = 0;
+            D.flow.forEach(f => {
+                const d = (f.time || '').slice(0, 10);
+                if (!d || d < curMonthStart) return;
+                if (f.t === 'out') monthMar += f.margin || 0;
+                else if (f.t === 'in') monthMar += f.margin || 0;
+            });
+            D.interest.forEach(i => { if ((i.date || '') >= curMonthStart) monthMar += i.amount || 0; });
+            let totalMar = 0;
+            D.flow.forEach(f => { if (f.t === 'out') totalMar += f.margin || 0; else if (f.t === 'in') totalMar += f.margin || 0; });
+            D.interest.forEach(i => totalMar += i.amount || 0);
             document.getElementById('sVal').textContent = totalCost.toFixed(2);
             document.getElementById('sPro').textContent = (marketVal - totalCost).toFixed(2);
             document.getElementById('sSale').textContent = sale.toFixed(2);
             const marEl = document.getElementById('sMar');
-            marEl.textContent = mar.toFixed(2);
-            if (Math.abs(mar) > 0.01) { marEl.style.cursor = 'pointer'; marEl.style.color = '#0066cc'; marEl.style.textDecoration = 'underline dotted'; marEl.onclick = showProfitDetail; marEl.title = '点击查看利润明细（含利息）'; }
-            else { marEl.style.cursor = 'default'; marEl.style.color = '#1a1a1a'; marEl.style.textDecoration = 'none'; marEl.onclick = null; marEl.title = ''; }
+            marEl.textContent = monthMar.toFixed(2);
+            if (Math.abs(totalMar) > 0.01) {
+                marEl.style.cursor = 'pointer';
+                marEl.style.color = '#0066cc';
+                marEl.style.textDecoration = 'underline dotted';
+                marEl.onclick = showProfitDetail;
+                marEl.title = '点击查看历史月度利润';
+            } else {
+                marEl.style.cursor = 'default';
+                marEl.style.color = '#1a1a1a';
+                marEl.style.textDecoration = 'none';
+                marEl.onclick = null;
+                marEl.title = '';
+            }
         }
         function toggleStockNameDropdown(e) {
             e.stopPropagation();
@@ -1386,35 +1551,32 @@
             const cbs = document.querySelectorAll('.flow-cb:checked');
             if (cbs.length === 0) { showErrorToast('请先勾选要删除的流水', 'warning'); return; }
             const ids = Array.from(cbs).map(cb => parseInt(cb.value));
-            const ok = await showConfirmModal('⚠️ 批量删除流水', `<p>确定要删除选中的 <b>${ids.length}</b> 条流水吗？</p><p class="text-danger">将从云端彻底删除，不可恢复！</p>`, '彻底删除', '取消');
+            const ok = await showConfirmModal('🗑️ 批量删除流水', `<p>确定要删除选中的 <b>${ids.length}</b> 条流水吗？</p><p class="text-muted">将移入回收站，可随时恢复。</p>`, '移入回收站', '取消');
             if (!ok) return;
+            const now = nowFullStr();
+            const toDelete = D.flow.filter(f => ids.includes(f.id));
+            toDelete.forEach(f => { D.trash.push({ ...f, _type: 'flow', deletedAt: now }); });
             D.flow = D.flow.filter(f => !ids.includes(f.id));
             saveData();
-            if (sb) {
-                for (const id of ids) {
-                    try { await sb.from('shop_flow').delete().eq('id', id); } catch (e) { console.error('云端删除失败:', e); }
-                }
-            }
+            for (const id of ids) { await markDeletedInCloud('shop_flow', id); }
             refreshAll(); renderTrash();
             updateFlowSelectedInfo();
-            showErrorToast(`✅ 已删除 ${ids.length} 条流水`, 'success'); playBeep(true);
+            showErrorToast(`✅ 已移入回收站 ${ids.length} 条流水`, 'success'); playBeep(true);
         }
         async function clearAllFlows() {
             if (!D.flow || D.flow.length === 0) { showErrorToast('当前没有流水', 'warning'); return; }
-            const ok = await showConfirmModal('⚠️ 清空所有流水', `<p>确定要清空所有 <b>${D.flow.length}</b> 条流水吗？</p><p class="text-danger">将从云端彻底删除，不可恢复！</p>`, '全部清空', '取消');
+            const ok = await showConfirmModal('⚠️ 清空所有流水', `<p>确定要清空所有 <b>${D.flow.length}</b> 条流水吗？</p><p class="text-muted">所有流水将移入回收站，可随时恢复。</p>`, '全部移入回收站', '取消');
             if (!ok) return;
             const count = D.flow.length;
+            const now = nowFullStr();
+            const ids = D.flow.map(f => f.id);
+            D.flow.forEach(f => { D.trash.push({ ...f, _type: 'flow', deletedAt: now }); });
             D.flow = [];
-            saveData(); refreshAll();
-            if (sb) {
-                logSync('🗑️ 正在从云端彻底删除所有流水...', 'info');
-                try {
-                    const { error } = await sb.from('shop_flow').delete().neq('id', 0);
-                    if (error) logSync('⚠️ 云端删除失败: ' + error.message, 'warn');
-                    else logSync('✅ 云端已清空所有流水', 'ok');
-                } catch (e) { logSync('⚠️ 云端删除异常: ' + e.message, 'warn'); }
-            }
-            showErrorToast(`✅ 已清空 ${count} 条流水`, 'success'); playBeep(true);
+            saveData(); refreshAll(); renderTrash();
+            logSync('🗑️ 正在把全部流水标记为已删除...', 'info');
+            for (const id of ids) { await markDeletedInCloud('shop_flow', id); }
+            logSync('✅ 已全部移入回收站', 'ok');
+            showErrorToast(`✅ 已移入回收站 ${count} 条流水`, 'success'); playBeep(true);
         }
         function flowGoPage(target) {
             let newPage = flowCurrentPage;
@@ -1766,7 +1928,7 @@
                         D.interest.push(newInterest); saveData();
                         renderInterest(); renderDash(); closeModal(); playBeep(true);
                         autoPush(300);
-                        await showAlertModal('✅', '付息记录已保存，已计入累计毛利');
+                        await showAlertModal('✅', '付息记录已保存，已计入本月毛利');
                     } }
             ], false);
             const nameSel = document.getElementById('interestMortgageName');
@@ -1844,6 +2006,7 @@
             const item = D.trash[index]; if (!item) return;
             const ok = await showConfirmModal('⚠️ 永久删除', `确定要永久删除这条记录吗？<br><span class="text-danger">此操作不可撤销！</span>`, '永久删除', '取消');
             if (!ok) return;
+            if (item.t && sb) { try { await sb.from('shop_flow').delete().eq('id', item.id); } catch (e) {} }
             D.trash.splice(index, 1); saveData(); renderTrash();
             showErrorToast('🗑️ 已永久删除', ''); playBeep(false);
         }
@@ -1851,28 +2014,35 @@
             if (!D.trash || !D.trash.length) { showErrorToast('回收站已空', 'warning'); return; }
             const ok = await showConfirmModal('⚠️ 清空回收站', `确定要清空回收站吗？<br><span class="text-danger">所有 ${D.trash.length} 条记录将被永久删除，不可撤销！</span>`, '清空', '取消');
             if (!ok) return;
+            const flowIds = D.trash.filter(t => t && t.t && t.id).map(t => t.id);
             D.trash = []; saveData(); renderTrash();
+            if (sb && flowIds.length > 0) {
+                for (const id of flowIds) { try { await sb.from('shop_flow').delete().eq('id', id); } catch (e) {} }
+            }
             showErrorToast('🗑️ 回收站已清空', ''); playBeep(false);
         }
         async function confirmDeleteFlow(id) {
             const f = D.flow.find(x => x.id === id); if (!f) return;
-            const ok = await showConfirmModal('🗑️ 删除流水', `<p>单号：${escHtml(f.no)}<br>类型：${f.t==='in'?'入库':'出库'}<br>品名：${escHtml(f.name)}<br>克重：${f.w.toFixed(2)}g</p><p class="text-danger">将从云端彻底删除，不可恢复！</p>`, '彻底删除', '取消');
+            const ok = await showConfirmModal('🗑️ 删除流水', `<p>单号：${escHtml(f.no)}<br>类型：${f.t==='in'?'入库':'出库'}<br>品名：${escHtml(f.name)}<br>克重：${f.w.toFixed(2)}g</p><p class="text-muted">将移入回收站，可随时恢复。</p>`, '移入回收站', '取消');
             if (!ok) return;
+            const trashItem = { ...f, _type: 'flow', deletedAt: nowFullStr() };
             D.flow = D.flow.filter(x => x.id !== id);
+            D.trash.push(trashItem);
             saveData(); refreshAll(); renderTrash();
-            if (sb) { try { await sb.from('shop_flow').delete().eq('id', id); } catch (e) {} }
-            showErrorToast('🗑️ 已从云端彻底删除', 'warning'); playBeep(false);
+            await markDeletedInCloud('shop_flow', id);
+            showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
         }
         async function confirmDeleteStock(name, cat) {
             const items = D.flow.filter(f => f.cat === cat && f.name === name);
             if (!items.length) { showErrorToast('未找到相关流水', 'warning'); return; }
-            const ok = await showConfirmModal('🗑️ 删除库存', `<p>品类：${escHtml(cat)}<br>品名：${escHtml(name)}<br>相关流水：${items.length} 条</p><p class="text-danger">将从云端彻底删除，不可恢复！</p>`, '彻底删除', '取消');
+            const ok = await showConfirmModal('🗑️ 删除库存', `<p>品类：${escHtml(cat)}<br>品名：${escHtml(name)}<br>相关流水：${items.length} 条</p><p class="text-muted">将移入回收站，可随时恢复。</p>`, '移入回收站', '取消');
             if (!ok) return;
-            const ids = items.map(f => f.id);
+            const now = nowFullStr();
+            items.forEach(f => { D.trash.push({ ...f, _type: 'flow', deletedAt: now }); });
             D.flow = D.flow.filter(f => !(f.cat === cat && f.name === name));
             saveData(); refreshAll(); renderTrash();
-            if (sb) { for (const id of ids) { try { await sb.from('shop_flow').delete().eq('id', id); } catch (e) {} } }
-            showErrorToast('🗑️ 已从云端彻底删除', 'warning'); playBeep(false);
+            for (const f of items) { await markDeletedInCloud('shop_flow', f.id); }
+            showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
         }
         async function confirmDeleteCust(idx) {
             const c = D.cust[idx]; if (!c) return;
@@ -1935,12 +2105,75 @@
         }
         function renderCust() {
             const el = document.getElementById('custList');
-            if (!D.cust || !D.cust.length) { el.innerHTML = '<span class="text-muted">暂无客户</span>'; return; }
-            el.innerHTML = D.cust.map((c, idx) => {
-                const idDisplay = c.idNo ? `<span style="color:#999;">${escHtml(c.idNo.slice(0,4))}****${escHtml(c.idNo.slice(-4))}</span>` : '';
+            if (!el) return;
+            const searchInput = document.getElementById('custSearchInput');
+            const kw = searchInput ? searchInput.value.trim().toLowerCase() : '';
+            let list = (D.cust || []).slice();
+            if (kw) {
+                list = list.filter(c =>
+                    (c.name && String(c.name).toLowerCase().includes(kw)) ||
+                    (c.tel && String(c.tel).toLowerCase().includes(kw)) ||
+                    (c.idNo && String(c.idNo).toLowerCase().includes(kw)) ||
+                    (c.note && String(c.note).toLowerCase().includes(kw))
+                );
+            }
+            const totalItems = list.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / CUST_PAGE_SIZE));
+            if (custCurrentPage > totalPages) custCurrentPage = totalPages;
+            if (custCurrentPage < 1) custCurrentPage = 1;
+            const start = (custCurrentPage - 1) * CUST_PAGE_SIZE;
+            const end = Math.min(start + CUST_PAGE_SIZE, totalItems);
+            const pageItems = list.slice(start, end);
+            const pageInfo = document.getElementById('custPageInfo');
+            if (pageInfo) pageInfo.innerHTML = `共 <strong>${totalItems}</strong> 条，第 <strong>${totalItems > 0 ? custCurrentPage : 0}</strong> / <strong>${totalItems > 0 ? totalPages : 0}</strong> 页`;
+            const controls = document.getElementById('custPageControls');
+            if (controls) {
+                let html = '';
+                html += `<button class="btn btn-gray btn-sm" onclick="custGoPage('first')" ${custCurrentPage<=1?'disabled':''}>首页</button>`;
+                html += `<button class="btn btn-gray btn-sm" onclick="custGoPage('prev')" ${custCurrentPage<=1?'disabled':''}>上一页</button>`;
+                const range = 2; let startPage = Math.max(1, custCurrentPage - range); let endPage = Math.min(totalPages, custCurrentPage + range);
+                if (startPage > 1) html += `<span class="page-num ellipsis">…</span>`;
+                for (let i = startPage; i <= endPage; i++) { const activeClass = i === custCurrentPage ? 'active' : ''; html += `<span class="page-num ${activeClass}" onclick="custGoPage(${i})">${i}</span>`; }
+                if (endPage < totalPages) html += `<span class="page-num ellipsis">…</span>`;
+                html += `<button class="btn btn-gray btn-sm" onclick="custGoPage('next')" ${custCurrentPage>=totalPages?'disabled':''}>下一页</button>`;
+                html += `<button class="btn btn-gray btn-sm" onclick="custGoPage('last')" ${custCurrentPage>=totalPages?'disabled':''}>末页</button>`;
+                controls.innerHTML = html;
+            }
+            const jumpInput = document.getElementById('custJumpInput');
+            if (jumpInput) { jumpInput.max = totalPages; jumpInput.value = custCurrentPage; }
+            const summary = document.getElementById('custFilterSummary');
+            if (summary) {
+                let txt = `共 ${totalItems} 条`;
+                if (kw) txt += ` | 🔍 搜索: "${kw}"`;
+                txt += ` | 第 ${totalItems > 0 ? custCurrentPage : 0}/${totalItems > 0 ? totalPages : 0} 页`;
+                summary.textContent = txt;
+            }
+            if (!pageItems.length) { el.innerHTML = '<span class="text-muted">暂无客户</span>'; return; }
+            el.innerHTML = pageItems.map(c => {
+                const idx = D.cust.indexOf(c);
+                const idDisplay = c.idNo ? `<span style="color:#999;">${escHtml(String(c.idNo).slice(0,4))}****${escHtml(String(c.idNo).slice(-4))}</span>` : '';
                 const noteDisplay = c.note ? `<span style="color:#999;">(${escHtml(c.note)})</span>` : '';
-                return `<span class="cust-tag"><b>${escHtml(c.name)}</b> <span style="color:#666;">${escHtml(c.tel||'')}</span> ${idDisplay} ${noteDisplay} <button class="btn-icon" onclick="event.stopPropagation();editCust(${idx})">✏️</button> <button class="btn-icon del" onclick="event.stopPropagation();confirmDeleteCust(${idx})">×</button></span>`;
+                return `<span class="cust-tag"><b>${escHtml(c.name || '(未命名)')}</b> <span style="color:#666;">${escHtml(c.tel||'')}</span> ${idDisplay} ${noteDisplay} <button class="btn-icon" onclick="event.stopPropagation();editCust(${idx})">✏️</button> <button class="btn-icon del" onclick="event.stopPropagation();confirmDeleteCust(${idx})">×</button></span>`;
             }).join('');
+        }
+        function custGoPage(target) {
+            let newPage = custCurrentPage;
+            if (target === 'first') newPage = 1;
+            else if (target === 'prev') newPage = custCurrentPage - 1;
+            else if (target === 'next') newPage = custCurrentPage + 1;
+            else if (target === 'last') { custCurrentPage = 99999; renderCust(); return; }
+            else if (typeof target === 'number') newPage = target;
+            if (newPage < 1) newPage = 1;
+            custCurrentPage = newPage;
+            renderCust();
+        }
+        function custJumpToPage() {
+            const input = document.getElementById('custJumpInput');
+            if (!input) return;
+            let page = parseInt(input.value);
+            if (isNaN(page) || page < 1) page = 1;
+            custCurrentPage = page;
+            renderCust();
         }
         function renderCatSelects() {
             ['inCat', 'outCat'].forEach(id => {
@@ -2000,7 +2233,6 @@
             playBeep(true); autoPush(300);
             await showAlertModal('提示', '品名已修改');
         }
-        // ★★★ 客户去重：清空云端表 → 全量推去重结果（彻底解决旧数据无 id 的问题） ★★★
         async function dedupeCust() {
             if (!D.cust || D.cust.length === 0) { showErrorToast('暂无客户', 'warning'); return; }
             const before = D.cust.length;
@@ -2065,7 +2297,9 @@
             let exist = D.cust.find(c => (name && c.name === name && (!tel || c.tel === tel)) || (tel && c.tel === tel) || (idNo && c.idNo === idNo));
             if (exist) { if (name) exist.name = name; if (tel) exist.tel = tel; if (idNo) exist.idNo = idNo; if (note) exist.note = note; }
             else { D.cust.push({ id: genId(), name, tel: tel || '', idNo: idNo || '', note: note || '' }); }
-            saveData(); renderCust();
+            saveData();
+            custCurrentPage = Math.max(1, Math.ceil(D.cust.length / CUST_PAGE_SIZE));
+            renderCust();
             document.getElementById('custName').value = ''; document.getElementById('custTel').value = '';
             document.getElementById('custId').value = ''; document.getElementById('custNote').value = '';
             playBeep(true); autoPush(300);
@@ -2162,27 +2396,35 @@
                 if (prefix === 'in') { const nameEl = document.getElementById('inCus'); if (nameEl && !nameEl.value) nameEl.value = c.name || ''; const telEl = document.getElementById('inTel'); if (telEl && !telEl.value) telEl.value = c.tel || ''; }
             }
         }
+        // ★ 已修改：从 D.names + D.flow + D.stock 三处合并品名，杜绝品名丢失
         function inLoadNames() {
             const cat = document.getElementById('inCat').value;
-            const sel = document.getElementById('inName'); const cur = sel.value;
-            sel.innerHTML = '<option value="">-- 选择或输入 --</option>';
+            const sel = document.getElementById('inName'); if (!sel) return;
+            const cur = sel.value;
             const names = new Set();
-            D.names.filter(n => n.cat === cat).forEach(n => names.add(n.name));
-            names.forEach(name => { sel.innerHTML += `<option value="${escAttr(name)}">${escHtml(name)}</option>`; });
+            D.names.forEach(n => { if (n.cat === cat && n.name) names.add(n.name); });
+            D.flow.forEach(f => { if (f.cat === cat && f.name) names.add(f.name); });
+            (D.stock || []).forEach(s => { if (s.cat === cat && s.name) names.add(s.name); });
+            const sortedNames = Array.from(names).sort();
+            const parts = ['<option value="">-- 选择或输入 --</option>'];
+            sortedNames.forEach(name => { parts.push(`<option value="${escAttr(name)}">${escHtml(name)}</option>`); });
+            sel.innerHTML = parts.join('');
             if (names.has(cur)) sel.value = cur;
         }
         function outLoadNames() {
             const cat = document.getElementById('outCat').value;
-            const sel = document.getElementById('outName');
-            sel.innerHTML = '<option value="">-- 选择 --</option>';
+            const sel = document.getElementById('outName'); if (!sel) return;
             const map = {};
-            D.names.filter(n => n.cat === cat).forEach(n => { if (!map[n.name]) map[n.name] = null; });
+            D.names.forEach(n => { if (n.cat === cat && n.name && !map[n.name]) map[n.name] = null; });
+            D.flow.forEach(f => { if (f.cat === cat && f.name && !(f.name in map)) map[f.name] = null; });
             D.stock.filter(s => s.cat === cat && s.w > 0).forEach(s => { map[s.name] = { w: s.w, q: s.q }; });
-            Object.keys(map).forEach(name => {
+            const parts = ['<option value="">-- 选择 --</option>'];
+            Object.keys(map).sort().forEach(name => {
                 const info = map[name];
-                if (info && info.w > 0) sel.innerHTML += `<option value="${escAttr(name)}" data-w="${info.w.toFixed(2)}" data-q="${info.q}">${escHtml(name)} (剩${info.w.toFixed(2)}g/${info.q}件)</option>`;
-                else sel.innerHTML += `<option value="${escAttr(name)}">${escHtml(name)}</option>`;
+                if (info && info.w > 0) parts.push(`<option value="${escAttr(name)}" data-w="${info.w.toFixed(2)}" data-q="${info.q}">${escHtml(name)} (剩${info.w.toFixed(2)}g/${info.q}件)</option>`);
+                else parts.push(`<option value="${escAttr(name)}">${escHtml(name)}</option>`);
             });
+            sel.innerHTML = parts.join('');
             outSel(); setTimeout(checkOutStock, 100);
         }
         function outSel() {
@@ -2219,11 +2461,25 @@
             document.getElementById('inUnit').value = w > 0 ? (t / w).toFixed(2) : '';
         }
         function upsertCust(name, tel, idNo) {
-            if (!name) return;
-            let exist = D.cust.find(c => (c.name === name && (!tel || c.tel === tel)) || (tel && c.tel === tel) || (idNo && c.idNo === idNo));
-            if (exist) { if (name) exist.name = name; if (tel) exist.tel = tel; if (idNo) exist.idNo = idNo; }
-            else { D.cust.push({ id: genId(), name, tel: tel || '', idNo: idNo || '', note: '', created: todayStr() }); }
-            saveData();
+            name = (name || '').trim();
+            tel = (tel || '').trim();
+            idNo = (idNo || '').trim();
+            if (!name && !tel && !idNo) return;
+            let exist = D.cust.find(c =>
+                (tel && c.tel && c.tel === tel) ||
+                (idNo && c.idNo && c.idNo === idNo) ||
+                (name && c.name === name && (!c.tel || !tel || c.tel === tel))
+            );
+            if (exist) {
+                let changed = false;
+                if (name && !exist.name) { exist.name = name; changed = true; }
+                if (tel && !exist.tel) { exist.tel = tel; changed = true; }
+                if (idNo && !exist.idNo) { exist.idNo = idNo; changed = true; }
+                if (changed) saveData();
+            } else {
+                D.cust.push({ id: genId(), name: name, tel: tel, idNo: idNo, note: '', created: todayStr() });
+                saveData();
+            }
         }
         async function doIn() {
             try {
@@ -2272,7 +2528,7 @@
                     const note = document.getElementById('inNote').value.trim();
                     const src = document.getElementById('inSrc').value;
                     if (!D.names.some(n => n.cat === cat && n.name === name)) D.names.push({ cat, name });
-                    if (cus) upsertCust(cus, tel, idNo);
+                    if (cus || tel || idNo) upsertCust(cus, tel, idNo);
                     flow = { id: genId(), no, t: 'in', cat, name, w: w * q, q: q, total, fee, costUnit: inUnitPrice, cus, tel, idNo, src, note, rate, mortgageDate: mDate, payDetail: payDet.detail, payPaid: paidSum, payRemain: total - paidSum, time: dateVal + 'T' + nowTime(), lastModified: now, margin: coverProfit };
                 }
                 D.flow.push(flow); refreshAll();
@@ -2316,7 +2572,7 @@
                     const buyer = document.getElementById('outBuyer').value.trim();
                     const tel = document.getElementById('outTel').value.trim();
                     const note = document.getElementById('outNote').value.trim();
-                    if (buyer) upsertCust(buyer, tel, '');
+                    if (buyer || tel) upsertCust(buyer, tel, '');
                     flow = { id: genId(), no, t: 'out', cat, name, w: ow, q: oq, sale, buyer, tel, note, payDetail: payDet.detail, payPaid: paidSum, payRemain: sale - paidSum, time: dateVal + 'T' + nowTime(), lastModified: now, cost: 0, margin: 0 };
                 }
                 D.flow.push(flow); refreshAll();
@@ -2595,6 +2851,7 @@
                         const flow = { id: genId(), no: no, t: t, cat: cat, name: name, w: Math.abs(w), q: 1, total: t === 'in' ? amount : 0, sale: t === 'out' ? amount : 0, cus: t === 'in' ? customer : '', buyer: t === 'out' ? customer : '', tel: tel, idNo: idNo, note: note, time: time, lastModified: nowFullStr(), payDetail: payDetail, payPaid: paid, payRemain: remain, cost: 0, margin: 0, fee: 0, src: '导入' };
                         D.flow.push(flow); imported++;
                     }
+                    rebuildNamesFromFlow();
                     selectedStockNames = []; updateStockNameDisplay(); saveData(); refreshAll(); playBeep(true);
                     autoPush(300);
                     let msg = `成功导入 ${imported} 条流水记录。`;
@@ -2615,6 +2872,7 @@
                 try {
                     const data = JSON.parse(e.target.result);
                     Object.keys(data).forEach(key => { if (key in D) D[key] = data[key]; });
+                    rebuildNamesFromFlow();
                     selectedStockNames = []; updateStockNameDisplay(); saveData(); refreshAll(); playBeep(true);
                     await showAlertModal('提示', '备份恢复成功！');
                 } catch (err) { playBeep(false); await showAlertModal('错误', '恢复失败：' + err.message); }
@@ -2699,7 +2957,7 @@
             showErrorToast('✅ 数据已完全同步', 'success');
             playBeep(true);
         }
-        function loadLocal() { loadData(); refreshAll(); populateFilterSelects(); logSync('🔄 本地已刷新', 'info'); }
+        function loadLocal() { loadData(); rebuildNamesFromFlow(); refreshAll(); populateFilterSelects(); logSync('🔄 本地已刷新', 'info'); }
         async function testConn() {
             if (!sb) { showErrorToast('Supabase 未初始化', ''); return; }
             try { const { data, error } = await sb.from('shop_state').select('id').limit(1); if (error) throw error; showErrorToast('✅ 连接成功', 'success'); playBeep(true); }
@@ -2725,7 +2983,7 @@
             else if (name === 'report') { renderReportOut(); renderReportIn(); }
             else if (name === 'cat') renderCats();
             else if (name === 'names') renderNames();
-            else if (name === 'cust') renderCust();
+            else if (name === 'cust') { renderCust(); }
             else if (name === 'interest') { renderInterest(); }
             else if (name === 'trash') renderTrash();
             else if (name === 'in') { renderCatSelects(); inLoadNames(); renderSourceSelects(); renderPayRows('in'); toggleMortgageFields(); }
@@ -2741,14 +2999,16 @@
             else { reportInCatCurrentPage = 1; reportInNameCurrentPage = 1; reportInCustCurrentPage = 1; renderReportIn(); }
         }
         window.addEventListener('beforeunload', function(e) { if (editingId) { e.preventDefault(); e.returnValue = '您有未保存的修改，确定要离开吗？'; return e.returnValue; } });
+        // ★ 初始化精简：refreshAll 已经跑完整套，只额外初始化未激活面板内的东西
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('inDate').value = todayStr(); document.getElementById('outDate').value = todayStr();
             document.getElementById('goldP').value = D.prices.gold || ''; document.getElementById('silverP').value = D.prices.silver || ''; document.getElementById('platP').value = D.prices.plat || '';
             document.getElementById('inW').addEventListener('input', calcInUnit); document.getElementById('inTotal').addEventListener('input', calcInUnit);
             const outWEl = document.getElementById('outW'); if (outWEl) outWEl.addEventListener('blur', checkOutStock);
-            refreshAll(); populateFilterSelects(); renderCatSelects();
-            inLoadNames(); outLoadNames(); renderPayRows('in'); renderPayRows('out');
-            renderSourceSelects(); renderTrash(); renderInterest();
+            rebuildNamesFromFlow();
+            refreshAll();
+            // 下面这些在 refreshAll 里已包含，但 in/out 面板未激活时不会跑，所以额外补一次
+            inLoadNames(); outLoadNames(); renderPayRows('in'); renderPayRows('out'); renderSourceSelects();
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
                 logSync('🚀 系统已启动（全量同步模式 · 打开即拉取云端最新）', 'info');
@@ -2764,6 +3024,39 @@
             const dropdown = document.getElementById('stockNameDropdown'); const box = document.getElementById('stockNameBox');
             if (dropdown && box && !box.contains(e.target) && !dropdown.contains(e.target)) { dropdown.style.display = 'none'; box.classList.remove('open'); stockNameDropdownOpen = false; }
         });
+
+        (function setupFormKeyboardNav() {
+            function getFormFocusables(container) {
+                const sel = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([readonly]):not([disabled]), select:not([disabled])';
+                return Array.from(container.querySelectorAll(sel)).filter(el => el.offsetParent !== null);
+            }
+            document.addEventListener('keydown', function(e) {
+                if (e.key !== 'Enter' && e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+                if (e.ctrlKey || e.metaKey || e.altKey) return;
+                const t = e.target;
+                if (!t || !t.tagName) return;
+                if (t.tagName !== 'INPUT' && t.tagName !== 'SELECT') return;
+                if (t.readOnly || t.disabled) return;
+                const panel = t.closest('#in, #out');
+                if (!panel) return;
+                if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && t.tagName === 'INPUT' && t.hasAttribute('list')) return;
+                e.preventDefault();
+                const els = getFormFocusables(panel);
+                if (!els.length) return;
+                const idx = els.indexOf(t);
+                if (idx === -1) return;
+                let nextIdx = (e.key === 'ArrowUp') ? idx - 1 : idx + 1;
+                if (nextIdx < 0) nextIdx = els.length - 1;
+                if (nextIdx >= els.length) nextIdx = 0;
+                const nextEl = els[nextIdx];
+                if (!nextEl) return;
+                nextEl.focus();
+                if (nextEl.tagName === 'INPUT' && (nextEl.type === 'text' || nextEl.type === 'number')) {
+                    try { nextEl.select(); } catch (_) {}
+                }
+            });
+        })();
+
         function subscribeRealtime() {}
         function startAutoSync() {}
     </script>
