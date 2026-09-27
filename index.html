@@ -20,10 +20,114 @@
         .sync-status .dot.offline { background: #f44; }
         .sync-status .dot.syncing { background: #ff0; animation: blink 0.5s infinite; }
         @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
-        nav { background: #fff; display: flex; flex-wrap: wrap; gap: 2px; padding: 6px 16px; border-bottom: 1px solid #ddd; position: sticky; top: 0; z-index: 20; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
-        nav button { background: transparent; border: none; padding: 8px 16px; cursor: pointer; font-size: 14px; border-radius: 6px; color: #555; transition: 0.15s; }
-        nav button:hover { background: #f0ede8; }
-        nav button.active { background: #d4a017; color: #fff; font-weight: 600; }
+
+        /* ============ 科技感导航栏 ============ */
+        nav {
+            background: linear-gradient(180deg, #0d1117 0%, #06090f 100%);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 8px 16px;
+            border-bottom: 1px solid rgba(212, 160, 23, 0.35);
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            box-shadow: 0 2px 24px rgba(0,0,0,0.55), inset 0 -1px 0 rgba(212,160,23,0.15);
+            overflow: hidden;
+        }
+        /* 网格底纹 */
+        nav::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(212,160,23,0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(212,160,23,0.035) 1px, transparent 1px);
+            background-size: 24px 24px;
+            pointer-events: none;
+            z-index: 0;
+        }
+        /* 顶部流光细线 */
+        nav::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(212,160,23,0.65), transparent);
+            pointer-events: none;
+            z-index: 0;
+        }
+        nav button {
+            position: relative;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(212,160,23,0.18);
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 13px;
+            border-radius: 5px;
+            color: #8ba0b8;
+            transition: all 0.25s ease;
+            letter-spacing: 0.4px;
+            font-weight: 500;
+            overflow: hidden;
+            z-index: 1;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+        /* 悬停时扫光 */
+        nav button::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -120%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(212,160,23,0.18), transparent);
+            transition: left 0.55s ease;
+            pointer-events: none;
+        }
+        nav button:hover::before { left: 120%; }
+        nav button:hover {
+            color: #ffd966;
+            border-color: rgba(212,160,23,0.55);
+            box-shadow: 0 0 14px rgba(212,160,23,0.22), inset 0 0 10px rgba(212,160,23,0.05);
+            transform: translateY(-1px);
+        }
+        nav button.active {
+            background: linear-gradient(180deg, rgba(212,160,23,0.28), rgba(212,160,23,0.08));
+            color: #ffd966;
+            font-weight: 600;
+            border-color: rgba(212,160,23,0.85);
+            box-shadow: 0 0 18px rgba(212,160,23,0.45), inset 0 0 14px rgba(212,160,23,0.12);
+            text-shadow: 0 0 10px rgba(255,217,102,0.55);
+        }
+        /* 激活项底部发光条 */
+        nav button.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 15%; right: 15%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #ffd966, transparent);
+            box-shadow: 0 0 8px #d4a017, 0 0 16px rgba(212,160,23,0.6);
+        }
+        /* 立即同步按钮专属脉冲 */
+        nav button[onclick*="forceSyncNow"] {
+            background: linear-gradient(135deg, #d4a017 0%, #b8860b 100%) !important;
+            color: #fff !important;
+            font-weight: 700 !important;
+            margin-left: auto !important;
+            border-color: rgba(255,217,102,0.7) !important;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            animation: syncPulse 2.2s ease-in-out infinite;
+        }
+        nav button[onclick*="forceSyncNow"]:hover {
+            transform: translateY(-1px) scale(1.02);
+            box-shadow: 0 0 25px rgba(212,160,23,0.85) !important;
+        }
+        @keyframes syncPulse {
+            0%, 100% { box-shadow: 0 0 12px rgba(212,160,23,0.45), inset 0 0 8px rgba(255,255,255,0.1); }
+            50% { box-shadow: 0 0 26px rgba(212,160,23,0.85), inset 0 0 12px rgba(255,255,255,0.18); }
+        }
+        /* ============ 导航栏结束 ============ */
+
         .container { max-width: 1200px; margin: 0 auto; padding: 12px 16px; }
         .tab-panel { display: none; background: #fff; padding: 20px 22px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-top: 14px; }
         .tab-panel.active { display: block; }
@@ -469,6 +573,7 @@
                     <span>👤 客户管理</span>
                     <div style="display:flex; flex-wrap:wrap; gap:6px;">
                         <button class="btn btn-red btn-sm" onclick="dedupeCust()">🧹 去重客户</button>
+                        <button class="btn btn-red btn-sm" onclick="resetCloudCust()" style="background:#8b0000;">🔄 重置云端客户</button>
                         <button class="btn btn-blue btn-sm" onclick="exportCustXLSX()">⬇ 导出客户</button>
                         <label class="btn-file-label" style="background:#1e7e34; padding:4px 14px; font-size:12px; border-radius:4px; font-weight:600; color:#fff; cursor:pointer;">⬆ 导入客户 <input type="file" accept=".xlsx,.xls" onchange="importCustXLSX(event)"></label>
                     </div>
@@ -491,7 +596,7 @@
                     <div class="controls" id="custPageControls"></div>
                     <div class="jump-box"><span>跳转</span><input type="number" id="custJumpInput" min="1" value="1" onkeydown="if(event.key==='Enter'){custJumpToPage();}"><button class="btn btn-gray btn-sm" onclick="custJumpToPage()">确定</button></div>
                 </div>
-                <div style="font-size:12px; color:#999; margin-top:8px;">💡 点击「✏️」编辑客户 · 点击「×」删除 · 「🧹 去重客户」按姓名+电话自动合并重复 · 出入库时会自动补全/更新客户信息</div>
+                <div style="font-size:12px; color:#999; margin-top:8px;">💡 点击「✏️」编辑客户 · 点击「×」删除 · 「🧹 去重客户」按姓名+电话自动合并重复 · 「🔄 重置云端客户」用本地覆盖云端（修复历史删除残留）</div>
             </div>
         </div>
         <div id="interest" class="tab-panel">
@@ -1127,12 +1232,10 @@
                     D.payChannels = remote.payChannels || D.payChannels;
                     D.stockOrder = remote.stockOrder || D.stockOrder;
                     if (remote._lastSeqId) D._lastSeqId = remote._lastSeqId;
-                    // ★ 优先用云端 names，如果云端有的话
                     if (Array.isArray(remote.names) && remote.names.length > 0) {
                         D.names = remote.names;
                     }
                 }
-                // ★ 关键修复：从流水自动补全 D.names，杜绝品名丢失
                 rebuildNamesFromFlow();
                 saveData(); refreshAll();
                 logSync(`✅ 全量拉取完成（流水${D.flow.length}条，客户${D.cust.length}条，利息${D.interest.length}条，品名${D.names.length}条）`, 'ok');
@@ -1146,7 +1249,6 @@
                 return false;
             }
         }
-        // ★ 从流水+库存补全品名表（不会删除已有，只是补充缺失）
         function rebuildNamesFromFlow() {
             if (!Array.isArray(D.names)) D.names = [];
             const exist = new Set(D.names.map(n => (n.cat || '') + '|' + (n.name || '')));
@@ -2044,15 +2146,50 @@
             for (const f of items) { await markDeletedInCloud('shop_flow', f.id); }
             showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
         }
+        // ★ 关键修复：删除客户时同步从云端物理删除，防止刷新后被拉回
         async function confirmDeleteCust(idx) {
             const c = D.cust[idx]; if (!c) return;
-            const ok = await showConfirmModal('🗑️ 删除客户', `<p>确定删除客户 <b>${escHtml(c.name)}</b> 吗？</p>`, '移入回收站', '取消');
+            const ok = await showConfirmModal('🗑️ 删除客户', `<p>确定删除客户 <b>${escHtml(c.name)}</b> 吗？</p><p class="text-muted">将移入回收站，可随时恢复。</p>`, '移入回收站', '取消');
             if (!ok) return;
             const item = { ...c, _type: 'cust' };
             D.cust.splice(idx, 1); D.trash.push({ ...item, deletedAt: nowFullStr() });
             saveData(); renderCust(); renderTrash();
+            // ★ 同步从云端物理删除，否则刷新会被 pullFullState 拉回来
+            if (sb && c.id) {
+                try { await sb.from('shop_cust').delete().eq('id', c.id); logSync('✅ 已从云端删除客户：' + (c.name || c.tel || c.id), 'ok'); }
+                catch (e) { console.error('云端删除客户失败:', e); logSync('⚠️ 云端删除客户失败: ' + e.message, 'warn'); }
+            }
             autoPush(300);
             showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
+        }
+        // ★ 新增：一次性重置云端客户（清空云端，用本地全量覆盖）
+        async function resetCloudCust() {
+            if (!sb) { showErrorToast('未连接云端', 'warning'); return; }
+            const ok = await showConfirmModal('🔄 重置云端客户',
+                `<p>将把云端客户表<b>完全清空</b>，然后用本地 <b>${D.cust.length}</b> 条客户覆盖。</p><p class="text-muted">用途：清理之前删除客户时遗留在云端的残留数据。</p><p class="text-danger">请确认本地这些客户都是您要保留的！</p>`,
+                '确认重置', '取消');
+            if (!ok) return;
+            logSync('🗑️ 正在清空云端客户表...', 'info');
+            try {
+                const { error: delErr } = await sb.from('shop_cust').delete().neq('id', 0);
+                if (delErr) { logSync('⚠️ 云端清空失败: ' + delErr.message, 'warn'); showErrorToast('清空失败：' + delErr.message, ''); return; }
+            } catch (e) { logSync('⚠️ 云端清空异常: ' + e.message, 'warn'); showErrorToast('清空失败：' + e.message, ''); return; }
+            logSync('📤 正在推送本地客户（共 ' + D.cust.length + ' 条）...', 'info');
+            try {
+                const nowISO = new Date().toISOString();
+                const rows = D.cust.map(c => ({ id: c.id || genId(), name: c.name || '', tel: c.tel || '', idNo: c.idNo || '', note: c.note || '', updated_at: nowISO }));
+                const CHUNK = 50;
+                for (let i = 0; i < rows.length; i += CHUNK) {
+                    const chunk = rows.slice(i, i + CHUNK);
+                    const { error: insErr } = await sb.from('shop_cust').insert(chunk);
+                    if (insErr) throw insErr;
+                }
+                logSync('✅ 云端客户已重置为本地数据', 'ok');
+                showErrorToast('✅ 云端客户已重置', 'success'); playBeep(true);
+            } catch (e) {
+                logSync('⚠️ 推送失败: ' + e.message, 'warn');
+                showErrorToast('推送失败：' + e.message, '');
+            }
         }
         async function removeCat(c) {
             const ok = await showConfirmModal('🗑️ 删除品类', `<p>确定删除品类 <b>${escHtml(c)}</b> 吗？<br><span class="text-muted">将移入回收站。</span>`, '移入回收站', '取消');
@@ -2396,7 +2533,6 @@
                 if (prefix === 'in') { const nameEl = document.getElementById('inCus'); if (nameEl && !nameEl.value) nameEl.value = c.name || ''; const telEl = document.getElementById('inTel'); if (telEl && !telEl.value) telEl.value = c.tel || ''; }
             }
         }
-        // ★ 已修改：从 D.names + D.flow + D.stock 三处合并品名，杜绝品名丢失
         function inLoadNames() {
             const cat = document.getElementById('inCat').value;
             const sel = document.getElementById('inName'); if (!sel) return;
@@ -2999,7 +3135,6 @@
             else { reportInCatCurrentPage = 1; reportInNameCurrentPage = 1; reportInCustCurrentPage = 1; renderReportIn(); }
         }
         window.addEventListener('beforeunload', function(e) { if (editingId) { e.preventDefault(); e.returnValue = '您有未保存的修改，确定要离开吗？'; return e.returnValue; } });
-        // ★ 初始化精简：refreshAll 已经跑完整套，只额外初始化未激活面板内的东西
         document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('inDate').value = todayStr(); document.getElementById('outDate').value = todayStr();
             document.getElementById('goldP').value = D.prices.gold || ''; document.getElementById('silverP').value = D.prices.silver || ''; document.getElementById('platP').value = D.prices.plat || '';
@@ -3007,7 +3142,6 @@
             const outWEl = document.getElementById('outW'); if (outWEl) outWEl.addEventListener('blur', checkOutStock);
             rebuildNamesFromFlow();
             refreshAll();
-            // 下面这些在 refreshAll 里已包含，但 in/out 面板未激活时不会跑，所以额外补一次
             inLoadNames(); outLoadNames(); renderPayRows('in'); renderPayRows('out'); renderSourceSelects();
             if (sb) {
                 document.getElementById('syncSt').innerHTML = '<span style="color:#1e7e34;">✅ 已就绪</span>';
