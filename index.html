@@ -3195,4 +3195,286 @@
         function startAutoSync() {}
     </script>
 </body>
+<!-- ====== 流水增强：批量改备注 + 只看有欠款 ====== -->
+<script>
+(function(){
+'use strict';
+window.flowHasOweFilter = false;
+
+var _origRenderFlow = window.renderFlow;
+
+/* 让"只看有欠款"生效：临时过滤 D.flow 后再渲染 */
+window.renderFlow = function() {
+    var backup = D.flow;
+    if (window.flowHasOweFilter) {
+        try { D.flow = D.flow.filter(function(f){ return Math.abs(f.payRemain || 0) > 0.01; }); } catch(e) {}
+    }
+    try { _origRenderFlow(); } finally { D.flow = backup; }
+};
+
+/* 切换"只看有欠款" */
+window.toggleOweFilter = function() {
+    window.flowHasOweFilter = !window.flowHasOweFilter;
+    flowCurrentPage = 1;
+    var btn = document.getElementById('flowOweFilterBtn');
+    if (btn) {
+        if (window.flowHasOweFilter) {
+            btn.style.background = '#8b0000';
+            btn.textContent = '💰 只看有欠款 ✓';
+        } else {
+            btn.style.background = '';
+            btn.textContent = '💰 只看有欠款';
+        }
+    }
+    window.renderFlow();
+};
+
+/* 批量改备注 */
+window.batchEditNote = function() {
+    var cbs = document.querySelectorAll('.flow-cb:checked');
+    if (cbs.length === 0) { showErrorToast('请先勾选要修改的流水', 'warning'); return; }
+    var ids = Array.prototype.slice.call(cbs).map(function(cb){ return parseInt(cb.value); });
+    var html = ''
+        + '<div style="margin-bottom:12px;font-size:14px;">已选 <b style="color:#b33c2f;">' + ids.length + '</b> 条记录</div>'
+        + '<div class="field"><label>操作类型</label>'
+        + '<select id="batchNoteAction" style="width:100%;padding:8px 12px;border:1px solid #d5d0c8;border-radius:6px;font-size:14px;background:#faf9f7;">'
+        + '<option value="remove">删除备注中的指定文字</option>'
+        + '<option value="replace">把备注替换为</option>'
+        + '<option value="clear">清空所有备注</option>'
+        + '</select></div>'
+        + '<div class="field" id="batchNoteTextWrap"><label>文字内容</label>'
+        + '<input id="batchNoteText" type="text" placeholder="例如：款到未收" style="width:100%;padding:8px 12px;border:1px solid #d5d0c8;border-radius:6px;font-size:14px;background:#faf9f7;">'
+        + '</div>'
+        + '<p class="text-muted mt-8" style="font-size:12px;">💡 修改后会同步到云端</p>';
+    showModal('✏️ 批量修改备注', html, [
+        { text: '取消', class: 'btn-gray', action: closeModal },
+        { text: '确认执行', class: 'btn-gold', action: async function(){
+            var action = document.getElementById('batchNoteAction').value;
+            var textEl = document.getElementById('batchNoteText');
+            var textVal = textEl ? textEl.value : '';
+            if (action !== 'clear' && !textVal.trim()) {
+                await showAlertModal('提示', '请输入要处理的文字'); return;
+            }
+            var changed = 0;
+            D.flow.forEach(function(f){
+                if (ids.indexOf(f.id) === -1) return;
+                var oldNote = f.note || '';
+                var newNote = oldNote;
+                if (action === 'remove') {
+                    if (oldNote.indexOf(textVal) !== -1) {
+                        newNote = oldNote.split(textVal).join('').trim();
+                        changed++;
+                    }
+                } else if (action === 'replace') {
+                    newNote = textVal; changed++;
+                } else if (action === 'clear') {
+                    if (oldNote) { newNote = ''; changed++; }
+                }
+                if (newNote !== oldNote) { f.note = newNote; f.lastModified = nowFullStr(); }
+            });
+            saveData();
+            document.querySelectorAll('.flow-cb').forEach(function(cb){ cb.checked = false; });
+            if (typeof updateFlowSelectedInfo === 'function') updateFlowSelectedInfo();
+            window.renderFlow();
+            closeModal();
+            playBeep(true);
+            autoPush(300);
+            await showAlertModal('✅ 完成', '已处理 ' + changed + ' 条记录，已提交同步');
+        }}
+    ], false);
+    setTimeout(function(){
+        var sel = document.getElementById('batchNoteAction');
+        var wrap = document.getElementById('batchNoteTextWrap');
+        if (sel && wrap) {
+            sel.addEventListener('change', function(){
+                wrap.style.display = this.value === 'clear' ? 'none' : 'block';
+            });
+        }
+    }, 50);
+};
+
+/* 自动往工具栏和筛选区注入按钮 */
+function injectButtons() {
+    /* 工具条：批量改备注（插在"删除选中"前） */
+    if (!document.getElementById('batchEditNoteBtn')) {
+        var delBtn = null, btns = document.querySelectorAll('#flow button');
+        for (var i = 0; i < btns.length; i++) {
+            if (btns[i].textContent.indexOf('删除选中') !== -1) { delBtn = btns[i]; break; }
+        }
+        if (delBtn && delBtn.parentNode) {
+            var b = document.createElement('button');
+            b.id = 'batchEditNoteBtn';
+            b.className = 'btn btn-gold btn-sm';
+            b.textContent = '✏️ 批量改备注';
+            b.onclick = window.batchEditNote;
+            delBtn.parentNode.insertBefore(b, delBtn);
+        }
+    }
+    /* 筛选区：只看有欠款（插在"清除筛选"前） */
+    if (!document.getElementById('flowOweFilterBtn')) {
+        var clearBtn = null, btns2 = document.querySelectorAll('#flow .filter-area button');
+        for (var j = 0; j < btns2.length; j++) {
+            if (btns2[j].textContent.indexOf('清除筛选') !== -1) { clearBtn = btns2[j]; break; }
+        }
+        if (clearBtn && clearBtn.parentNode) {
+            var ob = document.createElement('button');
+            ob.id = 'flowOweFilterBtn';
+            ob.className = 'btn btn-red btn-sm';
+            ob.textContent = '💰 只看有欠款';
+            ob.onclick = window.toggleOweFilter;
+            clearBtn.parentNode.insertBefore(ob, clearBtn);
+        }
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(injectButtons, 100); });
+} else {
+    setTimeout(injectButtons, 100);
+}
+})();
+</script>
+<!-- ====== 流水增强结束 ====== -->
+<!-- ====== 流水增强：零星欠款自动隐藏 + 一键归零 ====== -->
+<script>
+(function(){
+'use strict';
+
+/* ===== 可调参数 ===== */
+var OWE_MIN = 3;   // 小于 3 元的欠款/多付视为零星，不显示（想改阈值就改这里）
+
+/* ===== 找到"欠款"列索引 ===== */
+function findOweColIndex() {
+    var tb = document.getElementById('flowBody');
+    if (!tb) return -1;
+    var table = tb.closest('table');
+    if (!table) return -1;
+    var ths = table.querySelectorAll('thead tr th');
+    for (var i = 0; i < ths.length; i++) {
+        if (ths[i].textContent.trim() === '欠款') return i;
+    }
+    return -1;
+}
+
+/* ===== 渲染后处理表格里的零星金额 ===== */
+function patchFlowOweDisplay() {
+    var tb = document.getElementById('flowBody');
+    if (!tb) return;
+    var colIdx = findOweColIndex();
+    if (colIdx < 0) return;
+
+    var rows = tb.querySelectorAll('tr.flow-row');
+    Array.prototype.forEach.call(rows, function(tr) {
+        var tds = tr.querySelectorAll('td');
+        if (tds.length <= colIdx) return;
+        var td = tds[colIdx];
+        var txt = (td.textContent || '').trim();
+        var m = txt.match(/(?:欠付|未付|多付|欠款|未收)\s+([\d.]+)/);
+        if (m) {
+            var val = parseFloat(m[1]);
+            if (val > 0 && val < OWE_MIN) {
+                td.innerHTML = '-';
+            }
+        }
+    });
+
+    var totalRow = tb.querySelector('tr.total-row');
+    if (totalRow) {
+        var tds2 = totalRow.querySelectorAll('td');
+        if (tds2.length > colIdx) {
+            var td2 = tds2[colIdx];
+            var txt2 = (td2.textContent || '').trim();
+            var m2 = txt2.match(/💰\s*([\d.]+)/);
+            if (m2) {
+                var val2 = parseFloat(m2[1]);
+                if (val2 > 0 && val2 < OWE_MIN) {
+                    td2.innerHTML = '💰 -';
+                }
+            }
+        }
+    }
+}
+
+/* ===== 拦截 renderFlow，渲染后自动处理 ===== */
+(function() {
+    if (typeof window.renderFlow !== 'function') return;
+    if (window.__oweFlowPatched) return;
+    window.__oweFlowPatched = true;
+    var _orig = window.renderFlow;
+    window.renderFlow = function() {
+        _orig.apply(this, arguments);
+        setTimeout(patchFlowOweDisplay, 0);
+        setTimeout(patchFlowOweDisplay, 50);
+    };
+})();
+
+/* ===== 一键归零零星欠款 ===== */
+function cleanOwe() {
+    if (typeof D === 'undefined' || !D.flow) { showErrorToast('数据未加载', 'warning'); return; }
+    var affected = D.flow.filter(function(f) {
+        return f.payRemain !== undefined && f.payRemain !== null &&
+               Math.abs(f.payRemain) > 0.001 && Math.abs(f.payRemain) < OWE_MIN;
+    });
+    if (affected.length === 0) {
+        showErrorToast('没有零星欠款需要归零', 'warning');
+        return;
+    }
+    var total = affected.reduce(function(s, f) { return s + Math.abs(f.payRemain); }, 0);
+    var html = '<p>共发现 <b style="color:#b33c2f;">' + affected.length + '</b> 条流水的欠款/多付金额小于 <b>' + OWE_MIN + '</b> 元，合计约 <b>' + total.toFixed(2) + '</b> 元。</p>'
+             + '<p class="text-muted" style="margin-top:8px;">这些小金额来自实付 / 分摊的浮点误差。归零后：</p>'
+             + '<p>· 流水里"欠款"列显示为 <b>-</b></p>'
+             + '<p>· "谁欠我钱"、AI 分析不再包含这些记录</p>'
+             + '<p>· <b>库存、利润、销售额不受影响</b></p>'
+             + '<p class="text-danger" style="margin-top:8px;">归零后会同步到云端，操作不可撤销。</p>';
+    showConfirmModal('🧹 归零零星欠款', html, '确认归零', '取消').then(async function(ok) {
+        if (!ok) return;
+        var changed = 0;
+        D.flow.forEach(function(f) {
+            if (f.payRemain !== undefined && f.payRemain !== null &&
+                Math.abs(f.payRemain) > 0.001 && Math.abs(f.payRemain) < OWE_MIN) {
+                f.payRemain = 0;
+                f.lastModified = nowFullStr();
+                changed++;
+            }
+        });
+        saveData();
+        refreshAll();
+        if (typeof autoPush === 'function') autoPush(100);
+        playBeep(true);
+        await showAlertModal('✅ 完成', '已归零 ' + changed + ' 条流水的零星欠款');
+    });
+}
+
+/* ===== 往工具条注入按钮 ===== */
+function injectCleanBtn() {
+    if (document.getElementById('cleanOweBtn')) return;
+    var ref = null;
+    var btns = document.querySelectorAll('#flow .flex.no-print button');
+    for (var i = 0; i < btns.length; i++) {
+        if (btns[i].textContent.indexOf('清空所有流水') !== -1) { ref = btns[i]; break; }
+    }
+    if (!ref && btns.length > 0) ref = btns[btns.length - 1];
+    if (!ref || !ref.parentNode) return;
+    var b = document.createElement('button');
+    b.id = 'cleanOweBtn';
+    b.className = 'btn btn-red btn-sm';
+    b.style.background = '#8b4513';
+    b.textContent = '🧹 归零零星欠款';
+    b.onclick = cleanOwe;
+    ref.parentNode.insertBefore(b, ref);
+}
+
+/* ===== 初始化 ===== */
+function init() {
+    injectCleanBtn();
+    if (typeof window.renderFlow === 'function') window.renderFlow();
+}
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(init, 200); });
+} else {
+    setTimeout(init, 200);
+}
+})();
+</script>
+<!-- ====== 流水增强结束 ====== -->
 </html>
