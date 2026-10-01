@@ -3477,4 +3477,277 @@ if (document.readyState === 'loading') {
 })();
 </script>
 <!-- ====== 流水增强结束 ====== -->
+<!-- ============ 归档补丁 V2（自动导出+期初结转）============ -->
+<script>
+(function(){
+'use strict';
+if (window.__archivePatchV2Loaded) { console.log('归档补丁V2已加载'); return; }
+window.__archivePatchV2Loaded = true;
+console.log('🚀 加载归档补丁V2...');
+
+function buildArchiveExcel(flows, cutoffDate) {
+    var sorted = flows.slice().sort(function(a, b) {
+        if (a.time !== b.time) return a.time.localeCompare(b.time);
+        return a.id - b.id;
+    });
+    var stockState = {};
+    var enriched = sorted.map(function(f) {
+        var key = f.cat + '|' + f.name;
+        var state = stockState[key] || { w: 0, cost: 0, shortW: 0, shortPrice: 0 };
+        var beforeW = state.w + state.shortW;
+        var costPrice = '-';
+        if (f.t === 'in') {
+            var inUnit = (f.total + (f.fee || 0)) / f.w;
+            costPrice = inUnit;
+            var inW = f.w;
+            if (state.shortW < 0) { var cover = Math.min(inW, -state.shortW); state.shortW += cover; if (Math.abs(state.shortW) < 0.0001) state.shortW = 0; inW -= cover; }
+            if (inW > 0) { state.w += inW; state.cost += inW * inUnit; }
+        } else {
+            var up = f.sale / f.w;
+            var beforeAvgCost = state.w > 0 ? state.cost / state.w : 0;
+            costPrice = beforeAvgCost > 0 ? beforeAvgCost : '-';
+            var outW = f.w;
+            if (state.w > 0) { var consume = Math.min(outW, state.w); var ac = state.cost / state.w; state.w -= consume; state.cost -= ac * consume; outW -= consume; }
+            if (outW > 0) { if (state.shortW === 0) { state.shortW = -outW; state.shortPrice = up; } else { var osc = state.shortW * state.shortPrice; var nsc = -outW * up; var tsw = state.shortW - outW; state.shortPrice = (osc + nsc) / tsw; state.shortW = tsw; } }
+        }
+        var afterW = state.w + state.shortW;
+        return { f: f, beforeW: beforeW, afterW: afterW, costPrice: costPrice };
+    });
+    enriched.reverse();
+    var data = [];
+    enriched.forEach(function(item, index) {
+        var f = item.f;
+        var deltaW = f.t === 'in' ? f.w : -f.w;
+        var deltaStr = (deltaW >= 0 ? '+' : '') + deltaW.toFixed(2);
+        var stockChangeStr = item.beforeW.toFixed(2) + 'g → (' + deltaStr + 'g) ' + item.afterW.toFixed(2) + 'g';
+        var unitPrice = f.t === 'in' ? (f.total / f.w).toFixed(2) : (f.sale / f.w).toFixed(2);
+        var costPriceStr = typeof item.costPrice === 'number' ? item.costPrice.toFixed(2) : '-';
+        var amount = f.t === 'in' ? f.total : f.sale;
+        var customer = f.t === 'in' ? (f.cus || '') : (f.buyer || '');
+        var payDetail = '';
+        if (f.payDetail && f.payDetail.length) { payDetail = f.payDetail.map(function(p) { return p.ch + '¥' + (p.amt || 0).toFixed(2); }).join(';'); }
+        data.push({
+            '#': index + 1, '创建时间': f.time || '', '最后修改': f.lastModified || '',
+            '单号': f.no || '', '类型': f.t === 'in' ? '入库' : '出库',
+            '品类': f.cat || '', '品名': f.name || '',
+            '变化克重': deltaStr + 'g', '库存变化': stockChangeStr,
+            '售价': unitPrice, '成本价': costPriceStr,
+            '金额': (amount || 0).toFixed(2), '利润': (f.margin || 0).toFixed(2),
+            '利润说明': '', '客户': customer, '电话': f.tel || '', '身份证': f.idNo || '',
+            '付款': payDetail, '实付': (f.payPaid || 0).toFixed(2), '欠款': (f.payRemain || 0).toFixed(2),
+            '备注': f.note || ''
+        });
+    });
+    var wb = XLSX.utils.book_new();
+    var ws = XLSX.utils.json_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, ws, '归档流水');
+    var fname = '归档流水_' + cutoffDate.replace(/-/g, '') + '_共' + flows.length + '条.xlsx';
+    XLSX.writeFile(wb, fname);
+    return fname;
+}
+
+function injectArchiveBtn() {
+    if (document.getElementById('archiveBtn')) return;
+    var bakCard = document.querySelector('#bak .card');
+    if (!bakCard) { setTimeout(injectArchiveBtn, 600); return; }
+    var divider = document.createElement('div');
+    divider.style.cssText = 'margin-top:16px; border-top:1px dashed #d4a017; padding-top:12px;';
+    var btn = document.createElement('button');
+    btn.id = 'archiveBtn';
+    btn.className = 'btn btn-red btn-sm';
+    btn.style.cssText = 'width:auto;';
+    btn.textContent = '🗄️ 库存结转归档（清空旧流水）';
+    btn.onclick = showArchiveModal;
+    divider.appendChild(btn);
+    var desc = document.createElement('p');
+    desc.className = 'text-muted';
+    desc.style.cssText = 'margin-top:6px; font-size:12px; line-height:1.7;';
+    desc.innerHTML = '💡 归档时自动下载旧流水 Excel，并生成"期初结转单"承载库存。<br>⚠️ 归档前请务必先下载 JSON 整库备份。归档后旧流水进回收站。';
+    bakCard.appendChild(divider);
+    bakCard.appendChild(desc);
+}
+
+window.showArchiveModal = function() {
+    var today = todayStr();
+    var html = '<div style="background:#fff3cd; padding:12px; border-radius:6px; margin-bottom:12px; color:#856404; font-size:13px; line-height:1.8;">' +
+        '⚠️ <b>操作须知：</b><br>' +
+        '1. 归档会把截止日期<b>之前</b>的流水移入回收站。<br>' +
+        '2. 系统自动为当前库存生成"期初结转单"，库存克重、件数、加权均价<b>完全不变</b>。<br>' +
+        '3. 归档时会<b>自动下载旧流水 Excel</b>，用于导入本地版存档。<br>' +
+        '4. <b style="color:#b33c2f;">归档前请务必先下载 JSON 整库备份！</b>' +
+        '</div>' +
+        '<div class="field"><label>归档截止日期（该日期之前的流水将被归档清空）</label>' +
+        '<input id="archiveCutoffDate" type="date" value="' + today + '"></div>' +
+        '<div class="field" style="display:flex; align-items:center; gap:8px; margin-top:8px;">' +
+        '<input type="checkbox" id="archiveAutoExport" checked style="width:18px; height:18px;">' +
+        '<label for="archiveAutoExport" style="margin:0; font-size:14px; cursor:pointer;">归档时自动下载旧流水 Excel（推荐，用于导入本地版）</label></div>' +
+        '<p class="text-muted" style="font-size:12px; line-height:1.7; margin-top:6px;">' +
+        '💡 期初结转单生成在归档日<b>前一天 23:59:59</b>，确保排在归档日流水之前。</p>';
+    showModal('🗄️ 库存结转归档', html, [
+        { text: '取消', class: 'btn-gray', action: closeModal },
+        { text: '确认归档', class: 'btn-red', action: doArchive }
+    ]);
+};
+
+window.doArchive = async function() {
+    var cutoffDate = document.getElementById('archiveCutoffDate').value;
+    var autoExport = document.getElementById('archiveAutoExport').checked;
+    if (!cutoffDate) { playBeep(false); await showAlertModal('提示', '请选择归档截止日期'); return; }
+    var ok = await showConfirmModal('数据安全确认', '归档不可逆，是否已下载 JSON 备份？<br><span class="text-danger">未备份可能丢失数据！</span>', '已备份，继续', '取消');
+    if (!ok) return;
+    rebuildStock();
+    if (!D.stock.length) { playBeep(false); await showAlertModal('提示', '当前库存为空，无需归档'); return; }
+    var oldFlows = D.flow.filter(function(f) { return f.time.slice(0, 10) < cutoffDate; });
+    var keepFlows = D.flow.filter(function(f) { return f.time.slice(0, 10) >= cutoffDate; });
+    if (!oldFlows.length) { playBeep(false); await showAlertModal('提示', '截止日期前没有流水可归档'); return; }
+    var exportedName = '';
+    if (autoExport) {
+        try { exportedName = buildArchiveExcel(oldFlows, cutoffDate); }
+        catch(e) { console.error('导出归档流水失败', e); var c = await showConfirmModal('导出失败', '自动导出失败：' + e.message + '<br><br>是否继续归档？', '继续归档', '取消'); if (!c) return; }
+    }
+    var now = nowFullStr();
+    var prevDate = new Date(cutoffDate + 'T00:00:00');
+    prevDate.setDate(prevDate.getDate() - 1);
+    var prevDateStr = prevDate.getFullYear() + '-' + String(prevDate.getMonth()+1).padStart(2,'0') + '-' + String(prevDate.getDate()).padStart(2,'0');
+    var timeStr = prevDateStr + 'T23:59:59';
+    var carryFlows = [];
+    D.stock.forEach(function(s) {
+        if (Math.abs(s.w) < 0.0001) return;
+        carryFlows.push({
+            id: genId(),
+            no: 'QC-' + cutoffDate.replace(/-/g, '') + '-' + Math.floor(Math.random() * 1000),
+            t: 'in', cat: s.cat, name: s.name, w: s.w, q: s.q,
+            total: s.totalCost, fee: 0, costUnit: s.cost,
+            cus: '系统', tel: '', idNo: '', src: '期初结转',
+            note: '【系统自动生成】期初库存结转，用于归档衔接。',
+            rate: 0, mortgageDate: '',
+            payDetail: [], payPaid: s.totalCost, payRemain: 0,
+            time: timeStr, lastModified: now, margin: 0, cost: s.totalCost
+        });
+    });
+    var oldIds = [];
+    oldFlows.forEach(function(f) {
+        D.trash.push(Object.assign({}, f, { _type: 'flow', deletedAt: now }));
+        oldIds.push(f.id);
+    });
+    D.flow = keepFlows.concat(carryFlows);
+    saveData();
+    rebuildStock();
+    recalcMargins();
+    refreshAll();
+    renderTrash();
+    if (typeof sb !== 'undefined' && sb) {
+        logSync('🗄️ 正在云端执行归档清理...', 'info');
+        for (var i = 0; i < oldIds.length; i += 50) {
+            var chunk = oldIds.slice(i, i + 50);
+            try { await sb.from('shop_flow').delete().in('id', chunk); } catch(e) { console.warn('云端批量删除失败', e); }
+        }
+        try {
+            if (carryFlows.length) {
+                var rows = carryFlows.map(function(f) {
+                    return { id: f.id, no: f.no, t: f.t, cat: f.cat, name: f.name, w: f.w, q: f.q, total: f.total, sale: 0, fee: f.fee, cus: f.cus, src: f.src, note: f.note, time: f.time, lastModified: f.lastModified, deleted: false };
+                });
+                await sb.from('shop_flow').upsert(rows);
+            }
+            logSync('✅ 云端归档同步完成', 'ok');
+            if (typeof updateSnapshot === 'function') await updateSnapshot();
+        } catch(e) { logSync('⚠️ 云端期初结转推送失败: ' + e.message, 'warn'); }
+    }
+    closeModal();
+    playBeep(true);
+    var tip = '已移入回收站 <b>' + oldFlows.length + '</b> 条历史流水。<br>已生成 <b>' + carryFlows.length + '</b> 条期初结转单。<br><br>';
+    if (exportedName) tip += '✅ 已自动下载：<b>' + exportedName + '</b><br>请到浏览器"下载"文件夹找到它。<br><br>';
+    else tip += '⚠️ 您未勾选自动导出。如需归档前的流水，请到【回收站】恢复后再导出。<br><br>';
+    tip += '<b>当前库存、均价、利润计算完全一致。</b>';
+    await showAlertModal('✅ 归档完成', tip);
+};
+
+var _origExport = window.exportXlsx;
+window.exportXlsx = function() {
+    if (!currentFlowArr || !currentFlowArr.length) { showAlertModal('提示', '当前没有流水数据可导出。'); return; }
+    var filtered = currentFlowArr.filter(function(f) {
+        return f.src !== '期初结转' && (!f.note || f.note.indexOf('期初库存结转') === -1) && (f.no || '').indexOf('QC-') !== 0;
+    });
+    if (!filtered.length) { showAlertModal('提示', '当前筛选范围内只有期初结转单，已自动过滤。'); return; }
+    var backup = currentFlowArr;
+    currentFlowArr = filtered;
+    try { _origExport(); } finally { currentFlowArr = backup; }
+};
+
+window.importXlsx = function(event) {
+    var file = event.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            var wb = XLSX.read(e.target.result, { type: 'array' });
+            var ws = wb.Sheets[wb.SheetNames[0]];
+            var rows = XLSX.utils.sheet_to_json(ws);
+            if (!rows || !rows.length) { playBeep(false); await showAlertModal('提示', '文件为空'); return; }
+            var imported = 0, skippedQC = 0, skippedDup = 0, skippedBad = 0;
+            var existNos = new Set(D.flow.map(function(f) { return f.no; }));
+            for (var i = 0; i < rows.length; i++) {
+                var row = rows[i];
+                var no = String(row['单号'] || '').trim();
+                var time = String(row['创建时间'] || row['时间'] || '').trim();
+                var typeStr = String(row['类型'] || '');
+                var t = typeStr.indexOf('入库') !== -1 ? 'in' : (typeStr.indexOf('出库') !== -1 ? 'out' : '');
+                var noteRaw = String(row['备注'] || '');
+                if (noteRaw.indexOf('期初库存结转') !== -1 || no.indexOf('QC-') === 0) { skippedQC++; continue; }
+                if (!no || !t || !time) { skippedBad++; continue; }
+                if (existNos.has(no)) { skippedDup++; continue; }
+                existNos.add(no);
+                var wRaw = row['变化克重'];
+                if (wRaw === undefined || wRaw === null || wRaw === '') wRaw = row['克重'] || 0;
+                var w = Math.abs(parseNumber(wRaw));
+                if (w === 0) { var m = String(row['库存变化'] || '').match(/\(([+\-]?[\d.]+)g\)/); if (m) w = Math.abs(parseFloat(m[1])) || 0; }
+                if (w === 0) { skippedBad++; continue; }
+                var amount = Math.abs(parseNumber(row['金额'] || 0));
+                var margin = parseNumber(row['利润'] || 0);
+                var costPrice = parseNumber(row['成本价'] || 0);
+                var customer = String(row['客户'] || '').trim();
+                D.flow.push({
+                    id: genId(), no: no, t: t,
+                    cat: String(row['品类'] || '').trim(),
+                    name: String(row['品名'] || '').trim(),
+                    w: w, q: 1,
+                    total: t === 'in' ? amount : 0,
+                    sale: t === 'out' ? amount : 0,
+                    margin: margin, cost: costPrice * w,
+                    cus: t === 'in' ? customer : '',
+                    buyer: t === 'out' ? customer : '',
+                    tel: String(row['电话'] || '').trim(),
+                    idNo: String(row['身份证'] || '').trim(),
+                    note: noteRaw,
+                    time: time,
+                    lastModified: String(row['最后修改'] || '').trim() || nowFullStr(),
+                    payPaid: parseNumber(row['实付'] || 0),
+                    payRemain: parseNumber(row['欠款'] || 0),
+                    fee: 0, src: '导入'
+                });
+                imported++;
+            }
+            rebuildNamesFromFlow();
+            saveData(); rebuildStock(); recalcMargins(); refreshAll();
+            playBeep(true);
+            var msg = '✅ 导入完成！<br><br>成功导入：<b style="color:#1e7e34;">' + imported + '</b> 条<br>';
+            if (skippedQC > 0) msg += '自动跳过期初结转单：<b style="color:#999;">' + skippedQC + '</b> 条<br>';
+            if (skippedDup > 0) msg += '自动跳过重复单号：<b style="color:#999;">' + skippedDup + '</b> 条<br>';
+            if (skippedBad > 0) msg += '跳过无效行：<b style="color:#999;">' + skippedBad + '</b> 条';
+            await showAlertModal('导入结果', msg);
+        } catch (err) { playBeep(false); await showAlertModal('错误', '导入失败：' + err.message); }
+    };
+    reader.readAsArrayBuffer(file);
+    event.target.value = '';
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(injectArchiveBtn, 500); });
+} else {
+    setTimeout(injectArchiveBtn, 500);
+}
+console.log('✅ 归档补丁V2加载完毕');
+})();
+</script>
+<!-- ============ 归档补丁V2结束 ============ -->
 </html>
