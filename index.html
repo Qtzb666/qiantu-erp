@@ -266,6 +266,8 @@
         .dropdown-item span { flex: 1; word-break: break-all; line-height: 1.4; }
         .auto-save-hint { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(30,126,52,0.95); color: #fff; padding: 8px 20px; border-radius: 20px; font-size: 13px; z-index: 9998; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
         .auto-save-hint.show { opacity: 1; }
+        /* 入库累计均价小标签 */
+        .avg-tag { color: #999; font-size: 10px; margin-left: 3px; font-weight: 400; }
     </style>
 </head>
 <body>
@@ -1110,6 +1112,8 @@
                     if (inW > 0) { state.w += inW; state.cost += inW * inUnitPrice; }
                     f.margin = parseFloat(coverProfit.toFixed(4));
                     f.cost = parseFloat(((f.total || 0) + fee).toFixed(4));
+                    // ★ 新增：记录这笔入库完成后、该品名的"累计加权平均单价"（冲销超卖后的正库存均价）
+                    f.avgCostAfter = state.w > 0.0001 ? parseFloat((state.cost / state.w).toFixed(4)) : 0;
                 } else if (f.t === 'out') {
                     const unitPrice = f.sale / f.w;
                     let realProfit = 0; let realCost = 0; let outW = f.w;
@@ -1117,6 +1121,7 @@
                     if (outW > 0) { realCost += outW * unitPrice; if (state.shortW === 0) { state.shortW = -outW; state.shortPrice = unitPrice; } else { const oldShortCost = state.shortW * state.shortPrice; const newShortCost = -outW * unitPrice; const totalShortW = state.shortW - outW; const totalShortCost = oldShortCost + newShortCost; state.shortPrice = totalShortCost / totalShortW; state.shortW = totalShortW; } }
                     f.margin = parseFloat(realProfit.toFixed(4));
                     f.cost = parseFloat(realCost.toFixed(4));
+                    f.avgCostAfter = state.w > 0.0001 ? parseFloat((state.cost / state.w).toFixed(4)) : 0;
                 }
             });
         }
@@ -1489,7 +1494,7 @@
             let html = `<div class="profit-detail-header"><div class="no">${escHtml(f.no || '')}</div><div class="sub">${escHtml(f.cat || '')} · ${escHtml(f.name || '')} · ${escHtml((f.time || '').replace('T', ' ').slice(0, 16))}</div></div>`;
             const sameKey = D.flow.filter(x => x.cat === f.cat && x.name === f.name)
                 .sort((a, b) => { if (a.time !== b.time) return a.time.localeCompare(b.time); return a.id - b.id; });
-            let beforePosW = 0, beforeAvgCost = 0, beforeShortW = 0, beforeShortPrice = 0, afterTotalStock = 0;
+            let beforePosW = 0, beforeAvgCost = 0, beforeShortW = 0, beforeShortPrice = 0, afterTotalStock = 0, afterAvgCost = 0;
             const state = { w: 0, cost: 0, shortW: 0, shortPrice: 0 };
             for (const x of sameKey) {
                 if (x.id === f.id) {
@@ -1506,7 +1511,7 @@
                     if (state.w > 0) { const consume = Math.min(outW, state.w); const ac = state.cost / state.w; state.w -= consume; state.cost -= ac * consume; outW -= consume; }
                     if (outW > 0) { if (state.shortW === 0) { state.shortW = -outW; state.shortPrice = up; } else { const osc = state.shortW * state.shortPrice; const nsc = -outW * up; const tsw = state.shortW - outW; const tsc = osc + nsc; state.shortPrice = tsc / tsw; state.shortW = tsw; } }
                 }
-                if (x.id === f.id) { afterTotalStock = state.w + state.shortW; break; }
+                if (x.id === f.id) { afterTotalStock = state.w + state.shortW; afterAvgCost = state.w > 0 ? state.cost / state.w : 0; break; }
             }
             if (f.t === 'in') {
                 const inUnit = f.w > 0 ? ((f.total + (f.fee || 0)) / f.w) : 0;
@@ -1516,7 +1521,8 @@
                     <div class="profit-detail-row"><span class="lbl">入库克重</span><span class="val">${(f.w || 0).toFixed(2)} g</span></div>
                     <div class="profit-detail-row"><span class="lbl">入库金额</span><span class="val">${(f.total || 0).toFixed(2)} 元</span></div>
                     ${f.fee ? `<div class="profit-detail-row"><span class="lbl">工艺费</span><span class="val">${(f.fee).toFixed(2)} 元</span></div>` : ''}
-                    <div class="profit-detail-row"><span class="lbl">入库单价</span><span class="val">${inUnit.toFixed(2)} 元/g</span></div>`;
+                    <div class="profit-detail-row"><span class="lbl">本单进价</span><span class="val">${inUnit.toFixed(2)} 元/g</span></div>
+                    <div class="profit-detail-row"><span class="lbl">入库后均价</span><span class="val" style="color:#1a5f8a;font-weight:600;">${afterAvgCost > 0 ? afterAvgCost.toFixed(2) + ' 元/g' : '（无正库存，不适用）'}</span></div>`;
                 if (coverW > 0.001) {
                     html += `<div class="profit-detail-section">💰 利润构成（补货冲销）</div>
                         <div class="profit-detail-row"><span class="lbl">冲销逻辑</span><span class="val">此单入库时，前面有超卖欠货未冲销</span></div>
@@ -1524,7 +1530,6 @@
                         <div class="profit-detail-row"><span class="lbl">欠货均价</span><span class="val" style="color:#b33c2f;font-weight:600;">${beforeShortPrice.toFixed(2)} 元/g</span></div>
                         <div class="profit-detail-row"><span class="lbl">本次冲销</span><span class="val">${coverW.toFixed(2)} g</span></div>
                         ${newStockW > 0.001 ? `<div class="profit-detail-row"><span class="lbl">新增库存</span><span class="val" style="color:#1e7e34;">${newStockW.toFixed(2)} g</span></div>` : ''}
-                        <div class="profit-detail-row"><span class="lbl">本单进价</span><span class="val">${inUnit.toFixed(2)} 元/g</span></div>
                         <div class="profit-detail-row"><span class="lbl">利润公式</span><span class="val">(${beforeShortPrice.toFixed(2)} − ${inUnit.toFixed(2)}) × ${coverW.toFixed(2)} = <b style="color:#1e7e34;">+${((beforeShortPrice - inUnit) * coverW).toFixed(2)}</b></span></div>
                         <div class="profit-detail-row profit-detail-total"><span class="lbl">本单利润</span><span class="val" style="color:#1e7e34;font-weight:700;font-size:16px;">+${marginVal.toFixed(2)} 元</span></div>`;
                 } else {
@@ -1542,7 +1547,8 @@
                     <div class="profit-detail-row"><span class="lbl">售出单价</span><span class="val">${unitPrice.toFixed(2)} 元/g</span></div>
                     <div class="profit-detail-row"><span class="lbl">出库前库存</span><span class="val">${beforePosW.toFixed(2)} g</span></div>
                     <div class="profit-detail-row"><span class="lbl">出库前成本</span><span class="val" style="color:#8b4513;font-weight:600;">${beforeAvgCost.toFixed(2)} 元/g</span></div>
-                    <div class="profit-detail-row"><span class="lbl">出库后库存</span><span class="val" style="color:${afterTotalStock < 0 ? '#b33c2f' : '#1e7e34'};">${afterTotalStock.toFixed(2)} g ${afterTotalStock < 0 ? '（超卖）' : ''}</span></div>`;
+                    <div class="profit-detail-row"><span class="lbl">出库后库存</span><span class="val" style="color:${afterTotalStock < 0 ? '#b33c2f' : '#1e7e34'};">${afterTotalStock.toFixed(2)} g ${afterTotalStock < 0 ? '（超卖）' : ''}</span></div>
+                    <div class="profit-detail-row"><span class="lbl">出库后均价</span><span class="val" style="color:#1a5f8a;">${afterAvgCost > 0 ? afterAvgCost.toFixed(2) + ' 元/g' : '—'}</span></div>`;
                 html += `<div class="profit-detail-section">💰 利润构成</div>`;
                 if (beforePosW > 0) { html += `<div class="profit-detail-row"><span class="lbl">✅ 正库存部分</span><span class="val">${consumedPos.toFixed(2)} g × (${unitPrice.toFixed(2)} − ${beforeAvgCost.toFixed(2)}) = <b style="color:#1e7e34;">+${profitOnPos.toFixed(2)}</b></span></div>`; }
                 if (shortPart > 0) { html += `<div class="profit-detail-row"><span class="lbl">⏸️ 超卖部分</span><span class="val" style="color:#b33c2f;">${shortPart.toFixed(2)} g（无库存，利润记 0）<br><span style="color:#888;font-size:12px;">等后续补货时再结算</span></span></div>`; }
@@ -1617,7 +1623,12 @@
                     amountDisplay = `<span class="amount-negative">-${f.total.toFixed(2)}</span>`; unitPriceDisplay = unitPrice.toFixed(2);
                     if (f.fee) amountDisplay += `<br><span class="margin-text">工艺费 ${f.fee.toFixed(2)}</span>`;
                     if (f.margin && Math.abs(f.margin) > 0.01) { amountDisplay += `<br><span class="margin-text margin-clickable" style="color:#1e7e34;" onclick="event.stopPropagation();showFlowProfitDetail(${f.id})" title="点击查看利润构成">利 ${f.margin.toFixed(2)} ↗</span>`; }
-                    if (f.w > 0) costPriceDisplay = unitPrice.toFixed(2);
+                    // ★ 改动：入库行的"成本价"= 入库后该品名累计加权均价（冲销超卖后的正库存均价）
+                    const avgAfter = (typeof f.avgCostAfter === 'number' && f.avgCostAfter > 0) ? f.avgCostAfter : unitPrice;
+                    costPriceDisplay = avgAfter.toFixed(2);
+                    if (Math.abs(avgAfter - unitPrice) > 0.005) {
+                        costPriceDisplay += `<span class="avg-tag" title="本单进价：${unitPrice.toFixed(2)} 元/g｜显示的是入库后累计加权均价">均</span>`;
+                    }
                 } else {
                     const unitPrice = f.w > 0 ? (f.sale / f.w) : 0;
                     const marginVal = (f.margin !== undefined && f.margin !== null) ? f.margin : 0;
@@ -1626,7 +1637,7 @@
                     if (f.w > 0 && Math.abs(marginVal) > 0.01) { const realCost = (f.sale - marginVal) / f.w; costPriceDisplay = realCost.toFixed(2); }
                     else if (f.w > 0) { costPriceDisplay = (f.sale / f.w).toFixed(2); }
                 }
-                rows += `<tr class="flow-row" data-flow-id="${f.id}"><td style="text-align:center;" onclick="event.stopPropagation();"><input type="checkbox" class="flow-cb" value="${f.id}" onchange="updateFlowSelectedInfo()"></td><td class="seq-num" style="cursor:pointer;" onclick="editFlow(${f.id})">${seq}</td><td style="white-space:nowrap;font-size:12px;cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(createdAt.replace('T',' ').slice(0,16))}</td><td style="white-space:nowrap;font-size:12px;cursor:pointer;" class="last-modified" onclick="editFlow(${f.id})">${escHtml(lastMod.replace('T',' ').slice(0,16))}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})"><b>${escHtml(f.no)}</b></td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${f.t==='in'?'<span style="color:#1e7e34;">⬆入库</span>':'<span style="color:#b33c2f;">⬇出库</span>'}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(f.cat)}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(f.name)}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${stockDisplay}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(unitPriceDisplay)}</td><td style="cursor:pointer;color:#8b4513;font-weight:600;" onclick="editFlow(${f.id})">${escHtml(costPriceDisplay)}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${amountDisplay}</td><td><a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(cus)}','name'); return false;" style="color:#0066cc;text-decoration:underline;">${cus}</a></td><td>${tel ? `<a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(tel)}','tel'); return false;" style="color:#0066cc;text-decoration:underline;">${tel}</a>` : '-'}</td><td style="font-size:12px;">${payTxt}</td><td>${(f.payPaid||0)>0?(f.payPaid).toFixed(2):'-'}</td><td>${remain}</td><td>${escHtml(f.note||'')}</td><td style="white-space:nowrap;"><span class="text-primary" style="cursor:pointer;font-size:12px;" onclick="event.stopPropagation();editFlow(${f.id})">修改</span><span class="text-danger" style="cursor:pointer;font-size:12px;margin-left:4px;" onclick="event.stopPropagation();confirmDeleteFlow(${f.id})">删除</span></td></tr>`;
+                rows += `<tr class="flow-row" data-flow-id="${f.id}"><td style="text-align:center;" onclick="event.stopPropagation();"><input type="checkbox" class="flow-cb" value="${f.id}" onchange="updateFlowSelectedInfo()"></td><td class="seq-num" style="cursor:pointer;" onclick="editFlow(${f.id})">${seq}</td><td style="white-space:nowrap;font-size:12px;cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(createdAt.replace('T',' ').slice(0,16))}</td><td style="white-space:nowrap;font-size:12px;cursor:pointer;" class="last-modified" onclick="editFlow(${f.id})">${escHtml(lastMod.replace('T',' ').slice(0,16))}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})"><b>${escHtml(f.no)}</b></td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${f.t==='in'?'<span style="color:#1e7e34;">⬆入库</span>':'<span style="color:#b33c2f;">⬇出库</span>'}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(f.cat)}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(f.name)}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${stockDisplay}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(unitPriceDisplay)}</td><td style="cursor:pointer;color:#8b4513;font-weight:600;" onclick="editFlow(${f.id})">${costPriceDisplay}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${amountDisplay}</td><td><a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(cus)}','name'); return false;" style="color:#0066cc;text-decoration:underline;">${cus}</a></td><td>${tel ? `<a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(tel)}','tel'); return false;" style="color:#0066cc;text-decoration:underline;">${tel}</a>` : '-'}</td><td style="font-size:12px;">${payTxt}</td><td>${(f.payPaid||0)>0?(f.payPaid).toFixed(2):'-'}</td><td>${remain}</td><td>${escHtml(f.note||'')}</td><td style="white-space:nowrap;"><span class="text-primary" style="cursor:pointer;font-size:12px;" onclick="event.stopPropagation();editFlow(${f.id})">修改</span><span class="text-danger" style="cursor:pointer;font-size:12px;margin-left:4px;" onclick="event.stopPropagation();confirmDeleteFlow(${f.id})">删除</span></td></tr>`;
             });
             const net = totalOutSale - totalInAmount; const remainW = totalInW - totalOutW;
             const avgCost = totalInW > 0.001 ? totalInAmount / totalInW : 0;
@@ -2937,10 +2948,15 @@
                 const deltaStr = (deltaW >= 0 ? '+' : '') + deltaW.toFixed(2); const stockChangeStr = `${beforeTotalStock.toFixed(2)}g → (${deltaStr}g) ${afterTotalStock.toFixed(2)}g`;
                 let unitPrice = ''; let costPrice = ''; let profitStr = '0.00'; let profitDetail = '';
                 if (f.t === 'in') {
-                    const inUnit = (f.total + (f.fee || 0)) / f.w; unitPrice = inUnit.toFixed(2); costPrice = inUnit.toFixed(2); profitStr = (f.margin || 0).toFixed(2);
+                    const inUnit = (f.total + (f.fee || 0)) / f.w; unitPrice = inUnit.toFixed(2); 
+                    // ★ 导出：入库行的"成本价"用累计加权均价（若不可用退回本单进价）
+                    const avgAfter = (typeof f.avgCostAfter === 'number' && f.avgCostAfter > 0) ? f.avgCostAfter : inUnit;
+                    costPrice = avgAfter.toFixed(2);
+                    profitStr = (f.margin || 0).toFixed(2);
                     const coverW = Math.min(f.w, Math.abs(before.shortW));
                     if (coverW > 0.001) { const coverProfit = (before.shortPrice - inUnit) * coverW; const newStockW = f.w - coverW; profitDetail = `冲销 ${coverW.toFixed(2)}g × (欠货均价 ${before.shortPrice.toFixed(2)} − 本进价 ${inUnit.toFixed(2)}) = +${coverProfit.toFixed(2)}`; if (newStockW > 0.001) profitDetail += `；新增库存 ${newStockW.toFixed(2)}g 进入仓库`; }
                     else { profitDetail = `纯入库，无利润（进入库存，等出库时结算）`; }
+                    if (Math.abs(avgAfter - inUnit) > 0.005) profitDetail += `；入库后累计均价 ${avgAfter.toFixed(2)} 元/g`;
                 } else {
                     const up = f.sale / f.w; unitPrice = up.toFixed(2); const beforeAvgCost = before.w > 0 ? before.cost / before.w : 0; costPrice = beforeAvgCost > 0 ? beforeAvgCost.toFixed(2) : '-'; profitStr = (f.margin || 0).toFixed(2);
                     const consumedPos = Math.max(0, Math.min(f.w, before.w)); const shortPart = Math.max(0, f.w - consumedPos); const profitOnPos = consumedPos * (up - beforeAvgCost);
@@ -3043,7 +3059,10 @@
                 const deltaStr = (deltaW >= 0 ? '+' : '') + deltaW.toFixed(2); const stockChangeStr = `${beforeTotalStock.toFixed(2)}g → (${deltaStr}g) ${afterTotalStock.toFixed(2)}g`;
                 let unitPrice = ''; let costPrice = ''; let profitStr = '0.00'; let profitDetail = '';
                 if (f.t === 'in') {
-                    const inUnit = (f.total + (f.fee || 0)) / f.w; unitPrice = inUnit.toFixed(2); costPrice = inUnit.toFixed(2); profitStr = (f.margin || 0).toFixed(2);
+                    const inUnit = (f.total + (f.fee || 0)) / f.w; unitPrice = inUnit.toFixed(2);
+                    const avgAfter = (typeof f.avgCostAfter === 'number' && f.avgCostAfter > 0) ? f.avgCostAfter : inUnit;
+                    costPrice = avgAfter.toFixed(2);
+                    profitStr = (f.margin || 0).toFixed(2);
                     const coverW = Math.min(f.w, Math.abs(before.shortW));
                     if (coverW > 0.001) { const coverProfit = (before.shortPrice - inUnit) * coverW; const newStockW = f.w - coverW; profitDetail = `冲销 ${coverW.toFixed(2)}g × (欠货均价 ${before.shortPrice.toFixed(2)} − 本进价 ${inUnit.toFixed(2)}) = +${coverProfit.toFixed(2)}`; if (newStockW > 0.001) profitDetail += `；新增库存 ${newStockW.toFixed(2)}g 进入仓库`; }
                     else { profitDetail = `纯入库，无利润`; }
