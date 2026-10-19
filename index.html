@@ -292,6 +292,52 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         .auto-save-hint.show { opacity: 1; }
         /* 入库累计均价小标签 */
         .avg-tag { color: #999; font-size: 10px; margin-left: 3px; font-weight: 400; }
+
+        /* ============ ♻️ 以旧换新 ============ */
+        .ex-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 6px; }
+        .ex-col { border: 1px solid #e4ddd4; border-radius: 8px; padding: 12px 14px 2px; background: #fcfcfa; }
+        .ex-col-old { border-top: 3px solid #b33c2f; }
+        .ex-col-new { border-top: 3px solid #1e7e34; }
+        .ex-col-fee { border-top: 3px solid #d4a017; }
+        .ex-col-title { font-weight: 700; font-size: 13px; margin-bottom: 10px; color: #333; }
+        .ex-summary { background: #fdf9ef; border: 1px solid #ecd9a6; border-radius: 8px; padding: 14px 16px; margin: 10px 0 14px; }
+        .ex-sec { font-size: 12px; font-weight: 700; color: #8a6d1f; margin: 8px 0 4px; letter-spacing: 0.5px; }
+        .ex-sec:first-child { margin-top: 0; }
+        .ex-line { display: flex; justify-content: space-between; gap: 16px; padding: 5px 0; border-bottom: 1px dashed #eadfc6; font-size: 13px; }
+        .ex-line:last-child { border-bottom: none; }
+        .ex-line .k { color: #666; flex-shrink: 0; }
+        .ex-line .v { font-weight: 600; color: #1a1a1a; text-align: right; }
+        .ex-line.hl .v { color: #8b4513; }
+        .ex-big { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 2px solid #d4a017; font-size: 15px; font-weight: 700; }
+        .ex-big .amt { font-size: 26px; line-height: 1.1; }
+        .ex-big .amt.pay { color: #b33c2f; }
+        .ex-big .amt.refund { color: #1e7e34; }
+        .ex-empty { padding: 16px; text-align: center; color: #999; font-size: 13px; background: #faf9f7; border-radius: 8px; }
+        .ex-tag { display: inline-block; font-size: 10px; padding: 1px 5px; border-radius: 3px; background: #f3e6c4; color: #8a6d1f; margin-left: 4px; vertical-align: middle; font-weight: 700; white-space: nowrap; }
+        .ex-tag.old { background: #fbe6e3; color: #b33c2f; }
+        .ex-tag.new { background: #e3f2e6; color: #1e7e34; }
+        .ex-mini { font-size: 12px; color: #666; }
+        /* —— 新金分件明细（多件 / 多工费标准） —— */
+        .ex-items-card { background: #fbfdf9; border: 1px solid #dfe9d9; }
+        .ex-items-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+        .ex-items-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 2px; }
+        .ex-items-table th { background: #f1f5ee; color: #5b6b53; font-weight: 600; padding: 4px 6px; border: 1px solid #dfe9d9; white-space: nowrap; text-align: left; }
+        .ex-items-table td { padding: 3px 4px; border: 1px solid #e8eee4; vertical-align: middle; }
+        .ex-items-table input, .ex-items-table select { padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box; margin: 0; }
+        .ex-items-table td.idx { text-align: center; color: #999; width: 26px; }
+        .ex-items-table td.fee { text-align: right; font-weight: 600; color: #8b4513; white-space: nowrap; }
+        .ex-items-table tfoot td { background: #f7faf5; font-size: 12px; color: #4a5a43; }
+        .ex-items-table tfoot tr.sum td { font-weight: 700; color: #1e7e34; border-top: 2px solid #cfe0c6; }
+        .ex-fee-sum { font-size: 12px; color: #6b5a25; background: #fdf6e3; border: 1px dashed #e3cf9a; border-radius: 6px; padding: 6px 10px; margin-top: 8px; line-height: 1.8; }
+        .ex-fee-sum b { color: #8b4513; }
+        .ex-rule { font-size: 12px; color: #666; line-height: 1.75; background: #faf9f6; border-left: 3px solid #d4a017; padding: 8px 12px; margin-top: 8px; border-radius: 0 6px 6px 0; }
+        .ex-rule code { background: #f0ece4; padding: 0 3px; border-radius: 3px; font-size: 11px; }
+        .ex-mini-table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 6px 0 2px; }
+        .ex-mini-table th, .ex-mini-table td { border: 1px solid #eadfc6; padding: 4px 6px; }
+        .ex-mini-table th { background: #f7f1e1; color: #8a6d1f; font-weight: 600; }
+        .ex-mini-table td.num { text-align: right; }
+        .ex-mini-table tr.sum td { font-weight: 700; background: #fdf9ef; color: #8b4513; }
+        @media (max-width: 900px) { .ex-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -308,6 +354,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         <button class="active" data-tab="dash">📊 看板</button>
         <button data-tab="in">⬆ 入库</button>
         <button data-tab="out">⬇ 出库</button>
+        <button data-tab="ex" style="color:#ffd98a;">♻ 以旧换新</button>
         <button data-tab="stock">📦 库存</button>
         <button data-tab="flow">📜 流水</button>
         <button data-tab="report">📈 报表</button>
@@ -337,9 +384,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                 <div class="stat-box"><div class="num" id="sSale">0</div><div class="lbl">累计销售额</div></div>
                 <div class="stat-box"><div class="num" id="sMar" class="num clickable" onclick="showProfitDetail()" title="点击查看历史月度利润">0</div><div class="lbl">本月毛利（含利息）</div></div>
             </div>
-            <div class="row2 mt-8">
+            <div class="row3 mt-8">
                 <button class="btn btn-gold" onclick="switchTab('in')">📥 录入库</button>
                 <button class="btn btn-green" onclick="switchTab('out')">📤 录出库</button>
+                <button class="btn" style="background:#8a6d1f;" onclick="switchTab('ex')">♻️ 以旧换新</button>
             </div>
         </div>
         <div id="in" class="tab-panel">
@@ -414,6 +462,84 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                 <div id="outMsg" class="text-muted mt-8"></div>
             </div>
         </div>
+        <div id="ex" class="tab-panel">
+            <div class="card">
+                <div class="card-title">♻️ 以旧换新 · 克对克兑换 <span class="text-muted">旧金按克抵新金克重，只补工费；多出退钱、不足补差，一次生成「旧金入库 + 新金出库」两条关联流水</span></div>
+                <div class="row3">
+                    <div class="field"><label>业务日期</label><input id="exDate" type="date"></div>
+                    <div class="field"><label>客户</label><input id="exCus" list="exCusList" placeholder="姓名" oninput="exCustPick('name', this.value)"><datalist id="exCusList"></datalist></div>
+                    <div class="field"><label>电话</label><input id="exTel" list="exTelList" placeholder="手机号" oninput="exCustPick('tel', this.value)"><datalist id="exTelList"></datalist></div>
+                </div>
+                <div class="ex-grid">
+                    <div class="ex-col ex-col-old">
+                        <div class="ex-col-title">① 旧金回收 → 入库</div>
+                        <div class="field"><label>入库品类</label><select id="exOldCat" onchange="exOldNameSync()"></select></div>
+                        <div class="field"><label>入库品名（固定入「旧千足」）</label><select id="exOldName" onchange="renderExPreview()"></select></div>
+                        <div class="field"><label>旧金克重 (g)</label><input id="exOldW" type="number" step="0.01" placeholder="12.30" oninput="renderExPreview()"></div>
+                        <div class="field"><label>回收价 (元/g · 入库成本)</label><input id="exOldP" type="number" step="0.01" placeholder="480.00" oninput="renderExPreview()"></div>
+                    </div>
+                    <div class="ex-col ex-col-new">
+                        <div class="ex-col-title">② 新金销售 → 出库</div>
+                        <div class="field"><label>出库品类</label><select id="exNewCat" onchange="exNewNameSync()"></select></div>
+                        <div class="field"><label>出库品名</label><select id="exNewName" onchange="exNewNameSel()"><option value="">-- 先选品类 --</option></select></div>
+                        <div class="field"><label>新金克重 (g)</label><input id="exNewW" type="number" step="0.01" placeholder="10.00" oninput="exFeeFromRate(); renderExPreview()"></div>
+                        <div class="field"><label>新金售价 (元/g)</label><input id="exNewP" type="number" step="0.01" placeholder="650.00" oninput="exSyncTradePrice(); renderExPreview()"></div>
+                        <div class="field"><label>可用库存 (克重 + 件数)</label><input id="exNewAvail" readonly></div>
+                    </div>
+                    <div class="ex-col ex-col-fee">
+                        <div class="ex-col-title">③ 工费与抵扣</div>
+                        <div class="field"><label>工费单价 (元/g)</label><input id="exFeeRate" type="number" step="0.01" placeholder="30.00" oninput="exFeeFromRate()"></div>
+                        <div class="field"><label>工费总额 (元)</label><input id="exFee" type="number" step="0.01" placeholder="300.00" oninput="exFeeFromTotal(); renderExPreview()"></div>
+                        <div class="field"><label>旧金抵扣价 (元/g)</label><input id="exTradeP" type="number" step="0.01" placeholder="默认 = 新金售价" oninput="this.dataset.locked='1'; renderExPreview()"></div>
+                        <div class="text-muted" style="font-size:12px;line-height:1.5;color:#8b4513;">💡 克对克：抵扣价 = 新金售价时，同克重部分全额抵扣，客户只补工费。多出的旧金按「回收价」折现退给客户。</div>
+                    </div>
+                </div>
+
+                <div class="card ex-items-card" style="margin-top:10px;">
+                    <div class="card-title">🧾 新金分件明细 <span class="text-muted" style="font-weight:400;">（多件且工费标准不一致时填写；留空则完全沿用上方「工费单价 / 工费总额」的单件算法）</span></div>
+                    <div class="ex-items-bar">
+                        <button class="btn btn-green btn-sm" onclick="addExItem()">＋ 添加一件</button>
+                        <button class="btn btn-gray btn-sm" onclick="clearExItems()">清空明细</button>
+                        <span class="ex-mini" id="exItemsHint">未启用分件明细 · 工费 = 上方「工费总额」</span>
+                    </div>
+                    <div id="exItemsBox" style="display:none;overflow-x:auto;"></div>
+                    <div class="ex-fee-sum" id="exFeeSum" style="display:none;"></div>
+                    <details class="ex-rule" style="margin-top:8px;">
+                        <summary style="cursor:pointer;font-weight:600;color:#8a6d1f;">📖 工费合并规则（按克 / 按件 / 两者并存）</summary>
+                        <div style="margin-top:6px;">
+                            <b>① 按克计价</b>：行工费 = 该行克重 × 元/g（<code>5.20 × 28 = 145.60</code>）。多行按克不同单价时逐行算再相加。<br>
+                            <b>② 按件计价</b>：行工费 = 该行件数 × 元/件（<code>2 × 380 = 760.00</code>），与该行克重无关；克重仍全额计入新金总克重用于抵扣与出库。<br>
+                            <b>③ 两者并存</b>：总工费 = Σ按克行 + Σ按件行 + Σ整笔固定行，三类互不重复计费；同一件只能选一种方式，避免「克重+件数」双重收取。<br>
+                            <b>④ 取整口径</b>：<u>每一行先算到分（四舍五入 2 位），再逐行汇总</u>，总工费与各行小计之和恒等（不因先合计克重再乘单价而产生 1 分误差）。<br>
+                            <b>⑤ 与结算的关系</b>：应收合计 = 新金货款（总克重 × 售价）+ 工费合计；工费不参与旧金抵扣，只影响客户补差/门店退款金额。
+                        </div>
+                    </details>
+                </div>
+
+                <div class="ex-summary" id="exPreview"></div>
+
+                <div class="card" style="background:#f8f6f2;">
+                    <div class="card-title">💳 补差收款 / 退款 <span class="text-muted">（正数=客户付给门店，负数=门店退给客户）</span></div>
+                    <div id="exPayBox"></div>
+                    <div class="row2 mt-8">
+                        <div class="field"><label>现金实收合计</label><input id="exPaidSum" type="text" readonly style="background:#eee;"></div>
+                        <div class="field"><label>未结清</label><input id="exRemain" type="text" readonly style="background:#eee;color:#b33c2f;font-weight:bold;"></div>
+                    </div>
+                </div>
+
+                <div class="row2 mt-8">
+                    <button class="btn btn-gold" id="btnDoEx" onclick="doExchange()">✅ 确认换新（生成两条流水）</button>
+                    <button class="btn btn-print" onclick="printExForm()">🖨️ 打印换新单</button>
+                </div>
+                <button class="btn btn-gray btn-sm mt-8" onclick="resetExForm()">↺ 重置表单</button>
+                <div id="exMsg" class="text-muted mt-8"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📚 换新业务台账 <span class="text-muted">（点击任意一行查看完整发生逻辑，可追溯两条关联流水）</span></div>
+                <div id="exList"></div>
+            </div>
+        </div>
         <div id="stock" class="tab-panel">
             <div class="card">
                 <div class="card-title">📦 库存明细 <span class="text-muted">（拖动 ☰ 可调整当前页顺序 · 点击「⬆置顶」移到第一位 · 品名可多选）</span></div>
@@ -452,6 +578,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                     <button class="btn btn-gray btn-sm" onclick="flowCurrentPage=1;flowFilter='all';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('globalSearchInput').value='';renderFlow()">全部</button>
                     <button class="btn btn-gray btn-sm" onclick="flowCurrentPage=1;flowFilter='in';renderFlow()">入库</button>
                     <button class="btn btn-gray btn-sm" onclick="flowCurrentPage=1;flowFilter='out';renderFlow()">出库</button>
+                    <button class="btn btn-gray btn-sm" onclick="flowCurrentPage=1;flowFilter='ex';renderFlow()" style="background:#8a6d1f;">♻ 换新</button>
                     <span class="text-muted">从</span><input id="flowDtFrom" type="date" style="width:auto;padding:4px 8px;" onchange="flowCurrentPage=1;renderFlow()">
                     <span class="text-muted">至</span><input id="flowDtTo" type="date" style="width:auto;padding:4px 8px;" onchange="flowCurrentPage=1;renderFlow()">
                     <button class="btn btn-gray btn-sm" onclick="flowCurrentPage=1;document.getElementById('flowDtFrom').value='';document.getElementById('flowDtTo').value='';flowCustomerFilter=null;flowCustomerFilterField=null;document.getElementById('globalSearchInput').value='';renderFlow()">清除</button>
@@ -869,7 +996,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             names: [], flow: [], cust: [],
             sources: ['散客', '朋友介绍', '老客户', '抖音', '门店', '同行', '其他'],
             payChannels: ['微信', '支付宝', '工商银行', '建设银行', '农业银行', '农商银行', '招商银行', '浦发银行', '兴业银行', '中国银行', '交通银行', '现金'],
-            trash: [], interest: [], _version: 0, _lastSeqId: 0, stockOrder: []
+            trash: [], interest: [], _version: 0, _lastSeqId: 0, stockOrder: [], exchanges: []
         };
         const FLOW_PAGE_SIZE = 20, STOCK_PAGE_SIZE = 20, REPORT_PAGE_SIZE = 15, PROFIT_PAGE_SIZE = 15, INTEREST_PAGE_SIZE = 15, CUST_PAGE_SIZE = 20;
         let flowCurrentPage = 1, stockCurrentPage = 1, reportOutCatCurrentPage = 1, reportOutCustCurrentPage = 1, reportInCatCurrentPage = 1, reportInCustCurrentPage = 1, reportInNameCurrentPage = 1, profitCurrentPage = 1, interestCurrentPage = 1, custCurrentPage = 1;
@@ -899,8 +1026,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                 if (autoPushInProgress) return;
                 autoPushInProgress = true;
                 try {
-                    await updateSnapshot();
-                    logSync('✅ 自动同步完成（流水' + D.flow.length + '/客户' + D.cust.length + '/利息' + D.interest.length + '）', 'ok');
+                    const r = await updateSnapshot();
+                    if (r && r.skipped) return;          // 没有实际改动，不打扰用户
+                    logSync('✅ 自动同步完成（本次推送 ' + ((r && r.pushed) || 0) + ' 条，流水共' + D.flow.length + '/客户' + D.cust.length + '/利息' + D.interest.length + '）', 'ok');
                     showAutoSaveHint();
                 } catch (e) {
                     logSync('⚠️ 自动同步失败: ' + e.message, 'warn');
@@ -910,16 +1038,20 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             }, delay || 800);
         }
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden' && sb && isInitialLoadDone) {
-                if (autoPushTimer) { clearTimeout(autoPushTimer); autoPushTimer = null; }
-                if (!autoPushInProgress) {
-                    autoPushInProgress = true;
-                    updateSnapshot().finally(() => { autoPushInProgress = false; });
+            if (document.visibilityState === 'hidden') {
+                flushLocalSave(true);   // 切走前先把本地落盘，防止意外关闭丢最后几秒的改动
+                if (sb && isInitialLoadDone) {
+                    if (autoPushTimer) { clearTimeout(autoPushTimer); autoPushTimer = null; }
+                    if (!autoPushInProgress) {
+                        autoPushInProgress = true;
+                        updateSnapshot().finally(() => { autoPushInProgress = false; });
+                    }
                 }
             }
         });
         window.addEventListener('beforeunload', () => {
-            if (sb && autoPushTimer && isInitialLoadDone) { clearTimeout(autoPushTimer); updateSnapshot(); }
+            flushLocalSave(true);
+            if (sb && autoPushTimer && isInitialLoadDone) { clearTimeout(autoPushTimer); autoPushTimer = null; updateSnapshot(); }
         });
 
         function showErrorToast(msg, type) {
@@ -943,8 +1075,47 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             if (!Array.isArray(D.stockOrder)) D.stockOrder = [];
             if (!Array.isArray(D.trash)) D.trash = [];
             if (!Array.isArray(D.interest)) D.interest = [];
+            if (!Array.isArray(D.exchanges)) D.exchanges = [];
         }
-        function saveData() { D._version = (D._version || 0) + 1; localStorage.setItem(STORE_KEY, JSON.stringify(D)); }
+        /* ---------- 本地保存：合并写入，避免每次点一下就整份重写 ----------
+           以前：任何操作（含只是刷新页面）都会把整份数据 JSON 化后写一次 localStorage，
+                 流水上万行时单次就是 3MB 级字符串，点得快就卡。
+           现在：350ms 内的多次改动合并成一次写；页面隐藏/关闭/手动操作时才立即落盘。 */
+        let _saveTimer = null, _saveDirty = false, _saveQuotaWarned = false, _saveLastBytes = 0;
+        function saveData(immediate) {
+            D._version = (D._version || 0) + 1;
+            _saveDirty = true;
+            if (immediate) { flushLocalSave(); return; }
+            if (_saveTimer) return;
+            _saveTimer = setTimeout(flushLocalSave, 350);
+        }
+        function flushLocalSave(force) {
+            if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+            if (!_saveDirty && !force) return;
+            _saveDirty = false;
+            let json;
+            try { json = JSON.stringify(D); } catch (e) { console.error('序列化失败', e); return; }
+            _saveLastBytes = json.length;
+            try { localStorage.setItem(STORE_KEY, json); }
+            catch (e) {
+                // 配额写满：先砍一半回收站（回收站是临时区，砍了不影响在用数据），再重试一次
+                let ok = false;
+                try {
+                    if (Array.isArray(D.trash) && D.trash.length > 0) {
+                        const keep = Math.floor(D.trash.length / 2);
+                        D.trash = D.trash.slice(0, keep);
+                        localStorage.setItem(STORE_KEY, JSON.stringify(D));
+                        ok = true;
+                        showErrorToast('⚠️ 本地存储已满，已自动清理一半回收站记录（' + (D.trash.length) + ' 条保留）', 'warning');
+                    }
+                } catch (e2) { }
+                if (!ok && !_saveQuotaWarned) {
+                    _saveQuotaWarned = true;
+                    showErrorToast('⚠️ 本地存储已满，当前操作未能写入本地。请先导出备份，再用「历史归档」清理旧流水。', 'error');
+                }
+                console.error('localStorage 写入失败', e);
+            }
+        }
         loadData();
         function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
         function escAttr(s) { return String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
@@ -1266,6 +1437,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                     let realProfit = 0; let realCost = 0; let outW = f.w;
                     if (state.w > 0) { const consume = Math.min(outW, state.w); const avgCost = state.cost / state.w; realProfit = (unitPrice - avgCost) * consume; realCost += avgCost * consume; state.w -= consume; state.cost -= avgCost * consume; outW -= consume; }
                     if (outW > 0) { realCost += outW * unitPrice; if (state.shortW === 0) { state.shortW = -outW; state.shortPrice = unitPrice; } else { const oldShortCost = state.shortW * state.shortPrice; const newShortCost = -outW * unitPrice; const totalShortW = state.shortW - outW; const totalShortCost = oldShortCost + newShortCost; state.shortPrice = totalShortCost / totalShortW; state.shortW = totalShortW; } }
+                    // ♻️ 以旧换新：出库工费为门店实际收入，计入本单毛利（历史单据 fee 为空 → +0，不影响旧数据）
+                    realProfit += (f.fee || 0);
                     f.margin = parseFloat(realProfit.toFixed(4));
                     f.cost = parseFloat(realCost.toFixed(4));
                     f.avgCostAfter = state.w > 0.0001 ? parseFloat((state.cost / state.w).toFixed(4)) : 0;
@@ -1299,19 +1472,92 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         }
 
         // ================= 同步核心逻辑 =================
+        /* ---------- 增量同步：给每条流水做一个"内容指纹" ----------
+           以前：不管改了几条，每次都把全部流水按 50 行一批重新 upsert 一遍。
+                 3000 条流水 = 60 次请求、1MB 流量，改个客户名也一样。
+           现在：只推指纹变了的那几条（通常 2~4 条），其余原样不动。
+                 每天首次 / 手动同步时仍然全量校准一次，保证云端不会漏。 */
+        const FULL_PUSH_INTERVAL = 12 * 3600 * 1000;   // 半天做一次全量校准
+        const _pushedSig = new Map();                  // 流水 id -> 已推送的内容指纹
+        const _pushedCustSig = new Map();              // 客户 id -> 指纹
+        const _pushedIntSig = new Map();               // 利息 id -> 指纹
+        let _pushedStateSig = '';                      // 配置块（payload）指纹
+        let _needFullPush = true;
+        let _lastFullPushAt = 0;
+
+        function flowSig(f) {
+            const pd = Array.isArray(f.payDetail) ? f.payDetail : [];
+            return [f.id, f.lastModified || f.time || '', f.t || '', f.cat || '', f.name || '',
+                f.w || 0, f.q || 1, f.total || 0, f.sale || 0, f.fee || 0, f.costUnit || 0,
+                f.cus || '', f.buyer || '', f.tel || '', f.idNo || '', f.src || '',
+                f.rate || 0, f.mortgageDate || '', f.payPaid || 0, f.payRemain || 0,
+                f.time || '', (f.note || '').length, pd.length,
+                pd.map(p => (p && p.ch || '') + ':' + (p && p.amt || 0)).join(',')
+            ].join('|');
+        }
+        function custSig(c) { return [c.id, c.name || '', c.tel || '', c.idNo || '', c.note || ''].join('|'); }
+        function intSig(it) { return [it.id, it.date || '', it.mortgageName || '', it.cust || '', it.amount || 0, it.payMethod || '', it.note || '', it.createdAt || ''].join('|'); }
+
+        /* ---------- 换新台账元数据：只保留流水里推不出来的东西 ----------
+           一笔换新的客户/克重/单价/工费/抵扣/应付，全都能从两条流水还原；
+           唯一推不出来的是"新金分件明细"（哪几件、每件怎么算工费）。
+           所以云端只存这一小块，用数组压缩，不再整份对象反复重写。 */
+        function packExMetas(list) {
+            if (!Array.isArray(list)) return [];
+            const out = [];
+            list.forEach(m => {
+                if (!m || !m.no) return;
+                const items = (m.neu && Array.isArray(m.neu.items)) ? m.neu.items : [];
+                if (!items.length && !(m.fee && m.fee.mode === 'mixed')) return;   // 没有分件明细的不存（流水能还原）
+                out.push([
+                    m.no,
+                    (m.old && m.old.w) || 0, (m.old && m.old.po) || 0,
+                    (m.neu && m.neu.w) || 0, (m.neu && m.neu.pn) || 0,
+                    (m.fee && m.fee.mode) || '',
+                    (m.fee && m.fee.byG) || 0, (m.fee && m.fee.byP) || 0, (m.fee && m.fee.fix) || 0,
+                    (m.fee && m.fee.total) || 0,
+                    items.map(it => [String(it.desc || ''), it.w || 0, it.q || 0, it.mode || 'g', it.std || 0])
+                ]);
+            });
+            return out;
+        }
+        function unpackExMetas(arr) {
+            if (!Array.isArray(arr)) return [];
+            return arr.map(row => {
+                if (!Array.isArray(row)) return row;                       // 旧格式（完整对象）原样保留
+                const items = (row[10] || []).map(a => ({ desc: a[0] || '', w: a[1] || 0, q: a[2] || 0, mode: a[3] || 'g', std: a[4] || 0 }));
+                return {
+                    no: row[0],
+                    old: { w: row[1] || 0, po: row[2] || 0 },
+                    neu: { w: row[3] || 0, pn: row[4] || 0, items: items },
+                    fee: { mode: row[5] || '', byG: row[6] || 0, byP: row[7] || 0, fix: row[8] || 0, total: row[9] || 0 }
+                };
+            });
+        }
+
         async function markDeletedInCloud(table, id) {
             if (!sb) return;
-            try { await sb.from(table).update({ deleted: true, updated_at: new Date().toISOString() }).eq('id', id); }
+            try {
+                await sb.from(table).update({ deleted: true, updated_at: new Date().toISOString() }).eq('id', id);
+                if (table === 'shop_flow') _pushedSig.delete(id);
+                else if (table === 'shop_cust') _pushedCustSig.delete(id);
+                else if (table === 'shop_interest') _pushedIntSig.delete(id);
+            }
             catch (e) { console.error('删除标记失败:', e); }
         }
-        async function updateSnapshot() {
+        async function updateSnapshot(force) {
             D._version = (D._version || 0) + 1;
             saveData();
             if (!sb) return;
             const nowISO = new Date().toISOString();
             const CHUNK = 50;
-            for (let i = 0; i < D.flow.length; i += CHUNK) {
-                const chunk = D.flow.slice(i, i + CHUNK);
+            const full = !!force || _needFullPush || (Date.now() - _lastFullPushAt > FULL_PUSH_INTERVAL);
+
+            // ① 流水：只挑指纹变化的行（全量模式则全挑）
+            const pending = full ? D.flow.slice() : D.flow.filter(f => _pushedSig.get(f.id) !== flowSig(f));
+            let pushedRows = 0;
+            for (let i = 0; i < pending.length; i += CHUNK) {
+                const chunk = pending.slice(i, i + CHUNK);
                 const rows = chunk.map(f => ({
                     id: f.id, no: f.no, t: f.t, cat: f.cat, name: f.name,
                     w: f.w, q: f.q || 1, total: f.total || 0, sale: f.sale || 0,
@@ -1325,17 +1571,35 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                 }));
                 const { error } = await sb.from('shop_flow').upsert(rows);
                 if (error) { logSync('⚠️ 流水推送失败: ' + error.message, 'warn'); throw error; }
+                chunk.forEach(f => _pushedSig.set(f.id, flowSig(f)));
+                pushedRows += chunk.length;
             }
-            if (D.cust.length > 0) {
-                const rows = D.cust.map(c => ({
-                    id: c.id || genId(), name: c.name || '', tel: c.tel || '',
+            if (full) {
+                const alive = new Set(D.flow.map(f => String(f.id)));
+                Array.from(_pushedSig.keys()).forEach(id => { if (!alive.has(String(id))) _pushedSig.delete(id); });
+                _needFullPush = false;
+                _lastFullPushAt = Date.now();
+            }
+
+            // ② 客户：同样只推改动过的
+            const custChanged = D.cust.filter(c => {
+                if (!c.id) c.id = genId();               // 顺手补上缺失的 id，避免云端出现重复客户
+                return _pushedCustSig.get(c.id) !== custSig(c);
+            });
+            if (custChanged.length > 0) {
+                const rows = custChanged.map(c => ({
+                    id: c.id, name: c.name || '', tel: c.tel || '',
                     idNo: c.idNo || '', note: c.note || '', updated_at: nowISO
                 }));
                 const { error } = await sb.from('shop_cust').upsert(rows);
                 if (error) logSync('⚠️ 客户推送失败: ' + error.message, 'warn');
+                else custChanged.forEach(c => _pushedCustSig.set(c.id, custSig(c)));
             }
-            if (D.interest.length > 0) {
-                const rows = D.interest.map(it => ({
+
+            // ③ 利息：同上
+            const intChanged = D.interest.filter(it => _pushedIntSig.get(it.id) !== intSig(it));
+            if (intChanged.length > 0) {
+                const rows = intChanged.map(it => ({
                     id: it.id, date: it.date || '', mortgageName: it.mortgageName || '',
                     cust: it.cust || '', amount: it.amount || 0, payMethod: it.payMethod || '',
                     note: it.note || '', createdAt: it.createdAt || '',
@@ -1343,19 +1607,41 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                 }));
                 const { error } = await sb.from('shop_interest').upsert(rows);
                 if (error) logSync('⚠️ 利息推送失败: ' + error.message, 'warn');
+                else intChanged.forEach(it => _pushedIntSig.set(it.id, intSig(it)));
             }
+
+            // ④ 配置块：内容没变就不写（避免每点一下就整块重写）
             try {
-                await sb.from('shop_state').upsert({
-                    id: 1,
-                    payload: JSON.stringify({
-                        prices: D.prices, cats: D.cats, sources: D.sources,
-                        payChannels: D.payChannels, stockOrder: D.stockOrder,
-                        names: D.names,
-                        _lastSeqId: D._lastSeqId, _version: D._version
-                    }),
-                    updated_at: nowISO
+                const payload = JSON.stringify({
+                    prices: D.prices, cats: D.cats, sources: D.sources,
+                    payChannels: D.payChannels, stockOrder: D.stockOrder,
+                    names: D.names,
+                    exm: packExMetas(D.exchanges || []),
+                    _lastSeqId: D._lastSeqId
                 });
+                if (payload !== _pushedStateSig) {
+                    await sb.from('shop_state').upsert({
+                        id: 1, payload: payload, updated_at: nowISO
+                    });
+                    _pushedStateSig = payload;
+                }
             } catch (e) { logSync('⚠️ 配置推送失败: ' + e.message, 'warn'); }
+
+            if (!full && pushedRows === 0 && custChanged.length === 0 && intChanged.length === 0) {
+                return { skipped: true, pushed: 0 };   // 内容没变，不发请求也不闪"已同步"
+            }
+            return { skipped: false, pushed: pushedRows };
+        }
+        /* 拉取完全量数据后，把"已推送指纹"按云端内容重建，
+           否则下一次保存会误以为整张表都是新的，又变成全量重传。 */
+        function resetSyncFingerprints() {
+            _pushedSig.clear(); _pushedCustSig.clear(); _pushedIntSig.clear();
+            D.flow.forEach(f => _pushedSig.set(f.id, flowSig(f)));
+            D.cust.forEach(c => { if (c.id) _pushedCustSig.set(c.id, custSig(c)); });
+            D.interest.forEach(it => { if (it.id) _pushedIntSig.set(it.id, intSig(it)); });
+            _pushedStateSig = '';
+            _needFullPush = false;
+            _lastFullPushAt = Date.now();
         }
         async function pullFullState() {
             if (!sb) return;
@@ -1387,8 +1673,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                     if (Array.isArray(remote.names) && remote.names.length > 0) {
                         D.names = remote.names;
                     }
+                    if (Array.isArray(remote.exm)) D.exchanges = unpackExMetas(remote.exm);
+                    else if (Array.isArray(remote.exchanges)) D.exchanges = remote.exchanges;   // 兼容优化前的旧数据
                 }
                 rebuildNamesFromFlow();
+                resetSyncFingerprints();
                 saveData(); refreshAll();
                 logSync(`✅ 全量拉取完成（流水${D.flow.length}条，客户${D.cust.length}条，利息${D.interest.length}条，品名${D.names.length}条）`, 'ok');
                 updateSyncStatus('ok');
@@ -1430,6 +1719,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             renderCatSelects(); renderSourceSelects(); populateFilterSelects(); renderTrash(); renderInterest();
             if (document.getElementById('out').classList.contains('active')) outLoadNames();
             if (document.getElementById('in').classList.contains('active')) { inLoadNames(); renderPayRows('in'); toggleMortgageFields(); }
+            if (document.getElementById('ex').classList.contains('active')) { renderExForm(); }
         }
         function renderDash() {
             let marketVal = 0, totalCost = 0, sale = 0;
@@ -1594,18 +1884,18 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         function getPayChannels() { return D.payChannels || ['微信', '支付宝', '工商银行', '建设银行', '农业银行', '农商银行', '招商银行', '浦发银行', '兴业银行', '中国银行', '交通银行', '现金']; }
         function payOpts(selected) { let s = '<option value="">-- 渠道 --</option>'; getPayChannels().forEach(c => { s += `<option value="${c}" ${c===selected?'selected':''}>${c}</option>`; }); return s; }
         function renderPayRows(type) {
-            const box = document.getElementById(type === 'in' ? 'inPayBox' : 'outPayBox'); if (!box) return;
+            const box = document.getElementById(type === 'in' ? 'inPayBox' : (type === 'out' ? 'outPayBox' : 'exPayBox')); if (!box) return;
             if (!box.dataset.inited || box.innerHTML.trim() === '') { box.dataset.inited = '1'; box.innerHTML = `<div id="${type}PayList"></div><div style="display:flex; align-items:center; gap:6px; margin-top:4px;"><button class="btn btn-gray btn-sm" onclick="addPayRow('${type}')">＋ 添加一笔</button><span class="pay-channel-manage-btn" onclick="managePayChannels()" title="管理支付渠道">⚙️</span></div>`; }
             const list = document.getElementById(type + 'PayList'); if (list && list.children.length === 0) addPayRow(type, true); recalcPay(type);
         }
         function addPayRow(type, silent) {
             const list = document.getElementById(type + 'PayList'); if (!list) return;
             const row = document.createElement('div'); row.className = 'pay-grid';
-            row.innerHTML = `<select class="payCh" onchange="recalcPay('${type}')">${payOpts()}</select><input class="payAmt" type="number" step="0.01" placeholder="金额" oninput="recalcPay('${type}')"><span class="text-danger" style="cursor:pointer;font-size:20px;" onclick="this.parentElement.remove();recalcPay('${type}')">×</span>`;
+            row.innerHTML = `<select class="payCh" onchange="recalcPay('${type}')">${payOpts()}</select><input class="payAmt" type="number" step="0.01" placeholder="金额" oninput="this.dataset.touched='1'; recalcPay('${type}')"><span class="text-danger" style="cursor:pointer;font-size:20px;" onclick="this.parentElement.remove();recalcPay('${type}')">×</span>`;
             list.appendChild(row); if (!silent) recalcPay(type);
         }
         function fillPayRows(type, detail) {
-            const box = document.getElementById(type === 'in' ? 'inPayBox' : 'outPayBox'); if (!box) return;
+            const box = document.getElementById(type === 'in' ? 'inPayBox' : (type === 'out' ? 'outPayBox' : 'exPayBox')); if (!box) return;
             box.dataset.inited = '1'; box.innerHTML = `<div id="${type}PayList"></div><div style="display:flex; align-items:center; gap:6px; margin-top:4px;"><button class="btn btn-gray btn-sm" onclick="addPayRow('${type}')">＋ 添加一笔</button><span class="pay-channel-manage-btn" onclick="managePayChannels()" title="管理支付渠道">⚙️</span></div>`;
             const list = document.getElementById(type + 'PayList');
             if (detail && detail.length) { detail.forEach(p => { const row = document.createElement('div'); row.className = 'pay-grid'; row.innerHTML = `<select class="payCh" onchange="recalcPay('${type}')">${payOpts(p.ch)}</select><input class="payAmt" type="number" step="0.01" placeholder="金额" value="${p.amt||''}" oninput="recalcPay('${type}')"><span class="text-danger" style="cursor:pointer;font-size:20px;" onclick="this.parentElement.remove();recalcPay('${type}')">×</span>`; list.appendChild(row); }); }
@@ -1709,7 +1999,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             const tb = document.getElementById('flowBody');
             let arr = D.flow.slice();
             arr.sort((a, b) => { if (a.time !== b.time) return b.time.localeCompare(a.time); return b.id - a.id; });
-            if (flowFilter !== 'all') arr = arr.filter(f => f.t === flowFilter);
+            if (flowFilter === 'ex') arr = arr.filter(f => isExFlow(f));
+            else if (flowFilter !== 'all') arr = arr.filter(f => f.t === flowFilter);
             const dtFrom = document.getElementById('flowDtFrom').value; const dtTo = document.getElementById('flowDtTo').value;
             if (dtFrom) arr = arr.filter(f => f.time.slice(0, 10) >= dtFrom);
             if (dtTo) arr = arr.filter(f => f.time.slice(0, 10) <= dtTo);
@@ -1760,7 +2051,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                 const before = item.beforeStock; const after = item.afterStock; const delta = after - before;
                 const deltaStr = (delta >= 0 ? '+' : '') + delta.toFixed(2); const deltaClass = delta >= 0 ? 'positive' : 'negative';
                 const stockDisplay = `<span class="flow-stock-change"><span class="from">${before.toFixed(2)}g</span><span class="arrow"> → </span><span class="delta ${deltaClass}">(${deltaStr}g)</span><span class="to">${after.toFixed(2)}g</span></span>`;
-                const payTxt = f.payDetail ? f.payDetail.map(p => escHtml(p.ch) + ' ¥' + (p.amt || 0).toFixed(2)).join('<br>') : '-';
+                const payTxt = f.payDetail ? f.payDetail.map(p => escHtml(p.ch) + ' ' + ((p.amt || 0) < 0 ? '退' : '¥') + Math.abs(p.amt || 0).toFixed(2)).join('<br>') : '-';
                 const remain = Math.abs(f.payRemain || 0) > 0.01 ? (f.t === 'in' ? (f.payRemain > 0 ? '未付' : '多付') : (f.payRemain > 0 ? '欠付' : '多付')) + ' ' + Math.abs(f.payRemain).toFixed(2) : '-';
                 const cus = escHtml(f.cus || f.buyer || ''); const tel = escHtml(f.tel || '');
                 const createdAt = f.time || f.createdAt || f.time; const lastMod = f.lastModified || f.time;
@@ -1781,10 +2072,14 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                     const marginVal = (f.margin !== undefined && f.margin !== null) ? f.margin : 0;
                     amountDisplay = `<span class="amount-positive">+${f.sale.toFixed(2)}</span>`; unitPriceDisplay = unitPrice.toFixed(2);
                     if (Math.abs(marginVal) > 0.01) { amountDisplay += `<br><span class="margin-text margin-clickable" style="color:#1e7e34;" onclick="event.stopPropagation();showFlowProfitDetail(${f.id})" title="点击查看利润构成">利 ${marginVal.toFixed(2)} ↗</span>`; }
-                    if (f.w > 0 && Math.abs(marginVal) > 0.01) { const realCost = (f.sale - marginVal) / f.w; costPriceDisplay = realCost.toFixed(2); }
+                    if (f.fee) amountDisplay += `<br><span class="margin-text">工费 ${f.fee.toFixed(2)}</span>`;
+                    if (isExFlow(f)) {
+                        // 换新单：成本价取实际消耗成本（毛利已含工费，不能用 sale−margin 反推）
+                        costPriceDisplay = (f.w > 0 && f.cost > 0) ? (f.cost / f.w).toFixed(2) : '-';
+                    } else if (f.w > 0 && Math.abs(marginVal) > 0.01) { const realCost = (f.sale - marginVal) / f.w; costPriceDisplay = realCost.toFixed(2); }
                     else if (f.w > 0) { costPriceDisplay = (f.sale / f.w).toFixed(2); }
                 }
-                rows += `<tr class="flow-row" data-flow-id="${f.id}"><td style="text-align:center;" onclick="event.stopPropagation();"><input type="checkbox" class="flow-cb" value="${f.id}" onchange="updateFlowSelectedInfo()"></td><td class="seq-num" style="cursor:pointer;" onclick="editFlow(${f.id})">${seq}</td><td style="white-space:nowrap;font-size:12px;cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(createdAt.replace('T',' ').slice(0,16))}</td><td style="white-space:nowrap;font-size:12px;cursor:pointer;" class="last-modified" onclick="editFlow(${f.id})">${escHtml(lastMod.replace('T',' ').slice(0,16))}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})"><b>${escHtml(f.no)}</b></td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${f.t==='in'?'<span style="color:#1e7e34;">⬆入库</span>':'<span style="color:#b33c2f;">⬇出库</span>'}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(f.cat)}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(f.name)}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${stockDisplay}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(unitPriceDisplay)}</td><td style="cursor:pointer;color:#8b4513;font-weight:600;" onclick="editFlow(${f.id})">${costPriceDisplay}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${amountDisplay}</td><td><a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(cus)}','name'); return false;" style="color:#0066cc;text-decoration:underline;">${cus}</a></td><td>${tel ? `<a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(tel)}','tel'); return false;" style="color:#0066cc;text-decoration:underline;">${tel}</a>` : '-'}</td><td style="font-size:12px;">${payTxt}</td><td>${(f.payPaid||0)>0?(f.payPaid).toFixed(2):'-'}</td><td>${remain}</td><td>${escHtml(f.note||'')}</td><td style="white-space:nowrap;"><span class="text-primary" style="cursor:pointer;font-size:12px;" onclick="event.stopPropagation();editFlow(${f.id})">修改</span><span class="text-danger" style="cursor:pointer;font-size:12px;margin-left:4px;" onclick="event.stopPropagation();confirmDeleteFlow(${f.id})">删除</span></td></tr>`;
+                rows += `<tr class="flow-row" data-flow-id="${f.id}"><td style="text-align:center;" onclick="event.stopPropagation();"><input type="checkbox" class="flow-cb" value="${f.id}" onchange="updateFlowSelectedInfo()"></td><td class="seq-num" style="cursor:pointer;" onclick="editFlow(${f.id})">${seq}</td><td style="white-space:nowrap;font-size:12px;cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(createdAt.replace('T',' ').slice(0,16))}</td><td style="white-space:nowrap;font-size:12px;cursor:pointer;" class="last-modified" onclick="editFlow(${f.id})">${escHtml(lastMod.replace('T',' ').slice(0,16))}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})"><b>${escHtml(f.no)}</b>${isExFlow(f) ? '<span class="ex-tag">♻</span>' : ''}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${flowTypeCell(f)}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(f.cat)}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(f.name)}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${stockDisplay}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${escHtml(unitPriceDisplay)}</td><td style="cursor:pointer;color:#8b4513;font-weight:600;" onclick="editFlow(${f.id})">${costPriceDisplay}</td><td style="cursor:pointer;" onclick="editFlow(${f.id})">${amountDisplay}</td><td><a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(cus)}','name'); return false;" style="color:#0066cc;text-decoration:underline;">${cus}</a></td><td>${tel ? `<a href="#" onclick="event.stopPropagation();filterByCustomer('${escAttr(tel)}','tel'); return false;" style="color:#0066cc;text-decoration:underline;">${tel}</a>` : '-'}</td><td style="font-size:12px;">${payTxt}</td><td>${(f.payPaid||0)>0?(f.payPaid).toFixed(2):'-'}</td><td>${remain}</td><td>${escHtml(f.note||'')}</td><td style="white-space:nowrap;"><span class="text-primary" style="cursor:pointer;font-size:12px;" onclick="event.stopPropagation();editFlow(${f.id})">修改</span><span class="text-danger" style="cursor:pointer;font-size:12px;margin-left:4px;" onclick="event.stopPropagation();confirmDeleteFlow(${f.id})">删除</span></td></tr>`;
             });
             const net = totalOutSale - totalInAmount; const remainW = totalInW - totalOutW;
             const avgCost = totalInW > 0.001 ? totalInAmount / totalInW : 0;
@@ -1810,13 +2105,19 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         async function batchDeleteFlows() {
             const cbs = document.querySelectorAll('.flow-cb:checked');
             if (cbs.length === 0) { showErrorToast('请先勾选要删除的流水', 'warning'); return; }
-            const ids = Array.from(cbs).map(cb => parseInt(cb.value));
-            const ok = await showConfirmModal('🗑️ 批量删除流水', `<p>确定要删除选中的 <b>${ids.length}</b> 条流水吗？</p><p class="text-muted">将移入回收站，可随时恢复。</p>`, '移入回收站', '取消');
+            const picked = Array.from(cbs).map(cb => parseInt(cb.value));
+            // ♻️ 选中换新流水时，自动带上配对流水，避免只删一条导致库存/金额错配
+            const exNos = new Set(D.flow.filter(f => picked.indexOf(f.id) !== -1 && isExFlow(f)).map(f => exNoOf(f)));
+            let ids = picked.slice();
+            if (exNos.size > 0) ids = Array.from(new Set(ids.concat(D.flow.filter(f => isExFlow(f) && exNos.has(exNoOf(f))).map(f => f.id))));
+            const exTip = exNos.size > 0 ? `<p style="color:#8a6d1f;">其中包含 <b>${exNos.size}</b> 笔换新业务，已自动补齐配对的旧金/新金流水（共 ${ids.length} 条）。</p>` : `<p>确定要删除选中的 <b>${ids.length}</b> 条流水吗？</p>`;
+            const ok = await showConfirmModal('🗑️ 批量删除流水', `${exTip}<p class="text-muted">将移入回收站，可随时恢复。</p>`, '移入回收站', '取消');
             if (!ok) return;
             const now = nowFullStr();
-            const toDelete = D.flow.filter(f => ids.includes(f.id));
+            const toDelete = D.flow.filter(f => ids.indexOf(f.id) !== -1);
             toDelete.forEach(f => { D.trash.push({ ...f, _type: 'flow', deletedAt: now }); });
-            D.flow = D.flow.filter(f => !ids.includes(f.id));
+            D.flow = D.flow.filter(f => ids.indexOf(f.id) === -1);
+            if (Array.isArray(D.exchanges) && exNos.size > 0) D.exchanges = D.exchanges.filter(x => !exNos.has(x.no));
             saveData();
             for (const id of ids) { await markDeletedInCloud('shop_flow', id); }
             refreshAll(); renderTrash();
@@ -2283,6 +2584,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         }
         async function confirmDeleteFlow(id) {
             const f = D.flow.find(x => x.id === id); if (!f) return;
+            if (isExFlow(f)) { await confirmDeleteExchange(f.no); return; }
             const ok = await showConfirmModal('🗑️ 删除流水', `<p>单号：${escHtml(f.no)}<br>类型：${f.t==='in'?'入库':'出库'}<br>品名：${escHtml(f.name)}<br>克重：${f.w.toFixed(2)}g</p><p class="text-muted">将移入回收站，可随时恢复。</p>`, '移入回收站', '取消');
             if (!ok) return;
             const trashItem = { ...f, _type: 'flow', deletedAt: nowFullStr() };
@@ -2293,13 +2595,19 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
         }
         async function confirmDeleteStock(name, cat) {
-            const items = D.flow.filter(f => f.cat === cat && f.name === name);
+            let items = D.flow.filter(f => f.cat === cat && f.name === name);
             if (!items.length) { showErrorToast('未找到相关流水', 'warning'); return; }
-            const ok = await showConfirmModal('🗑️ 删除库存', `<p>品类：${escHtml(cat)}<br>品名：${escHtml(name)}<br>相关流水：${items.length} 条</p><p class="text-muted">将移入回收站，可随时恢复。</p>`, '移入回收站', '取消');
+            // ♻️ 若含换新流水，必须连同配对流水一起删，避免业务单只剩一半
+            const exNos = new Set(items.filter(isExFlow).map(exNoOf));
+            const exTip = exNos.size ? `<p style="color:#8a6d1f;">其中含 <b>${exNos.size}</b> 笔以旧换新，将连同配对的旧金/新金流水一起移入回收站。</p>` : '';
+            const ok = await showConfirmModal('🗑️ 删除库存', `<p>品类：${escHtml(cat)}<br>品名：${escHtml(name)}<br>相关流水：${items.length} 条</p>${exTip}<p class="text-muted">将移入回收站，可随时恢复。</p>`, '移入回收站', '取消');
             if (!ok) return;
+            if (exNos.size > 0) items = D.flow.filter(f => items.indexOf(f) !== -1 || (isExFlow(f) && exNos.has(exNoOf(f))));
+            const delIds = items.map(f => f.id);
             const now = nowFullStr();
             items.forEach(f => { D.trash.push({ ...f, _type: 'flow', deletedAt: now }); });
-            D.flow = D.flow.filter(f => !(f.cat === cat && f.name === name));
+            D.flow = D.flow.filter(f => delIds.indexOf(f.id) === -1);
+            if (Array.isArray(D.exchanges) && exNos.size > 0) D.exchanges = D.exchanges.filter(x => !exNos.has(x.no));
             saveData(); refreshAll(); renderTrash();
             for (const f of items) { await markDeletedInCloud('shop_flow', f.id); }
             showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
@@ -2731,7 +3039,21 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         function recalcPay(type) {
             const list = document.getElementById(type + 'PayList'); if (!list) return;
             if (type === 'out') calcOutTotal();
-            const rows = Array.from(list.children).map(div => ({ ch: div.querySelector('.payCh').value, amt: parseFloat(div.querySelector('.payAmt').value) || 0 })).filter(r => r.ch && r.amt > 0);
+            const allRows = Array.from(list.children).map(div => ({ ch: div.querySelector('.payCh').value, amt: parseFloat(div.querySelector('.payAmt').value) || 0 })).filter(r => r.ch && Math.abs(r.amt) > 0.0001);
+            if (type === 'ex') {
+                const sum = allRows.reduce((s, r) => s + r.amt, 0);
+                const due = exState ? exState.r.due : 0;
+                const paidEl = document.getElementById('exPaidSum'); if (paidEl) paidEl.value = allRows.length ? sum.toFixed(2) : '';
+                const remEl = document.getElementById('exRemain');
+                if (remEl) {
+                    const remain = Math.round(((due - sum) + Number.EPSILON) * 100) / 100;
+                    if (Math.abs(remain) < 0.005) { remEl.value = '0.00（已结清）'; remEl.style.color = '#1e7e34'; }
+                    else if (remain > 0) { remEl.value = '客户欠 ' + remain.toFixed(2); remEl.style.color = '#b33c2f'; }
+                    else { remEl.value = '应退 ' + Math.abs(remain).toFixed(2); remEl.style.color = '#d4a017'; }
+                }
+                return;
+            }
+            const rows = allRows.filter(r => r.amt > 0);
             const sum = rows.reduce((s, r) => s + r.amt, 0);
             const totalIn = parseFloat(document.getElementById('inTotal').value) || 0;
             const outSale = parseFloat(document.getElementById('outTotal').value) || 0;
@@ -2915,6 +3237,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             clearInForm(); clearOutForm();
         }
         async function editFlow(id) {
+            // ♻️ 换新流水为「成对不可拆」的业务单据，点击进入换新明细而非普通编辑表单
+            const exHit = D.flow.find(x => x.id === id);
+            if (exHit && isExFlow(exHit)) { showExchangeDetail(exHit.no); return; }
             if (editingId && editingId !== id) { playBeep(false); const ok = await showConfirmModal('提示', '当前有正在修改的单据，是否放弃并打开此单？', '是', '否'); if (!ok) return; clearEditingState(); }
             const f = D.flow.find(x => x.id === id);
             if (!f) { await showAlertModal('提示', '流水不存在'); return; }
@@ -3023,6 +3348,828 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                 win.document.close();
             }, 150);
         }
+        /* ============================================================
+           ♻️ 以旧换新（克对克兑换）业务模块
+           ------------------------------------------------------------
+           架构说明：
+           1) 不新增流水类型，复用「入库 / 出库」两类流水，库存与毛利引擎零改动；
+           2) 一笔换新业务 = 两条流水（单号同源，YJ-日期-序号-旧 / -新），
+              旧金入「黄金 / 旧千足」，新金从原品名出库；
+           3) 结算模型：
+              抵扣额 = 同克重 × 抵扣价 + 多出旧金 × 回收价
+              应付   = 新金货款 + 工费 − 抵扣额   （正=客户补款，负=门店退款）
+           4) 抵扣额已写入出库流水的收付明细，因此即使云端元数据丢失，
+              也能仅凭流水完整还原整笔业务。
+           ============================================================ */
+        const EX_OLD_CAT_DEFAULT = '黄金';
+        const EX_OLD_NAME_DEFAULT = '旧千足';
+        let exState = null;
+
+        function exR2(n) { n = Number(n); if (!isFinite(n)) n = 0; return Math.round((n + Number.EPSILON) * 100) / 100; }
+        function exN(v) { const n = parseFloat(v); return isFinite(n) ? n : 0; }
+        function exFmt(n) { n = Number(n); return (isFinite(n) ? n : 0).toFixed(2); }
+        function exLine(k, v, hl) { return `<div class="ex-line${hl ? ' hl' : ''}"><span class="k">${k}</span><span class="v">${v}</span></div>`; }
+
+        function isExFlow(f) { return !!(f && f.no && String(f.no).indexOf('YJ-') === 0); }
+        function isExOld(f) { return isExFlow(f) && /-旧$/.test(String(f.no)); }
+        function isExNew(f) { return isExFlow(f) && /-新$/.test(String(f.no)); }
+        function exNoOf(f) { return String((f && f.no) || '').replace(/-(旧|新)$/, ''); }
+        function getExMeta(no) { return (D.exchanges || []).find(x => x.no === no) || null; }
+
+        function genExNo(dateStr) {
+            const d = dateStr || todayStr(); const ymd = d.replace(/-/g, '');
+            const prefix = 'YJ-' + ymd + '-';
+            const nums = D.flow.filter(f => f.no && String(f.no).indexOf(prefix) === 0)
+                .map(f => parseInt(String(f.no).split('-')[2]) || 0);
+            const maxSeq = nums.length ? Math.max.apply(null, nums) : 0;
+            return prefix + String(maxSeq + 1).padStart(3, '0');
+        }
+
+        /* ---------- 从两条流水（+可选元数据）还原一笔换新业务 ---------- */
+        function exView(oldF, newF, meta) {
+            const oW = oldF ? (oldF.w || 0) : (meta && meta.old ? meta.old.w : 0);
+            const oldTotal = oldF ? (oldF.total || 0) : (meta && meta.old ? exR2(meta.old.w * meta.old.po) : 0);
+            const po = oW > 0 ? oldTotal / oW : (meta && meta.old ? meta.old.po : 0);
+            const nW = newF ? (newF.w || 0) : (meta && meta.neu ? meta.neu.w : 0);
+            const sale = newF ? (newF.sale || 0) : (meta && meta.neu ? exR2(meta.neu.w * meta.neu.pn) : 0);
+            const pn = nW > 0 ? sale / nW : (meta && meta.neu ? meta.neu.pn : 0);
+            const fee = newF ? (newF.fee || 0) : (meta && meta.fee ? meta.fee.total : 0);
+            const nQ = newF ? (newF.q || 1) : ((meta && meta.neu && meta.neu.q) || 1);
+            const nItems = (meta && meta.neu && Array.isArray(meta.neu.items)) ? meta.neu.items : [];
+
+            const offsetW = Math.min(oW, nW);
+            const excessW = Math.max(exR2(oW - nW), 0);
+            const shortW = Math.max(exR2(nW - oW), 0);
+            const excessAmt = exR2(excessW * po);
+
+            // 抵扣额以出库流水收付明细中的「抵扣」行为准，保证与已落库数据严格一致
+            let deductible = null;
+            if (newF && Array.isArray(newF.payDetail)) {
+                const rows = newF.payDetail.filter(p => p && String(p.ch || '').indexOf('抵扣') >= 0);
+                if (rows.length) deductible = exR2(rows.reduce((s, p) => s + (p.amt || 0), 0));
+            }
+            if (deductible === null) deductible = (meta && typeof meta.deductible === 'number') ? meta.deductible : exR2(offsetW * pn + excessAmt);
+
+            const offsetAmt = exR2(Math.max(deductible - excessAmt, 0));
+            const tradePrice = offsetW > 0 ? offsetAmt / offsetW : pn;
+            const due = exR2(sale + fee - deductible);
+            let cashSum = 0;
+            if (newF && Array.isArray(newF.payDetail)) cashSum = exR2(newF.payDetail.filter(p => p && String(p.ch || '').indexOf('抵扣') < 0).reduce((s, p) => s + (p.amt || 0), 0));
+            else if (meta) cashSum = meta.cashSum || 0;
+
+            const src = newF || oldF || {};
+            return {
+                no: exNoOf(src), time: src.time || '',
+                oldF: oldF || null, newF: newF || null, meta: meta || null,
+                cust: src.buyer || src.cus || (meta ? meta.cust : '') || '',
+                tel: src.tel || (meta ? meta.tel : '') || '',
+                old: { cat: (oldF ? oldF.cat : (meta && meta.old ? meta.old.cat : '')), name: (oldF ? oldF.name : (meta && meta.old ? meta.old.name : '')), w: oW, po: po, total: oldTotal },
+                neu: { cat: (newF ? newF.cat : (meta && meta.neu ? meta.neu.cat : '')), name: (newF ? newF.name : (meta && meta.neu ? meta.neu.name : '')), w: nW, pn: pn, sale: sale, fee: fee, q: nQ },
+                items: nItems,
+                feeParts: (meta && meta.fee && meta.fee.mode === 'mixed') ? meta.fee : (nItems.length ? { mode: 'mixed' } : null),
+                offsetW: offsetW, excessW: excessW, shortW: shortW,
+                offsetAmt: offsetAmt, excessAmt: excessAmt, tradePrice: tradePrice,
+                deductible: deductible, due: due,
+                payable: due > 0 ? due : 0, refund: due < 0 ? -due : 0, cashSum: cashSum,
+                profit: (newF && typeof newF.margin === 'number') ? newF.margin : 0,
+                oldCostGap: exR2(deductible - oldTotal)
+            };
+        }
+
+        function listExGroups() {
+            const map = {};
+            (D.flow || []).forEach(f => {
+                if (!isExFlow(f)) return;
+                const no = exNoOf(f);
+                if (!map[no]) map[no] = { oldF: null, newF: null };
+                if (isExOld(f)) map[no].oldF = f; else map[no].newF = f;
+            });
+            const arr = Object.keys(map).map(no => exView(map[no].oldF, map[no].newF, getExMeta(no)));
+            arr.sort((a, b) => {
+                const ta = a.time || '', tb = b.time || '';
+                if (ta !== tb) return tb.localeCompare(ta);
+                return String(b.no).localeCompare(String(a.no));
+            });
+            return arr;
+        }
+
+        /* ---------- 表单读取与实时计算 ---------- */
+        /* ---------- 新金分件明细：多件 / 多工费标准的行级模型 ----------
+           行对象 { desc 款式说明, w 克重, q 件数, mode: 'g'按克 | 'p'按件 | 'fix'整笔固定, std 标准值 }
+           计算口径：逐行先算到分，再汇总；三类互斥，不重复计费。            */
+        const EX_FEE_MODE = {
+            g: { label: '按克', unit: '元/g', hint: '元/g' },
+            p: { label: '按件', unit: '元/件', hint: '元/件' },
+            fix: { label: '整笔固定', unit: '元', hint: '元（整单一次）' }
+        };
+        function exFeeModeName(m) { return (EX_FEE_MODE[m] || EX_FEE_MODE.g).label; }
+
+        function readExItems() {
+            const tb = document.getElementById('exItemsBody');
+            if (!tb) return [];
+            return Array.from(tb.querySelectorAll('tr.ex-item')).map(tr => {
+                const q = s => tr.querySelector(s);
+                const mode = (q('.itemMode') || {}).value || 'g';
+                return {
+                    desc: String((q('.itemDesc') || {}).value || '').trim(),
+                    w: exN((q('.itemW') || {}).value),
+                    q: Math.max(Math.round(exN((q('.itemQ') || {}).value)), 0),
+                    mode: EX_FEE_MODE[mode] ? mode : 'g',
+                    std: exN((q('.itemStd') || {}).value)
+                };
+            }).filter(it => it.w > 0.0001 || it.std > 0.0001);   // 空白行不计入（填了克重或标准才算一行）
+        }
+
+        /* 行级 → 分项小计 → 总工费（每行先四舍五入到分，再相加） */
+        function calcExItems(items) {
+            let w = 0, q = 0, feeG = 0, feeP = 0, feeFix = 0, cntG = 0, cntP = 0, cntFix = 0;
+            const lines = (items || []).map((it, i) => {
+                const lw = exR2(it.w), lq = Math.max(it.q || 0, 0), std = exN(it.std);
+                let fee = 0;
+                if (it.mode === 'p') fee = exR2(lq * std);
+                else if (it.mode === 'fix') fee = exR2(std);
+                else fee = exR2(lw * std);
+                w = exR2(w + lw); q += lq;
+                if (it.mode === 'p') { feeP = exR2(feeP + fee); cntP++; }
+                else if (it.mode === 'fix') { feeFix = exR2(feeFix + fee); cntFix++; }
+                else { feeG = exR2(feeG + fee); cntG++; }
+                return { idx: i + 1, desc: String(it.desc || '').trim(), w: lw, q: lq, mode: it.mode, std: std, fee: fee };
+            });
+            const feeTotal = exR2(feeG + feeP + feeFix);
+            return {
+                lines: lines, w: w, q: q,
+                feeG: feeG, feeP: feeP, feeFix: feeFix, feeTotal: feeTotal,
+                cntG: cntG, cntP: cntP, cntFix: cntFix,
+                n: lines.length, avgRate: w > 0 ? exR2(feeTotal / w) : 0
+            };
+        }
+
+        function exItemsTableHtml(items) {
+            const c = calcExItems(items);
+            if (!c.n) return '';
+            let h = `<table class="ex-mini-table"><thead><tr><th>#</th><th style="text-align:left;">款式 / 说明</th><th>克重(g)</th><th>件数</th><th>工费方式</th><th>标准</th><th>工费小计(元)</th></tr></thead><tbody>`;
+            c.lines.forEach(l => {
+                const stdTxt = l.mode === 'fix' ? `整笔 ${exFmt(l.std)}` : `${exFmt(l.std)} ${EX_FEE_MODE[l.mode].unit}`;
+                h += `<tr><td class="num">${l.idx}</td><td>${escHtml(l.desc || '—')}</td><td class="num">${exFmt(l.w)}</td><td class="num">${l.q || '—'}</td><td>${exFeeModeName(l.mode)}</td><td class="num">${stdTxt}</td><td class="num"><b>${exFmt(l.fee)}</b></td></tr>`;
+            });
+            if (c.cntG) h += `<tr><td colspan="6">按克小计 · ${c.cntG} 行（Σ克重×元/g）</td><td class="num">${exFmt(c.feeG)}</td></tr>`;
+            if (c.cntP) h += `<tr><td colspan="6">按件小计 · ${c.cntP} 行（Σ件数×元/件）</td><td class="num">${exFmt(c.feeP)}</td></tr>`;
+            if (c.cntFix) h += `<tr><td colspan="6">整笔固定小计 · ${c.cntFix} 行</td><td class="num">${exFmt(c.feeFix)}</td></tr>`;
+            h += `<tr class="sum"><td colspan="2">合计</td><td class="num">${exFmt(c.w)}</td><td class="num">${c.q}</td><td colspan="2">混合均价 ${exFmt(c.avgRate)} 元/g</td><td class="num">${exFmt(c.feeTotal)}</td></tr>`;
+            h += `</tbody></table>`;
+            return h;
+        }
+
+        function exFeeBrief(items) {
+            const c = calcExItems(items);
+            if (!c.n) return '';
+            const parts = [];
+            if (c.cntG) parts.push(`克 ${exFmt(c.feeG)}`);
+            if (c.cntP) parts.push(`件 ${exFmt(c.feeP)}`);
+            if (c.cntFix) parts.push(`固定 ${exFmt(c.feeFix)}`);
+            return parts.join(' + ');
+        }
+
+        function exItemModeChange(sel) {
+            const tr = sel.closest('tr'); if (!tr) return;
+            const std = tr.querySelector('.itemStd');
+            if (std) std.placeholder = (EX_FEE_MODE[sel.value] || EX_FEE_MODE.g).hint;
+            exItemInput();
+        }
+
+        function addExItem() {
+            const box = document.getElementById('exItemsBox'); if (!box) return;
+            box.style.display = 'block';
+            if (!box.querySelector('table')) {
+                box.innerHTML = '<table class="ex-items-table"><thead><tr>'
+                    + '<th style="width:26px;">#</th><th style="min-width:96px;">款式 / 说明</th>'
+                    + '<th style="width:82px;">克重(g)</th><th style="width:62px;">件数</th>'
+                    + '<th style="width:100px;">工费方式</th><th style="width:96px;">标准</th>'
+                    + '<th style="width:82px;">工费小计</th><th style="width:26px;"></th>'
+                    + '</tr></thead><tbody id="exItemsBody"></tbody></table>';
+            }
+            const tb = document.getElementById('exItemsBody');
+            const first = tb.querySelectorAll('tr.ex-item').length === 0;
+            const g = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+            const tr = document.createElement('tr');
+            tr.className = 'ex-item';
+            tr.innerHTML = `<td class="idx"></td>
+                <td><input class="itemDesc" placeholder="如 项链/戒指"></td>
+                <td><input class="itemW" type="number" step="0.01" placeholder="0.00" oninput="exItemInput()"></td>
+                <td><input class="itemQ" type="number" step="1" min="1" value="1" oninput="exItemInput()"></td>
+                <td><select class="itemMode" onchange="exItemModeChange(this)"><option value="g">按克 (元/g)</option><option value="p">按件 (元/件)</option><option value="fix">整笔固定</option></select></td>
+                <td><input class="itemStd" type="number" step="0.01" placeholder="元/g" oninput="exItemInput()"></td>
+                <td class="fee">0.00</td>
+                <td><span class="text-danger" style="cursor:pointer;font-size:16px;" onclick="removeExItem(this)">×</span></td>`;
+            tb.appendChild(tr);
+            // 首行自动带入上方已填的克重与工费单价，避免重复录入
+            if (first) {
+                const wEl = tr.querySelector('.itemW'), stdEl = tr.querySelector('.itemStd');
+                const rate = exN(g('exFeeRate')), w0 = exN(g('exNewW'));
+                if (wEl && !exN(wEl.value) && w0 > 0) wEl.value = exFmt(w0);
+                if (stdEl && !exN(stdEl.value) && rate > 0) stdEl.value = exFmt(rate);
+            }
+            exItemInput();
+        }
+
+        function removeExItem(el) {
+            const tr = el.closest('tr'); if (tr) tr.remove();
+            exItemInput();
+        }
+
+        function clearExItems() {
+            const box = document.getElementById('exItemsBox');
+            if (box) { box.innerHTML = ''; box.style.display = 'none'; }
+            const sum = document.getElementById('exFeeSum');
+            if (sum) { sum.style.display = 'none'; sum.innerHTML = ''; }
+            setExFeeFieldsReadonly(false);
+            const hint = document.getElementById('exItemsHint');
+            if (hint) hint.textContent = '未启用分件明细 · 工费 = 上方「工费总额」';
+            renderExPreview();
+        }
+
+        function setExFeeFieldsReadonly(ro) {
+            ['exNewW', 'exFeeRate', 'exFee'].forEach(id => {
+                const el = document.getElementById(id); if (!el) return;
+                el.readOnly = !!ro;
+                el.style.background = ro ? '#f0ede8' : '';
+                el.title = ro ? '由分件明细自动汇总，清空明细后可手工填写' : '';
+            });
+        }
+
+        /* 分件明细 → 回写表头（总克重 / 总工费 / 混合均价），保持后续算法零改动 */
+        function syncExFieldsFromItems() {
+            const items = readExItems();
+            const c = calcExItems(items);
+            const has = c.n > 0;
+            setExFeeFieldsReadonly(has);
+            if (has) {
+                const wEl = document.getElementById('exNewW');
+                const feeEl = document.getElementById('exFee');
+                const rateEl = document.getElementById('exFeeRate');
+                if (wEl) wEl.value = exFmt(c.w);
+                if (feeEl) feeEl.value = exFmt(c.feeTotal);
+                if (rateEl) rateEl.value = c.w > 0 ? exFmt(c.avgRate) : '';
+            }
+            return { items: items, calc: c, has: has };
+        }
+
+        function exItemInput() {
+            const tb = document.getElementById('exItemsBody');
+            if (!tb) return;
+            const rows = Array.from(tb.querySelectorAll('tr.ex-item'));
+            const items = rows.map(tr => ({
+                desc: String((tr.querySelector('.itemDesc') || {}).value || '').trim(),
+                w: exN((tr.querySelector('.itemW') || {}).value),
+                q: Math.max(Math.round(exN((tr.querySelector('.itemQ') || {}).value)), 0),
+                mode: (tr.querySelector('.itemMode') || {}).value || 'g',
+                std: exN((tr.querySelector('.itemStd') || {}).value)
+            }));
+            const c = calcExItems(items);
+            rows.forEach((tr, i) => {
+                const cell = tr.querySelector('td.fee');
+                if (cell) cell.textContent = exFmt(c.lines[i] ? c.lines[i].fee : 0);
+                const idx = tr.querySelector('td.idx');
+                if (idx) idx.textContent = i + 1;
+            });
+            const sum = document.getElementById('exFeeSum');
+            if (sum) {
+                if (c.n) {
+                    sum.style.display = 'block';
+                    let h = `合计 <b>${c.n}</b> 行 · 总克重 <b>${exFmt(c.w)} g</b> · 总件数 <b>${c.q}</b> 件 · 工费合计 <b>${exFmt(c.feeTotal)} 元</b>`;
+                    const parts = [];
+                    if (c.cntG) parts.push(`按克 ${c.cntG} 行 ${exFmt(c.feeG)}`);
+                    if (c.cntP) parts.push(`按件 ${c.cntP} 行 ${exFmt(c.feeP)}`);
+                    if (c.cntFix) parts.push(`整笔固定 ${c.cntFix} 行 ${exFmt(c.feeFix)}`);
+                    if (parts.length) h += `<br><span style="color:#8a6d1f;">分项：${parts.join('　+　')}　→　总工费 ${exFmt(c.feeTotal)}（混合均价 ${exFmt(c.avgRate)} 元/g）</span>`;
+                    sum.innerHTML = h;
+                } else { sum.style.display = 'none'; sum.innerHTML = ''; }
+            }
+            const hint = document.getElementById('exItemsHint');
+            if (hint) hint.innerHTML = c.n
+                ? `已启用 <b>${c.n}</b> 行分件明细 · 新金总克重与工费改为自动汇总（表头只读）`
+                : '未启用分件明细 · 工费 = 上方「工费总额」';
+            syncExFieldsFromItems();
+            renderExPreview();
+        }
+
+        function readExInputs() {
+            const g = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+            const items = readExItems();
+            const ic = calcExItems(items);
+            const useItems = ic.n > 0;
+            return {
+                date: g('exDate') || todayStr(),
+                cus: (g('exCus') || '').trim(), tel: (g('exTel') || '').trim(),
+                oldCat: g('exOldCat') || EX_OLD_CAT_DEFAULT,
+                oldName: (g('exOldName') || EX_OLD_NAME_DEFAULT).trim(),
+                oldW: exN(g('exOldW')), po: exN(g('exOldP')),
+                newCat: g('exNewCat'), newName: g('exNewName'),
+                newW: useItems ? ic.w : exN(g('exNewW')),
+                pn: exN(g('exNewP')),
+                fee: useItems ? ic.feeTotal : exN(g('exFee')),
+                q: useItems ? (ic.q || 1) : 1,
+                items: useItems ? items : [],
+                itemCalc: ic,
+                pt: exN(g('exTradeP'))
+            };
+        }
+
+        function calcEx(p) {
+            const po = p.po > 0 ? p.po : (p.pn > 0 ? p.pn : 0);   // 回收价缺省 = 售价（不留暗差）
+            const pt = p.pt > 0 ? p.pt : (p.pn > 0 ? p.pn : 0);   // 抵扣价缺省 = 售价（真·克对克）
+            const offsetW = Math.min(p.oldW, p.newW);
+            const excessW = Math.max(exR2(p.oldW - p.newW), 0);
+            const shortW = Math.max(exR2(p.newW - p.oldW), 0);
+            const offsetAmt = exR2(offsetW * pt);
+            const excessAmt = exR2(excessW * po);
+            const deductible = exR2(offsetAmt + excessAmt);
+            const sale = exR2(p.newW * p.pn);
+            const totalReceivable = exR2(sale + p.fee);
+            const due = exR2(totalReceivable - deductible);
+            const oldTotal = exR2(p.oldW * po);
+            const ic = p.itemCalc && p.itemCalc.n ? p.itemCalc : null;
+            return {
+                po: po, pt: pt, offsetW: offsetW, excessW: excessW, shortW: shortW,
+                offsetAmt: offsetAmt, excessAmt: excessAmt, deductible: deductible,
+                sale: sale, totalReceivable: totalReceivable, due: due,
+                payable: due > 0 ? due : 0, refund: due < 0 ? -due : 0,
+                oldTotal: oldTotal,
+                qty: p.q || 1,
+                fee: exR2(p.fee), feeItems: ic,          // 工费分项（无分件明细时为 null）
+                items: (p.items && p.items.length) ? p.items : []
+            };
+        }
+
+        function renderExPreview() {
+            const box = document.getElementById('exPreview'); if (!box) return;
+            const p = readExInputs();
+            const r = calcEx(p);
+            exState = { p: p, r: r };
+            let html = '';
+            html += `<div class="ex-sec">① 旧金入库（成本口径）</div>`;
+            html += exLine('旧金克重 × 回收价', `${exFmt(p.oldW)} g × ${exFmt(r.po)} = ${exFmt(r.oldTotal)} 元`);
+            html += exLine('入库去向', `${escHtml(p.oldCat || '-')} / ${escHtml(p.oldName || '-')}`);
+
+            html += `<div class="ex-sec">② 新金出库（销售口径）</div>`;
+            if (r.feeItems) {
+                const c = r.feeItems;
+                html += exLine('新金件数 / 总克重', `${c.q} 件 · ${exFmt(c.w)} g（${c.n} 行分件）`);
+                html += exLine('新金克重 × 售价', `${exFmt(p.newW)} g × ${exFmt(p.pn)} = ${exFmt(r.sale)} 元`);
+            } else {
+                html += exLine('新金克重 × 售价', `${exFmt(p.newW)} g × ${exFmt(p.pn)} = ${exFmt(r.sale)} 元`);
+            }
+            if (r.feeItems) {
+                html += `<div style="margin:6px 0 2px;">${exItemsTableHtml(r.items)}</div>`;
+                html += exLine('工费合计（分项合并）', `<b>${exFmt(p.fee)}</b> 元　<span class="ex-mini">＝ ${exFmt(r.feeItems.feeG)}（按克） + ${exFmt(r.feeItems.feeP)}（按件） + ${exFmt(r.feeItems.feeFix)}（固定）</span>`, true);
+            } else {
+                html += exLine('工费', `${exFmt(p.fee)} 元`);
+            }
+            html += exLine('应收合计（货款 + 工费）', `${exFmt(r.totalReceivable)} 元`, true);
+
+            html += `<div class="ex-sec">③ 旧金抵扣（克对克）</div>`;
+            html += exLine(`同克重抵扣 ${exFmt(r.offsetW)} g × 抵扣价 ${exFmt(r.pt)}`, `${exFmt(r.offsetAmt)} 元`);
+            if (r.excessW > 0.0001) html += exLine(`旧金多出 ${exFmt(r.excessW)} g × 回收价 ${exFmt(r.po)} → 折现退客户`, `${exFmt(r.excessAmt)} 元`);
+            else if (r.shortW > 0.0001) html += exLine(`新金多出 ${exFmt(r.shortW)} g × 售价 ${exFmt(p.pn)} → 客户补差`, `${exFmt(exR2(r.shortW * p.pn))} 元`);
+            html += exLine('抵扣合计', `${exFmt(r.deductible)} 元`, true);
+
+            html += `<div class="ex-sec">④ 结算勾稽</div>`;
+            html += exLine('应付 = 货款 + 工费 − 抵扣', `${exFmt(r.sale)} + ${exFmt(p.fee)} − ${exFmt(r.deductible)} = <b style="color:${r.due > 0.004 ? '#b33c2f' : (r.due < -0.004 ? '#1e7e34' : '#1a1a1a')}">${exFmt(r.due)}</b> 元`);
+            const gap = exR2(r.deductible - r.oldTotal);
+            html += exLine('旧金入库成本 vs 抵扣价值', `差额 ${exFmt(gap)} 元（${gap >= 0 ? '按抵扣价让出的旧金溢价，库存仍按回收价入账' : '旧金折价入库，未来出库时体现毛利'}）`);
+
+            const big = r.due > 0.004
+                ? `<span class="amt pay">${exFmt(r.payable)} 元</span>`
+                : (r.due < -0.004 ? `<span class="amt refund">${exFmt(r.refund)} 元</span>` : `<span class="amt" style="color:#1a1a1a;">0.00 元</span>`);
+            html += `<div class="ex-big"><span>${r.due > 0.004 ? '💰 客户应补款' : (r.due < -0.004 ? '💸 门店应退客户' : '✅ 无需补差')}</span>${big}</div>`;
+
+            box.innerHTML = html;
+            exAutoDue();
+            recalcPay('ex');
+        }
+
+        function exAutoDue(force) {
+            const list = document.getElementById('exPayList'); if (!list) return;
+            if (!list.children.length) addPayRow('ex', true);
+            const row = list.children[0]; const amt = row.querySelector('.payAmt');
+            if (!amt) return;
+            const ch = row.querySelector('.payCh');
+            if (ch && !ch.value) ch.value = '现金';
+            const due = exState ? exState.r.due : 0;
+            if (!force && amt.dataset.touched === '1') return;
+            if (Math.abs(due) < 0.005) amt.value = '';
+            else amt.value = exFmt(due);
+            amt.dataset.auto = '1';
+        }
+
+        function exFeeFromRate() {
+            if (readExItems().length) { renderExPreview(); return; }   // 分件明细模式下工费由明细汇总，禁止改写
+            const rate = exN((document.getElementById('exFeeRate') || {}).value);
+            const w = exN((document.getElementById('exNewW') || {}).value);
+            const feeEl = document.getElementById('exFee');
+            if (feeEl) {
+                if (rate > 0 && w > 0) feeEl.value = exFmt(exR2(rate * w));
+                else if (rate === 0) feeEl.value = '';
+            }
+            renderExPreview();
+        }
+        function exFeeFromTotal() {
+            if (readExItems().length) { renderExPreview(); return; }
+            const fee = exN((document.getElementById('exFee') || {}).value);
+            const w = exN((document.getElementById('exNewW') || {}).value);
+            const rateEl = document.getElementById('exFeeRate');
+            if (rateEl) { if (fee > 0 && w > 0) rateEl.value = exFmt(exR2(fee / w)); else if (fee === 0) rateEl.value = ''; }
+            renderExPreview();
+        }
+        function exSyncTradePrice() {
+            const ptEl = document.getElementById('exTradeP'); if (!ptEl) return;
+            if (ptEl.dataset.locked === '1') return;
+            const pn = exN((document.getElementById('exNewP') || {}).value);
+            ptEl.value = pn > 0 ? exFmt(pn) : '';
+        }
+        function exOldNameSync() {
+            const catEl = document.getElementById('exOldCat'); const sel = document.getElementById('exOldName');
+            if (!catEl || !sel) return;
+            const cat = catEl.value; const cur = sel.value;
+            const names = new Set();
+            if (cat === EX_OLD_CAT_DEFAULT) names.add(EX_OLD_NAME_DEFAULT);   // 黄金品类恒可选「旧千足」
+            D.names.forEach(n => { if (n.cat === cat && n.name) names.add(n.name); });
+            D.flow.forEach(f => { if (f.cat === cat && f.name) names.add(f.name); });
+            const arr = Array.from(names).sort((a, b) => a === EX_OLD_NAME_DEFAULT ? -1 : (b === EX_OLD_NAME_DEFAULT ? 1 : a.localeCompare(b)));
+            sel.innerHTML = arr.map(n => `<option value="${escAttr(n)}">${escHtml(n)}</option>`).join('');
+            if (arr.indexOf(cur) !== -1) sel.value = cur;
+            else if (cat === EX_OLD_CAT_DEFAULT) sel.value = EX_OLD_NAME_DEFAULT;
+            renderExPreview();
+        }
+        function exNewNameSync() {
+            const catEl = document.getElementById('exNewCat'); const sel = document.getElementById('exNewName'); if (!catEl || !sel) return;
+            const cat = catEl.value; const cur = sel.value;
+            const map = {};
+            D.names.forEach(n => { if (n.cat === cat && n.name) map[n.name] = null; });
+            D.flow.forEach(f => { if (f.cat === cat && f.name && !(f.name in map)) map[f.name] = null; });
+            (D.stock || []).forEach(s => { if (s.cat === cat && s.w > 0) map[s.name] = { w: s.w, q: s.q }; });
+            const keys = Object.keys(map).sort();
+            let html = '<option value="">-- 选择 --</option>';
+            keys.forEach(k => {
+                const info = map[k];
+                html += (info && info.w > 0)
+                    ? `<option value="${escAttr(k)}" data-w="${info.w.toFixed(2)}" data-q="${info.q}">${escHtml(k)} (剩${info.w.toFixed(2)}g)</option>`
+                    : `<option value="${escAttr(k)}">${escHtml(k)}</option>`;
+            });
+            sel.innerHTML = html;
+            if (keys.indexOf(cur) !== -1) sel.value = cur;
+            exNewNameSel();
+        }
+        function exNewNameSel() {
+            const sel = document.getElementById('exNewName'); if (!sel) return;
+            const opt = sel.options[sel.selectedIndex];
+            const av = document.getElementById('exNewAvail');
+            if (av) av.value = (opt && opt.dataset && opt.dataset.w) ? `${opt.dataset.w} g / ${opt.dataset.q || 0} 件` : '0.00 g（无库存）';
+            const pnEl = document.getElementById('exNewP');
+            if (pnEl && !pnEl.value) {
+                const cat = (document.getElementById('exNewCat') || {}).value;
+                const price = cat === '黄金' ? D.prices.gold : (cat === '白银' ? D.prices.silver : (cat === '铂金' ? D.prices.plat : 0));
+                if (price > 0) pnEl.value = exFmt(price);
+            }
+            exSyncTradePrice();
+            renderExPreview();
+        }
+        function exCustPick(kind, val) {
+            const listId = kind === 'tel' ? 'exTelList' : 'exCusList';
+            const datalist = document.getElementById(listId); if (!datalist) return;
+            datalist.innerHTML = '';
+            const v = (val || '').trim();
+            if (!v || v.length < 1) return;
+            const matches = D.cust.filter(c => kind === 'tel' ? (c.tel && c.tel.indexOf(v) !== -1) : (c.name && c.name.indexOf(v) !== -1));
+            matches.slice(0, 20).forEach(c => { const o = document.createElement('option'); o.value = kind === 'tel' ? c.tel : c.name; datalist.appendChild(o); });
+            if (matches.length === 1) {
+                const c = matches[0];
+                const telEl = document.getElementById('exTel'); const cusEl = document.getElementById('exCus');
+                if (kind === 'name' && telEl && !telEl.value) telEl.value = c.tel || '';
+                if (kind === 'tel' && cusEl && !cusEl.value) cusEl.value = c.name || '';
+            }
+        }
+
+        /* ---------- 表单渲染 / 重置 ---------- */
+        function renderExForm() {
+            const dateEl = document.getElementById('exDate'); if (dateEl && !dateEl.value) dateEl.value = todayStr();
+            ['exOldCat', 'exNewCat'].forEach((id, idx) => {
+                const sel = document.getElementById(id); if (!sel) return;
+                const cur = sel.value;
+                sel.innerHTML = D.cats.map(c => `<option value="${escAttr(c)}">${escHtml(c)}</option>`).join('');
+                if (D.cats.indexOf(cur) !== -1) sel.value = cur;
+                else if (D.cats.indexOf(EX_OLD_CAT_DEFAULT) !== -1) sel.value = EX_OLD_CAT_DEFAULT;
+                else if (D.cats.length) sel.value = D.cats[0];
+            });
+            renderPayRows('ex');
+            exOldNameSync();
+            exNewNameSync();
+            renderExPreview();
+            renderExList();
+        }
+
+        function resetExForm() {
+            ['exOldW', 'exOldP', 'exNewW', 'exNewP', 'exFeeRate', 'exFee', 'exTradeP', 'exNewAvail', 'exCus', 'exTel'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.value = ''; delete el.dataset.locked; }
+            });
+            const d = document.getElementById('exDate'); if (d) d.value = todayStr();
+            // 清空分件明细
+            const ib = document.getElementById('exItemsBox'); if (ib) { ib.innerHTML = ''; ib.style.display = 'none'; }
+            const fs = document.getElementById('exFeeSum'); if (fs) { fs.style.display = 'none'; fs.innerHTML = ''; }
+            setExFeeFieldsReadonly(false);
+            const ih = document.getElementById('exItemsHint'); if (ih) ih.textContent = '未启用分件明细 · 工费 = 上方「工费总额」';
+            const box = document.getElementById('exPayBox'); if (box) { box.innerHTML = ''; delete box.dataset.inited; renderPayRows('ex'); }
+            const ps = document.getElementById('exPaidSum'); if (ps) ps.value = '';
+            const rm = document.getElementById('exRemain'); if (rm) { rm.value = ''; rm.style.color = '#b33c2f'; }
+            exOldNameSync();
+            exNewNameSync();
+            renderExPreview();
+        }
+
+        /* ---------- 换新台账 ---------- */
+        function renderExList() {
+            const box = document.getElementById('exList'); if (!box) return;
+            const groups = listExGroups();
+            if (!groups.length) { box.innerHTML = '<div class="ex-empty">暂无换新记录 · 在上方录入后会自动生成「旧金入库 + 新金出库」两条关联流水</div>'; return; }
+            let html = '<div style="overflow-x:auto;"><table><thead><tr><th>业务单号</th><th>时间</th><th>客户</th><th>旧金入库</th><th>新金出库</th><th>工费</th><th>抵扣合计</th><th>客户补差 / 门店退款</th><th>关联流水</th><th>操作</th></tr></thead><tbody>';
+            groups.forEach(g => {
+                const dueTxt = Math.abs(g.due) < 0.005
+                    ? '<span style="color:#888;">无需补差</span>'
+                    : (g.due > 0 ? `<span style="color:#b33c2f;font-weight:600;">补 ${exFmt(g.due)}</span>` : `<span style="color:#1e7e34;font-weight:600;">退 ${exFmt(-g.due)}</span>`);
+                html += `<tr style="cursor:pointer;" onclick="showExchangeDetail('${escAttr(g.no)}')">`
+                    + `<td><b>${escHtml(g.no)}</b> <span class="ex-tag">♻换新</span></td>`
+                    + `<td style="white-space:nowrap;font-size:12px;">${escHtml((g.time || '').replace('T', ' ').slice(0, 16))}</td>`
+                    + `<td>${escHtml(g.cust || '-')}</td>`
+                    + `<td>${exFmt(g.old.w)} g → ${escHtml(g.old.cat)}/${escHtml(g.old.name)}<br><span class="ex-mini">成本 ${exFmt(g.old.total)} 元</span></td>`
+                    + `<td>${exFmt(g.neu.w)} g → ${escHtml(g.neu.cat)}/${escHtml(g.neu.name)}<br><span class="ex-mini">货款 ${exFmt(g.neu.sale)} 元</span></td>`
+                    + `<td>${exFmt(g.neu.fee)}${g.items.length ? `<br><span class="ex-mini">${escHtml(exFeeBrief(g.items))}</span>` : ''}</td>`
+                    + `<td>${exFmt(g.deductible)}</td>`
+                    + `<td>${dueTxt}</td>`
+                    + `<td class="ex-mini">${escHtml(g.oldF ? g.oldF.no : '（缺失）')}<br>${escHtml(g.newF ? g.newF.no : '（缺失）')}</td>`
+                    + `<td style="white-space:nowrap;"><span class="text-primary" style="font-size:12px;">明细</span> <span class="text-danger" style="font-size:12px;" onclick="event.stopPropagation();printExchange('${escAttr(g.no)}')">打印</span></td></tr>`;
+            });
+            html += '</tbody></table></div>';
+            const sumOld = groups.reduce((s, g) => s + g.old.w, 0);
+            const sumNew = groups.reduce((s, g) => s + g.neu.w, 0);
+            const sumFee = groups.reduce((s, g) => s + g.neu.fee, 0);
+            html += `<div class="ex-mini mt-8">共 ${groups.length} 笔换新业务 · 累计旧金入库 ${exFmt(sumOld)} g · 累计新金出库 ${exFmt(sumNew)} g · 累计工费 ${exFmt(sumFee)} 元</div>`;
+            box.innerHTML = html;
+        }
+
+        /* ---------- 提交：生成两条关联流水 ---------- */
+        async function doExchange() {
+            try {
+                const p = readExInputs();
+                if (!(p.oldW > 0)) { playBeep(false); await showAlertModal('提示', '请填写旧金克重'); return; }
+                if (!(p.newW > 0)) { playBeep(false); await showAlertModal('提示', p.items.length ? '分件明细合计克重为 0，请填写每件克重' : '请填写新金克重'); return; }
+                if (!p.newName) { playBeep(false); await showAlertModal('提示', '请选择新金品名'); return; }
+                if (!(p.pn > 0)) { playBeep(false); await showAlertModal('提示', '请填写新金售价'); return; }
+                if (!p.oldName) { playBeep(false); await showAlertModal('提示', '请填写旧金入库品名'); return; }
+                if (!(p.newCat)) { playBeep(false); await showAlertModal('提示', '请选择新金品类'); return; }
+
+                const r = calcEx(p);
+
+                rebuildStock();
+                const st = (D.stock || []).find(s => s.cat === p.newCat && s.name === p.newName);
+                const avail = st ? st.w : 0;
+                if (p.newW > avail + 0.001) {
+                    const ok = await showConfirmModal('⚠️ 新金库存不足',
+                        `<p>品名：<b>${escHtml(p.newName)}</b></p>` +
+                        `<p>可用库存：<b>${exFmt(avail)} g</b>　本单出库：<b>${exFmt(p.newW)} g</b></p>` +
+                        `<p style="color:#b33c2f;">缺口 <b>${exFmt(p.newW - avail)} g</b>，出库后库存将为负数。</p>` +
+                        `<p class="text-muted">确认后仍会生成出库流水并计入超卖，后续补货自动冲销。</p>`,
+                        '仍然换新', '返回修改');
+                    if (!ok) return;
+                }
+
+                const list = document.getElementById('exPayList');
+                const cashRows = list ? Array.from(list.children).map(div => ({
+                    ch: (div.querySelector('.payCh') || {}).value || '',
+                    amt: exR2(exN((div.querySelector('.payAmt') || {}).value))
+                })).filter(x => x.ch && Math.abs(x.amt) > 0.001) : [];
+                const cashSum = exR2(cashRows.reduce((s, x) => s + x.amt, 0));
+                const gap = exR2(r.due - cashSum);
+                if (Math.abs(gap) > 0.01) {
+                    const ok = await showConfirmModal('⚠️ 结算金额不一致',
+                        `<p>按业务应${r.due >= 0 ? '收' : '退'}：<b>${exFmt(Math.abs(r.due))}</b> 元</p>` +
+                        `<p>收付明细合计：<b>${exFmt(cashSum)}</b> 元</p>` +
+                        `<p style="color:#b33c2f;">差额 <b>${exFmt(gap)}</b> 元，将记为${gap > 0 ? '客户未结清' : '门店应退/多收'}。</p>`,
+                        '仍然保存', '返回修改');
+                    if (!ok) return;
+                }
+
+                const now = nowFullStr();
+                const baseNo = genExNo(p.date);
+                const tstr = p.date + 'T' + nowTime();
+                const payDetail = [{ ch: '旧金抵扣', amt: r.deductible }].concat(cashRows.map(x => ({ ch: x.ch, amt: x.amt })));
+                const settled = exR2(r.deductible + cashSum);
+                const remain = exR2(r.sale + p.fee - settled);
+
+                const oldNote = `♻换新${baseNo}｜旧金 ${exFmt(p.oldW)}g×${exFmt(r.po)}=${exFmt(r.oldTotal)} 入库（抵扣价值 ${exFmt(r.deductible)}）`;
+                const feeBrief = p.items.length ? `｜工费构成 ${p.items.length} 件：${exFeeBrief(p.items)}` : '';
+                const newNote = `♻换新${baseNo}｜新金 ${exFmt(p.newW)}g×${exFmt(p.pn)}=${exFmt(r.sale)}${p.items.length ? `（${p.q} 件）` : ''}｜工费 ${exFmt(p.fee)}${feeBrief}｜旧金抵 ${exFmt(r.deductible)}｜${r.due >= 0 ? '客户补款 ' + exFmt(r.due) : '门店退款 ' + exFmt(r.refund)}`;
+
+                const oldFlow = {
+                    id: genId(), no: baseNo + '-旧', t: 'in',
+                    cat: p.oldCat, name: p.oldName, w: exR2(p.oldW), q: 1,
+                    total: r.oldTotal, fee: 0, costUnit: exR2(r.po),
+                    cus: p.cus, tel: p.tel, idNo: '', src: '以旧换新', note: oldNote,
+                    rate: 0, mortgageDate: '',
+                    payDetail: [{ ch: '旧金抵扣冲抵', amt: r.oldTotal }],
+                    payPaid: r.oldTotal, payRemain: 0,
+                    time: tstr, lastModified: now, margin: 0, cost: 0
+                };
+                const newFlow = {
+                    id: genId(), no: baseNo + '-新', t: 'out',
+                    cat: p.newCat, name: p.newName, w: exR2(p.newW), q: p.items.length ? (p.q || 1) : 1,
+                    sale: r.sale, fee: exR2(p.fee),
+                    buyer: p.cus, tel: p.tel, note: newNote,
+                    payDetail: payDetail, payPaid: settled, payRemain: remain,
+                    time: tstr, lastModified: now, cost: 0, margin: 0
+                };
+
+                if (!D.names.some(n => n.cat === p.oldCat && n.name === p.oldName)) D.names.push({ cat: p.oldCat, name: p.oldName });
+                if (!D.names.some(n => n.cat === p.newCat && n.name === p.newName)) D.names.push({ cat: p.newCat, name: p.newName });
+                if (p.cus || p.tel) upsertCust(p.cus, p.tel, '');
+
+                D.flow.push(oldFlow);
+                D.flow.push(newFlow);
+                if (!Array.isArray(D.exchanges)) D.exchanges = [];
+                D.exchanges.push({
+                    id: genId(), no: baseNo, time: tstr, cust: p.cus, tel: p.tel, src: '以旧换新',
+                    old: { cat: p.oldCat, name: p.oldName, w: exR2(p.oldW), po: exR2(r.po), amount: r.oldTotal },
+                    neu: {
+                        cat: p.newCat, name: p.newName, w: exR2(p.newW), pn: exR2(p.pn), sale: r.sale,
+                        q: p.items.length ? (p.q || 1) : 1,
+                        items: p.items.map(it => ({ desc: it.desc, w: exR2(it.w), q: it.q, mode: it.mode, std: exR2(it.std) }))
+                    },
+                    fee: p.items.length
+                        ? { rate: exR2(r.feeItems.avgRate), total: exR2(p.fee), mode: 'mixed', byG: r.feeItems.feeG, byP: r.feeItems.feeP, fix: r.feeItems.feeFix, cntG: r.feeItems.cntG, cntP: r.feeItems.cntP, cntFix: r.feeItems.cntFix }
+                        : { rate: exN((document.getElementById('exFeeRate') || {}).value), total: exR2(p.fee), mode: 'single' },
+                    tradePrice: exR2(r.pt),
+                    offsetW: r.offsetW, offsetAmt: r.offsetAmt,
+                    excessW: r.excessW, excessAmt: r.excessAmt, shortW: r.shortW,
+                    deductible: r.deductible, due: r.due, payable: r.payable, refund: r.refund, cashSum: cashSum,
+                    oldFlowId: oldFlow.id, newFlowId: newFlow.id
+                });
+
+                refreshAll(); autoPush(300);
+                resetExForm();
+                renderExList();
+                document.getElementById('exMsg').innerHTML = `<span class="text-success">✅ 换新成功！业务号 <b>${escHtml(baseNo)}</b>　旧金入库单 ${escHtml(oldFlow.no)}　新金出库单 ${escHtml(newFlow.no)}</span>`;
+                playBeep(true);
+            } catch (e) {
+                console.error('doExchange error', e);
+                showErrorToast('换新失败：' + e.message, '');
+                await showAlertModal('错误', '操作失败：' + e.message);
+                playBeep(false);
+            }
+        }
+
+        /* ---------- 业务明细弹窗 ---------- */
+        function showExchangeDetail(noArg) {
+            const no = String(noArg || '').replace(/-(旧|新)$/, '');
+            const oldF = D.flow.find(f => isExOld(f) && exNoOf(f) === no) || null;
+            const newF = D.flow.find(f => isExNew(f) && exNoOf(f) === no) || null;
+            if (!oldF && !newF) { showAlertModal('提示', '找不到该换新业务'); return; }
+            const g = exView(oldF, newF, getExMeta(no));
+            let html = `<div class="profit-detail-header"><div class="no">${escHtml(g.no)}</div><div class="sub">${escHtml((g.time || '').replace('T', ' ').slice(0, 16))} · ${escHtml(g.cust || '散客')}${g.tel ? ' · ' + escHtml(g.tel) : ''}</div></div>`;
+            html += `<div class="ex-summary" style="margin-top:10px;">`;
+            html += `<div class="ex-sec">① 旧金入库　${escHtml(g.old.cat)} / ${escHtml(g.old.name)}</div>`;
+            html += exLine('旧金克重', exFmt(g.old.w) + ' g');
+            html += exLine('回收价（入库成本）', exFmt(g.old.po) + ' 元/g');
+            html += exLine('入库金额', exFmt(g.old.total) + ' 元', true);
+            html += exLine('对应流水', escHtml(oldF ? oldF.no : '（该流水已删除）') + (oldF && typeof oldF.avgCostAfter === 'number' && oldF.avgCostAfter > 0 ? `　<span class="ex-mini">入库后均价 ${exFmt(oldF.avgCostAfter)} 元/g</span>` : ''));
+            html += `<div class="ex-sec">② 新金出库　${escHtml(g.neu.cat)} / ${escHtml(g.neu.name)}</div>`;
+            html += exLine('新金克重', exFmt(g.neu.w) + ' g' + (g.items.length ? `　<span class="ex-mini">共 ${g.neu.q || g.items.length} 件 / ${g.items.length} 行</span>` : ''));
+            html += exLine('新金售价', exFmt(g.neu.pn) + ' 元/g');
+            html += exLine('货款金额', exFmt(g.neu.sale) + ' 元');
+            html += exLine('工费', exFmt(g.neu.fee) + ' 元' + (g.items.length ? `　<span class="ex-mini">＝ ${exFmt(g.feeParts && g.feeParts.byG || 0)}（按克） + ${exFmt(g.feeParts && g.feeParts.byP || 0)}（按件） + ${exFmt(g.feeParts && g.feeParts.fix || 0)}（固定）</span>` : ''));
+            html += exLine('应收合计', exFmt(exR2(g.neu.sale + g.neu.fee)) + ' 元', true);
+            html += exLine('对应流水', escHtml(newF ? newF.no : '（该流水已删除）'));
+            if (g.items.length) {
+                html += `<div class="ex-sec">②-1 新金分件明细（工费逐行计算后合并）</div>`;
+                html += exItemsTableHtml(g.items);
+            }
+            html += `<div class="ex-sec">③ 旧金抵扣（克对克）</div>`;
+            html += exLine(`同克重抵扣 ${exFmt(g.offsetW)} g × 抵扣价 ${exFmt(g.tradePrice)}`, exFmt(g.offsetAmt) + ' 元');
+            if (g.excessW > 0.0001) html += exLine(`旧金多出 ${exFmt(g.excessW)} g × 回收价 ${exFmt(g.old.po)}（折现退客户）`, exFmt(g.excessAmt) + ' 元');
+            if (g.shortW > 0.0001) html += exLine(`新金多出 ${exFmt(g.shortW)} g × 售价 ${exFmt(g.neu.pn)}（客户补差）`, exFmt(exR2(g.shortW * g.neu.pn)) + ' 元');
+            html += exLine('抵扣合计', exFmt(g.deductible) + ' 元', true);
+            html += `<div class="ex-sec">④ 结算与勾稽</div>`;
+            html += exLine('应付 = 货款 + 工费 − 抵扣', `${exFmt(g.neu.sale)} + ${exFmt(g.neu.fee)} − ${exFmt(g.deductible)} = <b>${exFmt(g.due)}</b> 元`);
+            html += exLine(g.due > 0.004 ? '客户补款' : (g.due < -0.004 ? '门店退款' : '结算'),
+                g.due > 0.004 ? `<b style="color:#b33c2f;">${exFmt(g.payable)} 元</b>` : (g.due < -0.004 ? `<b style="color:#1e7e34;">${exFmt(g.refund)} 元</b>` : '0.00 元'));
+            const pd = (newF && Array.isArray(newF.payDetail)) ? newF.payDetail : [];
+            html += exLine('收付明细', pd.length ? pd.map(x => `${escHtml(x.ch)} ${x.amt < 0 ? '退' : ''}${exFmt(Math.abs(x.amt))}`).join('　+　') : '—');
+            html += exLine('已结清金额（抵扣 + 现金）', exFmt((newF ? newF.payPaid : 0) || 0) + ' 元');
+            const rem = (newF ? newF.payRemain : 0) || 0;
+            html += exLine('未结清', Math.abs(rem) < 0.005 ? '<span style="color:#1e7e34;">0.00 元（已结清）</span>' : `<b style="color:#b33c2f;">${exFmt(rem)} 元</b>`, true);
+            html += `<div class="ex-sec">⑤ 库存与利润影响</div>`;
+            html += exLine('库存变化', `<span style="color:#1e7e34;">+${exFmt(g.old.w)}g → ${escHtml(g.old.cat)}/${escHtml(g.old.name)}</span>　<span style="color:#b33c2f;">−${exFmt(g.neu.w)}g → ${escHtml(g.neu.cat)}/${escHtml(g.neu.name)}</span>`);
+            html += exLine('本单新金毛利（含工费）', `<b style="color:${g.profit >= 0 ? '#1e7e34' : '#b33c2f'};">${g.profit >= 0 ? '+' : ''}${exFmt(g.profit)} 元</b>`);
+            html += exLine('旧金入库成本 vs 抵扣价值', `差额 ${exFmt(g.oldCostGap)} 元<br><span class="ex-mini">正数＝按抵扣价让出的旧金溢价（库存按回收价入账，差额不提前计入利润）；负数＝旧金折价入库，未来出库时体现毛利</span>`);
+            html += `</div>`;
+            showModal('♻️ 以旧换新 · 完整业务明细', html, [
+                { text: '🖨️ 打印', class: 'btn-print', action: () => { printExchange(no); } },
+                { text: '🗑️ 整单删除', class: 'btn-red', action: () => { confirmDeleteExchange(no); } },
+                { text: '关闭', class: 'btn-gray', action: closeModal }
+            ], true);
+        }
+
+        async function confirmDeleteExchange(noArg) {
+            const no = String(noArg || '').replace(/-(旧|新)$/, '');
+            const items = D.flow.filter(f => isExFlow(f) && exNoOf(f) === no);
+            if (!items.length) { showAlertModal('提示', '该业务流水已不存在'); return; }
+            const ok = await showConfirmModal('🗑️ 删除换新业务',
+                `<p>业务号：<b>${escHtml(no)}</b></p>` +
+                `<p>将同时删除 <b>${items.length}</b> 条关联流水（旧金入库 + 新金出库），库存、克重、毛利会整体回滚。</p>` +
+                `<p class="text-muted">移入回收站，可随时恢复。</p>`,
+                '整单删除', '取消');
+            if (!ok) return;
+            const now = nowFullStr();
+            items.forEach(f => D.trash.push({ ...f, _type: 'flow', deletedAt: now }));
+            D.flow = D.flow.filter(f => !(isExFlow(f) && exNoOf(f) === no));
+            if (Array.isArray(D.exchanges)) D.exchanges = D.exchanges.filter(x => x.no !== no);
+            saveData(); refreshAll(); renderTrash();
+            for (const f of items) { await markDeletedInCloud('shop_flow', f.id); }
+            showErrorToast('🗑️ 换新业务已整单移入回收站', 'warning'); playBeep(false);
+        }
+
+        /* ---------- 打印 ---------- */
+        function printExchange(noArg) {
+            const no = String(noArg || '').replace(/-(旧|新)$/, '');
+            const oldF = D.flow.find(f => isExOld(f) && exNoOf(f) === no) || null;
+            const newF = D.flow.find(f => isExNew(f) && exNoOf(f) === no) || null;
+            if (!oldF && !newF) { showAlertModal('提示', '找不到该换新业务'); return; }
+            const g = exView(oldF, newF, getExMeta(no));
+            const r = (k, v) => `<div class="row"><span class="label">${k}</span><span class="value">${v}</span></div>`;
+            const html = `<div class="print-card"><h2>♻️ 以旧换新结算单</h2>
+                <div style="text-align:center;color:#666;margin-bottom:16px;">业务号 ${escHtml(g.no)} · 打印日期 ${todayStr()}</div>
+                ${r('日期', escHtml((g.time || '').replace('T', ' ').slice(0, 16)))}
+                ${r('客户', escHtml(g.cust || '—'))}
+                ${r('电话', escHtml(g.tel || '—'))}
+                <div style="margin:10px 0 4px;font-weight:700;color:#b33c2f;border-top:1px dashed #ddd;padding-top:10px;">① 旧金回收</div>
+                ${r('品类 / 品名', escHtml(g.old.cat + ' / ' + g.old.name))}
+                ${r('旧金克重', exFmt(g.old.w) + ' g')}
+                ${r('回收价', exFmt(g.old.po) + ' 元/g')}
+                ${r('入库金额', exFmt(g.old.total) + ' 元')}
+                <div style="margin:10px 0 4px;font-weight:700;color:#1e7e34;border-top:1px dashed #ddd;padding-top:10px;">② 新金销售</div>
+                ${r('品类 / 品名', escHtml(g.neu.cat + ' / ' + g.neu.name))}
+                ${r('新金克重', exFmt(g.neu.w) + ' g' + (g.items.length ? `（${g.neu.q || g.items.length} 件）` : ''))}
+                ${r('销售单价', exFmt(g.neu.pn) + ' 元/g')}
+                ${r('货款金额', exFmt(g.neu.sale) + ' 元')}
+                ${r('工费', exFmt(g.neu.fee) + ' 元' + (g.items.length ? `（按克 ${exFmt(g.feeParts && g.feeParts.byG || 0)} + 按件 ${exFmt(g.feeParts && g.feeParts.byP || 0)} + 固定 ${exFmt(g.feeParts && g.feeParts.fix || 0)}）` : ''))}
+                ${g.items.length ? '<div style="padding:4px 0 2px;">' + exItemsTableHtml(g.items) + '</div>' : ''}
+                <div style="margin:10px 0 4px;font-weight:700;color:#8a6d1f;border-top:1px dashed #ddd;padding-top:10px;">③ 抵扣与结算</div>
+                ${r('同克重抵扣', exFmt(g.offsetW) + ' g × ' + exFmt(g.tradePrice) + ' = ' + exFmt(g.offsetAmt) + ' 元')}
+                ${g.excessW > 0.0001 ? r('旧金多出折现', exFmt(g.excessW) + ' g × ' + exFmt(g.old.po) + ' = ' + exFmt(g.excessAmt) + ' 元') : ''}
+                ${g.shortW > 0.0001 ? r('新金多出补差', exFmt(g.shortW) + ' g × ' + exFmt(g.neu.pn) + ' = ' + exFmt(exR2(g.shortW * g.neu.pn)) + ' 元') : ''}
+                ${r('抵扣合计', exFmt(g.deductible) + ' 元')}
+                ${r('应付（货款+工费−抵扣）', exFmt(g.due) + ' 元')}
+                ${r(g.due >= 0 ? '客户补款' : '门店退款', `<b style="color:${g.due >= 0 ? '#b33c2f' : '#1e7e34'};">${exFmt(Math.abs(g.due))} 元</b>`)}
+                ${r('关联流水', escHtml((oldF ? oldF.no : '-') + ' / ' + (newF ? newF.no : '-')))}
+                <div style="margin-top:20px;border-top:1px dashed #ddd;padding-top:12px;text-align:center;color:#999;font-size:12px;">前途珠宝专用 ERP系统 · 以旧换新 · 流水驱动</div></div>`;
+            const win = window.open('', '_blank', 'width=640,height=760');
+            if (!win) { alert('请允许弹出窗口，或使用浏览器打印功能。'); return; }
+            const style = document.querySelector('style').innerHTML;
+            win.document.write(`<html><head><title>以旧换新结算单 ${escHtml(g.no)}</title><style>${style}</style><style>body { background: #fff; padding: 20px; margin: 0; } .print-card { max-width: 620px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; } .print-card h2 { text-align: center; color: #d4a017; border-bottom: 2px solid #d4a017; padding-bottom: 10px; margin-bottom: 20px; } .print-card .row { display: flex; padding: 8px 0; border-bottom: 1px solid #eee; } .print-card .label { font-weight: 600; width: 150px; flex-shrink: 0; color: #555; } .print-card .value { flex: 1; color: #1a1a1a; } .print-card .row:last-child { border-bottom: none; }</style></head><body>${html}<script>window.onload = function() { window.print(); };<\/script></body></html>`);
+            win.document.close();
+        }
+
+        function printExForm() {
+            const p = readExInputs();
+            if (!(p.oldW > 0) || !(p.newW > 0)) { showAlertModal('提示', '请先填写旧金与新金克重'); return; }
+            const r = calcEx(p);
+            exState = { p: p, r: r };
+            // 临时以「拟单号」打印预览
+            const html = `<div class="print-card"><h2>♻️ 以旧换新结算单（草稿）</h2>
+                <div style="text-align:center;color:#666;margin-bottom:16px;">拟单号 ${escHtml(genExNo(p.date))} · 打印日期 ${todayStr()}</div>
+                <div class="row"><span class="label">客户</span><span class="value">${escHtml(p.cus || '—')}</span></div>
+                <div class="row"><span class="label">旧金</span><span class="value">${escHtml(p.oldCat + ' / ' + p.oldName)}　${exFmt(p.oldW)} g × ${exFmt(r.po)} = ${exFmt(r.oldTotal)} 元</span></div>
+                <div class="row"><span class="label">新金</span><span class="value">${escHtml(p.newCat + ' / ' + p.newName)}　${exFmt(p.newW)} g × ${exFmt(p.pn)} = ${exFmt(r.sale)} 元${p.items.length ? `（${p.q} 件）` : ''}</span></div>
+                <div class="row"><span class="label">工费</span><span class="value">${exFmt(p.fee)} 元${p.items.length ? `　<span style="font-size:12px;color:#666;">＝ 按克 ${exFmt(r.feeItems.feeG)} + 按件 ${exFmt(r.feeItems.feeP)} + 固定 ${exFmt(r.feeItems.feeFix)}</span>` : ''}</span></div>
+                ${p.items.length ? '<div style="padding:2px 0 6px;">' + exItemsTableHtml(p.items) + '</div>' : ''}
+                <div class="row"><span class="label">旧金抵扣</span><span class="value">同克重 ${exFmt(r.offsetW)} g × ${exFmt(r.pt)} = ${exFmt(r.offsetAmt)} 元${r.excessW > 0.0001 ? `；多出 ${exFmt(r.excessW)} g 折现 ${exFmt(r.excessAmt)} 元` : ''}</span></div>
+                <div class="row"><span class="label">抵扣合计</span><span class="value">${exFmt(r.deductible)} 元</span></div>
+                <div class="row"><span class="label">结算</span><span class="value" style="font-weight:bold;color:${r.due >= 0 ? '#b33c2f' : '#1e7e34'};">${r.due >= 0 ? '客户补款 ' + exFmt(r.payable) : '门店退款 ' + exFmt(r.refund)} 元</span></div>
+                <div style="margin-top:20px;border-top:1px dashed #ddd;padding-top:12px;text-align:center;color:#999;font-size:12px;">前途珠宝专用 ERP系统 · 以旧换新</div></div>`;
+            const win = window.open('', '_blank', 'width=640,height=760');
+            if (!win) { alert('请允许弹出窗口，或使用浏览器打印功能。'); return; }
+            const style = document.querySelector('style').innerHTML;
+            win.document.write(`<html><head><title>以旧换新草稿</title><style>${style}</style><style>body { background: #fff; padding: 20px; margin: 0; } .print-card { max-width: 620px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; } .print-card h2 { text-align: center; color: #d4a017; border-bottom: 2px solid #d4a017; padding-bottom: 10px; margin-bottom: 20px; } .print-card .row { display: flex; padding: 8px 0; border-bottom: 1px solid #eee; } .print-card .label { font-weight: 600; width: 150px; flex-shrink: 0; color: #555; } .print-card .value { flex: 1; color: #1a1a1a; } .print-card .row:last-child { border-bottom: none; }</style></head><body>${html}<script>window.onload = function() { window.print(); };<\/script></body></html>`);
+            win.document.close();
+        }
+
+        /* 流水表「类型」列文案 */
+        function flowTypeCell(f) {
+            if (isExFlow(f)) return isExOld(f)
+                ? '<span style="color:#b33c2f;font-weight:600;">♻旧金入</span>'
+                : '<span style="color:#1e7e34;font-weight:600;">♻新金出</span>';
+            return f.t === 'in' ? '<span style="color:#1e7e34;">⬆入库</span>' : '<span style="color:#b33c2f;">⬇出库</span>';
+        }
+
         function printStock() { switchTab('stock'); setTimeout(() => { window.print(); }, 150); }
         function printFlow() { switchTab('flow'); setTimeout(() => { window.print(); }, 150); }
         function printReportOut() { switchReport('out'); if (!document.getElementById('report').classList.contains('active')) switchTab('report'); document.getElementById('reportOutPanel').classList.add('active'); document.getElementById('reportInPanel').classList.remove('active'); setTimeout(() => { window.print(); }, 150); }
@@ -3229,7 +4376,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         async function forceSync() {
             if (editingId) { const ok = await showConfirmModal('提示', '当前正在编辑单据，同步将丢失未保存的修改。\n点击"确定"放弃修改并同步，点击"取消"继续编辑。', '确定', '取消'); if (!ok) return; clearEditingState(); }
             logSync('🔄 强制同步中...', 'info'); updateSyncStatus('syncing');
-            await updateSnapshot(); await pullFullState();
+            await updateSnapshot(true); await pullFullState();
             logSync('✅ 强制同步完成', 'ok'); updateSyncStatus('ok');
             await showAlertModal('提示', '同步完成'); refreshStockAndDash();
         }
@@ -3243,7 +4390,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             updateSyncStatus('syncing');
             logSync('📤 正在上传本地完整数据到云端...', 'info');
             try {
-                await updateSnapshot();
+                await updateSnapshot(true);
                 logSync('✅ 本地数据已全部推送到云端', 'ok');
             } catch (e) {
                 logSync('❌ 推送失败：' + e.message, 'fail');
@@ -3259,7 +4406,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             showErrorToast('✅ 数据已完全同步', 'success');
             playBeep(true);
         }
-        function loadLocal() { loadData(); rebuildNamesFromFlow(); refreshAll(); populateFilterSelects(); logSync('🔄 本地已刷新', 'info'); }
+        function loadLocal() { flushLocalSave(true); loadData(); rebuildNamesFromFlow(); refreshAll(); populateFilterSelects(); logSync('🔄 本地已刷新', 'info'); }
         async function testConn() {
             if (!sb) { showErrorToast('云端服务未初始化，请刷新页面', ''); return; }
             try {
@@ -3285,7 +4432,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                     if (!ok) return; clearEditingState();
                 }
             }
-            if (!editingId) { loadData(); rebuildStock(); recalcMargins(); }
+            // 内存里的 D 永远是最新的，这里只需要把还没落盘的改动写下去，
+            // 不能再从 localStorage 重读（会读回 350ms 前的旧数据，等于吞掉刚录入的单）
+            if (!editingId) { flushLocalSave(true); rebuildStock(); recalcMargins(); }
             document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
             const panel = document.getElementById(name); if (panel) panel.classList.add('active');
@@ -3301,6 +4450,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             else if (name === 'trash') renderTrash();
             else if (name === 'in') { renderCatSelects(); inLoadNames(); renderSourceSelects(); renderPayRows('in'); toggleMortgageFields(); }
             else if (name === 'out') { renderCatSelects(); outLoadNames(); renderPayRows('out'); }
+            else if (name === 'ex') { rebuildStock(); renderExForm(); }
         }
         document.querySelectorAll('nav button').forEach(btn => { btn.addEventListener('click', function() { switchTab(this.dataset.tab); }); });
         function switchReport(type) {
