@@ -571,7 +571,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                 </div>
                 <div style="overflow-x:auto;">
                     <table>
-                        <thead><tr><th style="width:30px;">#</th><th>品类</th><th>品名</th><th>克重</th><th>件数</th><th>成本单价</th><th>总成本</th><th>市值</th><th>浮动盈亏</th><th>操作</th></tr></thead>
+                        <thead><tr><th style="width:30px;">#</th><th>品类</th><th>品名</th><th style="text-align:right;">克重</th><th style="text-align:right;">件数</th><th style="text-align:right;">成本单价</th><th style="text-align:right;">总成本</th><th style="text-align:right;">市值</th><th style="text-align:right;">浮动盈亏</th><th>操作</th></tr></thead>
                         <tbody id="stockBody"><tr><td colspan="10" style="text-align:center;color:#999;">暂无数据</td></tr></tbody>
                     </table>
                 </div>
@@ -1860,10 +1860,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                 const val = s.w * mp, pro = val - totalC;
                 totalW += s.w; totalCost += totalC; totalVal += val; totalPro += pro; totalQ += s.q;
                 const key = getStockKey(s);
-                rows += `<tr draggable="true" data-key="${escAttr(key)}"><td><span class="drag-handle" title="拖动排序">☰</span></td><td>${escHtml(s.cat)}</td><td>${escHtml(s.name)}</td><td>${s.w.toFixed(2)}</td><td>${s.q}</td><td>${s.cost.toFixed(2)}</td><td>${totalC.toFixed(2)}</td><td>${mp>0?val.toFixed(2):'-'}</td><td style="color:${pro>=0?'#1e7e34':'#b33c2f'}">${mp>0?pro.toFixed(2):'-'}</td><td><span class="text-danger" style="cursor:pointer;" onclick="confirmDeleteStock('${escAttr(s.name)}','${escAttr(s.cat)}')">删</span><span class="top-btn" onclick="moveStockToTop('${escAttr(key)}')">⬆置顶</span></td></tr>`;
+                rows += `<tr draggable="true" data-key="${escAttr(key)}"><td><span class="drag-handle" title="拖动排序">☰</span></td><td>${escHtml(s.cat)}</td><td>${escHtml(s.name)}</td><td style="text-align:right;">${s.w.toFixed(2)}</td><td style="text-align:right;">${s.q}</td><td style="text-align:right;">${s.cost.toFixed(2)}</td><td style="text-align:right;">${totalC.toFixed(2)}</td><td style="text-align:right;">${mp>0?val.toFixed(2):'-'}</td><td style="color:${pro>=0?'#1e7e34':'#b33c2f'};text-align:right;">${mp>0?pro.toFixed(2):'-'}</td><td><span class="text-danger" style="cursor:pointer;" onclick="confirmDeleteStock('${escAttr(s.name)}','${escAttr(s.cat)}')">删</span><span class="top-btn" onclick="moveStockToTop('${escAttr(key)}')">⬆置顶</span></td></tr>`;
             });
-            const avgCost = totalW > 0 ? totalCost / totalW : 0;
-            const totalRow = `<tr class="total-row"><td colspan="2" style="text-align:right;">📊 合计</td><td>${totalW.toFixed(2)}</td><td>${totalQ}</td><td style="font-weight:bold;color:#8b4513;">${avgCost>0?avgCost.toFixed(2):'-'}</td><td>${totalCost.toFixed(2)}</td><td>${totalVal.toFixed(2)}</td><td style="color:${totalPro>=0?'#1e7e34':'#b33c2f'}">${totalPro.toFixed(2)}</td><td></td></tr>`;
+            const avgCost = totalW !== 0 ? totalCost / totalW : 0;
+            const totalRow = `<tr class="total-row"><td colspan="2" style="text-align:right;">📊 合计</td><td></td><td style="text-align:right;">${totalW.toFixed(2)}</td><td style="text-align:right;">${totalQ}</td><td style="font-weight:bold;color:#8b4513;text-align:right;">${totalW!==0?avgCost.toFixed(2):'-'}</td><td style="text-align:right;">${totalCost.toFixed(2)}</td><td style="text-align:right;">${totalVal.toFixed(2)}</td><td style="color:${totalPro>=0?'#1e7e34':'#b33c2f'};text-align:right;">${totalPro.toFixed(2)}</td><td></td></tr>`;
             tb.innerHTML = rows + totalRow;
             document.getElementById('stockFilterSummary').textContent = `共 ${totalItems} 条 | 总克重 ${totalW.toFixed(2)}g | 加权均价 ${avgCost.toFixed(2)}元/g | 总成本 ${totalCost.toFixed(2)}元 | 第 ${stockCurrentPage}/${totalPages} 页`;
             const rowsList = tb.querySelectorAll('tr[data-key]');
