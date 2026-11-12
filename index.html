@@ -1781,8 +1781,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             const dropdown = document.getElementById('stockNameDropdown');
             const currentCat = document.getElementById('stockFilterCat').value;
             const allNames = new Set();
-            D.stock.forEach(s => { if (!currentCat || s.cat === currentCat) allNames.add(s.name); });
-            D.names.forEach(n => { if (!currentCat || n.cat === currentCat) allNames.add(n.name); });
+            // ★ 修复：品名下拉只显示当前仍有库存的品名。
+            // D.names 是历史品名档案（由 rebuildNamesFromFlow 从全部入库/出库流水累积而来），
+            // 单据全部出库后库存清零、rebuildStock 已将其从 D.stock 移除，
+            // 但 D.names 中仍保留该品名 → 之前直接并入导致已出库的单子仍出现在下拉列表。
+            const inStockNames = new Set();
+            D.stock.forEach(s => { if (!currentCat || s.cat === currentCat) { allNames.add(s.name); inStockNames.add(s.name); } });
+            D.names.forEach(n => { if ((!currentCat || n.cat === currentCat) && inStockNames.has(n.name)) allNames.add(n.name); });
             let html = `<div class="dropdown-header"><span>${currentCat ? currentCat + ' - 品名' : '全部品名'}</span><div><span class="action-btn" onclick="selectAllStockNames(true)">全选</span><span class="action-btn" style="margin-left:12px; color:#b33c2f;" onclick="selectAllStockNames(false)">清空</span></div></div>`;
             if (allNames.size === 0) { html += '<div style="color:#999; text-align:center; padding:16px 0; font-size:13px;">该品类下暂无品名</div>'; }
             else {
@@ -2402,8 +2407,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
         function getMortgageNames() {
             const names = new Set();
-            D.flow.forEach(f => { if (f.cat === '抵押' && f.name) names.add(f.name); });
-            D.interest.forEach(i => { if (i.mortgageName) names.add(i.mortgageName); });
+            // ★ 与品名管理统一规则：只返回当前仍有库存的抵押品，已出库（处理完成）的不再显示
+            D.stock.forEach(s => { if (s.cat === '抵押' && s.name) names.add(s.name); });
             return [...names].sort();
         }
         function clearInterestFilters() {
@@ -2430,6 +2435,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             mortgageNames.forEach(n => { const opt = document.createElement('option'); opt.value = n; opt.textContent = n; nameSel.appendChild(opt); });
             if (mortgageNames.includes(curName)) nameSel.value = curName;
             let items = D.interest.slice().sort((a, b) => { if (a.date !== b.date) return b.date.localeCompare(a.date); return b.id - a.id; });
+            // ★ 与品名管理统一规则：抵押品已全部出库（库存清零）后，其付息记录自动隐藏
+            const activeMortgageNames = new Set(D.stock.filter(s => s.cat === '抵押').map(s => s.name));
+            items = items.filter(i => activeMortgageNames.has(i.mortgageName));
             if (filterName) items = items.filter(i => i.mortgageName === filterName);
             if (filterCust) { const kw = filterCust.toLowerCase(); items = items.filter(i => (i.cust || '').toLowerCase().includes(kw)); }
             if (dtFrom) items = items.filter(i => i.date && i.date >= dtFrom);
@@ -2532,7 +2540,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             });
             const wb = XLSX.utils.book_new(); const ws = XLSX.utils.json_to_sheet(data);
             XLSX.utils.book_append_sheet(wb, ws, '利息记录');
-            XLSX.writeFile(wb, `利息记录_${todayStr()}.xlsx`);
+            XLSX.writeFile(wb, `利息记录_${todayStr()}.xlsx`, { bookSST: true });
             playBeep(true); showAlertModal('提示', '利息记录导出成功');
         }
         function renderTrash() {
@@ -2678,7 +2686,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             showErrorToast('🗑️ 已移入回收站', 'warning'); playBeep(false);
         }
         function confirmDeleteName(cat, idx) {
-            const arr = D.names.filter(n => n.cat === cat); const target = arr[idx]; if (!target) return;
+            const arr = getVisibleNames(cat); const target = arr[idx]; if (!target) return;
             showModal('🗑️ 删除品名', `<p>确定删除品名 <b>${escHtml(target.name)}</b> 吗？<br><span class="text-muted">将移入回收站。</span>`, [
                 { text: '取消', class: 'btn-gray', action: closeModal },
                 { text: '移入回收站', class: 'btn-red', action: async () => {
@@ -2710,10 +2718,21 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             document.getElementById('inSrc').value = val; playBeep(true); autoPush(300);
             await showAlertModal('提示', '来源已添加');
         }
+        // ★ 统一过滤规则（品名管理 / 利息管理共用）：
+        // 品名"已出库（处理完成）"= 该品名曾发生过流水，但当前库存（D.stock）中已不存在 → 各列表中自动隐藏；
+        // 仍有库存 → 正常显示；从未发生流水（手工新增、尚未使用）→ 保留显示，便于继续管理。
+        function isNameActive(cat, name) {
+            if (!cat || !name) return true;
+            if (D.stock.some(s => s.cat === cat && s.name === name)) return true;
+            return !D.flow.some(f => f.cat === cat && f.name === name);
+        }
+        function getVisibleNames(cat) {
+            return D.names.filter(n => (!cat || n.cat === cat) && isNameActive(n.cat, n.name));
+        }
         function renderNames() {
             const cat = document.getElementById('nmCat').value;
             const el = document.getElementById('nameList');
-            const arr = D.names.filter(n => n.cat === cat);
+            const arr = getVisibleNames(cat);
             if (!arr.length) { el.innerHTML = '<span class="text-muted">该品类下暂无品名</span>'; return; }
             el.innerHTML = arr.map((n, idx) => `<span style="display:inline-flex;align-items:center;padding:4px 8px;border:1px solid #d5d0c8;border-radius:4px;margin:3px;gap:4px;"><input id="nmEdit_${idx}" value="${escHtml(n.name)}" style="width:120px;padding:4px 6px;border:1px solid #ddd;border-radius:3px;font-size:13px;"><button class="btn btn-blue btn-sm" onclick="renameName('${escAttr(cat)}',${idx})">改名</button><span class="text-danger" style="cursor:pointer;" onclick="confirmDeleteName('${escAttr(cat)}',${idx})">×</span></span>`).join('');
         }
@@ -2840,7 +2859,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             await showAlertModal('✅', '品名已添加');
         }
         async function renameName(cat, idx) {
-            const arr = D.names.filter(n => n.cat === cat); const target = arr[idx]; if (!target) return;
+            const arr = getVisibleNames(cat); const target = arr[idx]; if (!target) return;
             const newName = document.getElementById('nmEdit_' + idx).value.trim();
             if (!newName) { playBeep(false); await showAlertModal('提示', '品名不能为空'); return; }
             target.name = newName; saveData(); renderNames(); populateFilterSelects();
@@ -2942,7 +2961,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             const data = D.cust.map(c => ({ '姓名': c.name || '', '电话': c.tel || '', '身份证': c.idNo || '', '备注': c.note || '' }));
             const wb = XLSX.utils.book_new(); const ws = XLSX.utils.json_to_sheet(data);
             XLSX.utils.book_append_sheet(wb, ws, '客户列表');
-            XLSX.writeFile(wb, `客户列表_${todayStr()}.xlsx`);
+            XLSX.writeFile(wb, `客户列表_${todayStr()}.xlsx`, { bookSST: true });
             playBeep(true); await showAlertModal('提示', '客户导出成功');
         }
         function importCustXLSX(event) {
@@ -4190,7 +4209,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             const data = D.stock.map(s => ({ '品类': s.cat, '品名': s.name, '克重(g)': s.w, '件数': s.q, '成本单价(元/g)': s.cost, '总成本(元)': s.totalCost, '市值(元)': (s.cat === '黄金' ? D.prices.gold : s.cat === '白银' ? D.prices.silver : s.cat === '铂金' ? D.prices.plat : 0) * s.w, '浮动盈亏(元)': (s.cat === '黄金' ? D.prices.gold : s.cat === '白银' ? D.prices.silver : s.cat === '铂金' ? D.prices.plat : 0) * s.w - s.totalCost }));
             const wb = XLSX.utils.book_new(); const ws = XLSX.utils.json_to_sheet(data);
             XLSX.utils.book_append_sheet(wb, ws, '库存');
-            XLSX.writeFile(wb, `库存明细_${todayStr()}.xlsx`);
+            XLSX.writeFile(wb, `库存明细_${todayStr()}.xlsx`, { bookSST: true });
             playBeep(true); showAlertModal('提示', '库存导出成功');
         }
         function exportReportOutXlsx() {
@@ -4205,7 +4224,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             data.push({ '品类': '合计', '出库克重(g)': data.reduce((s, d) => s + d['出库克重(g)'], 0), '销售额(元)': totalSale, '成本(元)': totalCost, '利润(元)': totalProfit, '利润率(%)': totalSale > 0 ? (totalProfit / totalSale * 100).toFixed(1) : '0.0' });
             const wb = XLSX.utils.book_new(); const ws = XLSX.utils.json_to_sheet(data);
             XLSX.utils.book_append_sheet(wb, ws, '出库利润报表');
-            XLSX.writeFile(wb, `出库利润报表_${todayStr()}.xlsx`);
+            XLSX.writeFile(wb, `出库利润报表_${todayStr()}.xlsx`, { bookSST: true });
             playBeep(true); showAlertModal('提示', '出库报表导出成功');
         }
         function exportReportInXlsx() {
@@ -4220,7 +4239,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             data.push({ '品类': '合计', '入库克重(g)': totalW, '总成本(元)': totalCost, '平均单价(元/g)': totalW > 0 ? (totalCost / totalW).toFixed(2) : '0.00', '笔数': data.reduce((s, d) => s + d['笔数'], 0) });
             const wb = XLSX.utils.book_new(); const ws = XLSX.utils.json_to_sheet(data);
             XLSX.utils.book_append_sheet(wb, ws, '入库成本报表');
-            XLSX.writeFile(wb, `入库成本报表_${todayStr()}.xlsx`);
+            XLSX.writeFile(wb, `入库成本报表_${todayStr()}.xlsx`, { bookSST: true });
             playBeep(true); showAlertModal('提示', '入库报表导出成功');
         }
         function exportXlsx() {
@@ -4270,7 +4289,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                 const amount = f.t === 'in' ? f.total : f.sale; const amountStr = (amount || 0).toFixed(2); const paid = (f.payPaid || 0).toFixed(2); const remain = (f.payRemain || 0).toFixed(2);
                 let payDetail = ''; if (f.payDetail && f.payDetail.length) payDetail = f.payDetail.map(p => p.ch + '¥' + (p.amt || 0).toFixed(2)).join(';');
                 const customer = f.t === 'in' ? f.cus : f.buyer;
-                data.push({ '#': index + 1, '创建时间': f.time || '', '最后修改': f.lastModified || '', '单号': f.no || '', '类型': f.t === 'in' ? '入库' : '出库', '品类': f.cat || '', '品名': f.name || '', '变化克重': deltaStr + 'g', '库存变化': stockChangeStr, '售价': unitPrice, '成本价': costPrice, '金额': amountStr, '利润': profitStr, '利润说明': profitDetail, '客户': customer || '', '电话': f.tel || '', '身份证': f.idNo || '', '付款': payDetail, '实付': paid, '欠款': remain, '备注': f.note || '' });
+                data.push({ '#': index + 1, '创建时间': f.time || '', '最后修改': f.lastModified || '', '单号': f.no || '', '类型': f.t === 'in' ? '入库' : '出库', '品类': f.cat || '', '品名': f.name || '', '变化克重': deltaStr + 'g', '库存变化': stockChangeStr, '售价': unitPrice, '成本价': costPrice, '金额': amountStr, '利润': profitStr, '利润说明': profitDetail, '客户': customer || '', '电话': f.tel || '', '身份证': (f.idNo == null ? '' : String(f.idNo).trim()), '付款': payDetail, '实付': paid, '欠款': remain, '备注': f.note || '' });
             });
             const totalAmount = data.reduce((s, r) => s + parseFloat(r['金额'] || 0), 0); const totalPaid = data.reduce((s, r) => s + parseFloat(r['实付'] || 0), 0); const totalRemain = data.reduce((s, r) => s + parseFloat(r['欠款'] || 0), 0); const totalProfit = data.reduce((s, r) => s + parseFloat(r['利润'] || 0), 0);
             data.push({ '#': '合计', '创建时间': '', '最后修改': '', '单号': '', '类型': '', '品类': '', '品名': '', '变化克重': '', '库存变化': '', '售价': '', '成本价': '', '金额': totalAmount.toFixed(2), '利润': totalProfit.toFixed(2), '利润说明': '出库利润 + 入库补货利润 全部合计', '客户': '', '电话': '', '身份证': '', '付款': '', '实付': totalPaid.toFixed(2), '欠款': totalRemain.toFixed(2), '备注': '' });
@@ -4280,10 +4299,26 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             const summaryData = Object.values(summary).sort((a, b) => b.profit - a.profit).map(s => ({ '品类': s.cat, '品名': s.name, '出库克重(g)': s.w.toFixed(2), '销售额(元)': s.sale.toFixed(2), '出库成本(元)': s.cost.toFixed(2), '总利润(含补货)(元)': s.profit.toFixed(2), '毛利率(%)': s.sale > 0 ? (s.profit / s.sale * 100).toFixed(1) : '0.0' }));
             const wb = XLSX.utils.book_new();
             const ws1 = XLSX.utils.json_to_sheet(data); ws1['!cols'] = [{ wch: 6 }, { wch: 18 }, { wch: 18 }, { wch: 16 }, { wch: 8 }, { wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 25 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 65 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 16 }];
+            // 强制"身份证"列为文本格式：即使某行历史数据是数字，也不会被 Excel 按数值显示成科学计数法/丢位
+            (function forceIdText() {
+                const headers = Object.keys(data[0] || {});
+                const idIdx = headers.indexOf('身份证');
+                if (idIdx < 0) return;
+                const col = XLSX.utils.encode_col(idIdx);
+                for (let r = 0; r < data.length; r++) {
+                    const addr = col + (r + 2);
+                    const cell = ws1[addr];
+                    if (!cell) continue;
+                    cell.t = 's';
+                    cell.v = (cell.v == null ? '' : String(cell.v));
+                    cell.z = '@';
+                    delete cell.w;
+                }
+            })();
             XLSX.utils.book_append_sheet(wb, ws1, '流水明细');
             const ws2 = XLSX.utils.json_to_sheet(summaryData); ws2['!cols'] = [{ wch: 10 }, { wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 12 }];
             XLSX.utils.book_append_sheet(wb, ws2, '利润汇总');
-            XLSX.writeFile(wb, `交易流水_${todayStr()}.xlsx`);
+            XLSX.writeFile(wb, `交易流水_${todayStr()}.xlsx`, { bookSST: true });
             playBeep(true); showAlertModal('提示', '流水导出成功（含利润说明 + 利润汇总两张表）');
         }
         function parseNumber(s) { if (typeof s === 'number') return s; if (typeof s !== 'string') s = String(s); const cleaned = s.replace(/[^0-9.\-]/g, ''); const num = parseFloat(cleaned); return isNaN(num) ? 0 : num; }
@@ -4303,7 +4338,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
                         existingNos.add(no);
                         const cat = row['品类'] || ''; const name = row['品名'] || ''; const delta = row['变化克重'] || ''; let w = 0; if (delta) w = parseNumber(delta);
                         if (!w) { const changeStr = row['库存变化'] || ''; const wMatch = changeStr.match(/\(([+-]?[\d.]+)g\)/); if (wMatch) w = parseFloat(wMatch[1]) || 0; }
-                        const amount = parseNumber(row['金额'] || 0); const customer = row['客户'] || ''; const tel = row['电话'] || ''; const idNo = row['身份证'] || ''; const note = row['备注'] || '';
+                        const amount = parseNumber(row['金额'] || 0); const customer = row['客户'] || ''; const tel = row['电话'] || ''; const idNo = (row['身份证'] == null ? '' : String(row['身份证']).trim()); const note = row['备注'] || '';
                         const payDetail = row['付款'] ? [{ ch: '导入', amt: parseNumber(row['实付']) || 0 }] : []; const paid = parseNumber(row['实付']) || 0; const remain = parseNumber(row['欠款']) || 0;
                         const flow = { id: genId(), no: no, t: t, cat: cat, name: name, w: Math.abs(w), q: 1, total: t === 'in' ? amount : 0, sale: t === 'out' ? amount : 0, cus: t === 'in' ? customer : '', buyer: t === 'out' ? customer : '', tel: tel, idNo: idNo, note: note, time: time, lastModified: nowFullStr(), payDetail: payDetail, payPaid: paid, payRemain: remain, cost: 0, margin: 0, fee: 0, src: '导入' };
                         D.flow.push(flow); imported++;
@@ -4898,7 +4933,7 @@ function buildArchiveExcel(flows, cutoffDate) {
     var ws = XLSX.utils.json_to_sheet(data);
     XLSX.utils.book_append_sheet(wb, ws, '归档流水');
     var fname = '归档流水_' + cutoffDate.replace(/-/g, '') + '_共' + flows.length + '条.xlsx';
-    XLSX.writeFile(wb, fname);
+    XLSX.writeFile(wb, fname, { bookSST: true });
     return fname;
 }
 
